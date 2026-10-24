@@ -6,6 +6,12 @@ static uint32_t host_fb[FB_H * FB_STRIDE / 4];
 
 int main(void)
 {
+	/* Headless inventory must keep logging without drawing at address 0. */
+	con_set_video(0, 0, 0, 0);
+	con_clear(RED);
+	con_str("HEADLESS", "log only");
+	con_hex2("HEADLESS", "value=", 1, 0, 0);
+	con_set_video((uintptr_t)host_fb, FB_W, FB_H, FB_STRIDE);
 	con_fb = host_fb;
 	con_clear(RED);
 	con_str("SHIM", "sweet milestone 2");

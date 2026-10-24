@@ -1,0 +1,64 @@
+{
+  "name": "Pixel 6",
+  "codename": "oriole",
+  "soc": "google/gs101",
+  "status": "inventory-only; XNU memory unmeasured",
+  "dram_banks": [],
+  "fb_base": "0xfac00000",
+  "fb_size": "0x9e3400",
+  "fb_width": 1080,
+  "fb_height": 2400,
+  "fb_stride": 4320,
+  "uart_base": "0x0",
+  "usb_dma_range": [
+    "0xf8800000",
+    "0x2000000"
+  ],
+  "notes": {
+    "dram_banks": "Unknown sizes. Deliberately empty; no xnu_ram is supplied. Only --inventory may build this board until live FDT is captured.",
+    "framebuffer": "SOURCE CANDIDATE from Linux gs101-oriole.dts; inventory never writes the framebuffer or DECON.",
+    "uart_base": "Disabled intentionally in the first inventory image; not a physical UART address.",
+    "usb_dma_range": "READ FROM CURRENT DEVICE FIRMWARE: vendor_boot_a fetched via fastboot on 2026-10-24, slider-17.0-15199431 / CP2A.260705.006. First GS101 DTB reserved-memory/abl@f8800000 is base 0xf8800000, size 0x2000000. The inventory gadget independently chooses its actual pool from LIVE FDT and GEVNTADR; never assumes this constant alone.",
+    "userdata_mib": "NOT CONFIGURED. Fastboot reports byte size 0x1b91215000; GPT LBA bounds not yet measured. Inventory does not access storage.",
+    "touch": "SOURCE-CANDIDATE only: Google raviole gs101-oriole-touch.dtsi and gs101 common FTS/SPI tree specify FTM5 ID 36 48, 1079x2399, SPI11/gpp23/gpp26/gpa9. Fields are present for existing host fixtures; --inventory neither links nor calls touch/ACPM code. No touch writes have been enabled or tested on this phone."
+  },
+  "touch_chip_id": [
+    "0x36",
+    "0x48"
+  ],
+  "touch_usi": 11,
+  "touch_max_hz": 10000000,
+  "touch_max_coords": [
+    1079,
+    2399
+  ],
+  "touch_spi_pin_func": 2,
+  "touch_pin_clk": [
+    "gpp23",
+    0
+  ],
+  "touch_pin_mosi": [
+    "gpp23",
+    1
+  ],
+  "touch_pin_miso": [
+    "gpp23",
+    2
+  ],
+  "touch_pin_cs": [
+    "gpp23",
+    3
+  ],
+  "touch_pin_irq": [
+    "gpa9",
+    0
+  ],
+  "touch_pin_reset": [
+    "gpp26",
+    0
+  ],
+  "touch_pin_mux": [
+    "gpp26",
+    1
+  ]
+}

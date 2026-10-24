@@ -30,9 +30,11 @@ touch_opts=
 touch_rails=0
 touch_dvfs=0
 dvfs_khz=
+inventory=0
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--board) board="$2"; shift 2 ;;
+		--inventory) inventory=1; usb_gadget=1; shift ;;
 		--avb) avb=1; shift ;;
 		--pstore-fast) pstore_fast=1; shift ;;
 		--usb-gadget) usb_gadget=1; shift ;;
@@ -66,6 +68,19 @@ done
 PYTHON=${PYTHON:-python3}
 soc=$("$PYTHON" ../tools/boards.py "$board" --get soc 2>/dev/null) || { echo "unknown board: $board (tools/pix devices)" >&2; exit 2; }
 gs101=0; [ "$soc" = google/gs101 ] && gs101=1
+if [ "$board" = oriole ] && [ "$inventory" != 1 ]; then
+	echo "oriole is inventory-only until its live memory map is measured" >&2; exit 2
+fi
+if [ "$inventory" = 1 ]; then
+	[ "$gs101" = 1 ] || { echo "--inventory needs gs101" >&2; exit 2; }
+	[ -z "${USB_DMA_HI_BASE:-}" ] || { echo "--inventory requires the live ABL USB pool, no USB_DMA_HI_BASE" >&2; exit 2; }
+	case "${USB_WINDOW:-30}" in ''|*[!0-9]*) echo "inventory USB_WINDOW must be 1..60" >&2; exit 2 ;; esac
+	[ "${USB_WINDOW:-30}" -ge 1 ] && [ "${USB_WINDOW:-30}" -le 60 ] || { echo "inventory USB_WINDOW must be 1..60" >&2; exit 2; }
+	USB_WINDOW=${USB_WINDOW:-30}
+	[ "$boot_xnu:$udump_mib:$touch_probe:$gpu_probe:$wlan_probe:$pstore_fast:$qrlog" = 0:0:0:0:0:0:0 ] && [ -z "$payload$dvfs_khz" ] || {
+		echo "--inventory cannot run payload, storage, power or peripheral experiments" >&2; exit 2;
+	}
+fi
 if [ "$udump_mib" != 0 ]; then
 	# Framed read-only userdata dump over the USB gadget
 	# (default OFF). UDUMP_MAX_BLOCKS = 16384 blocks = 64 MiB.
@@ -89,6 +104,10 @@ AVBTOOL=${AVBTOOL:-../tools/third_party/avbtool.py}
 # when detached from git), so the pulled pstore log names its build.
 build_id=$(git rev-parse --short HEAD 2>/dev/null || date -u +%Y%m%d)
 CFLAGS="-O2 -ffreestanding -nostdlib -fno-pic -march=armv8-a+crc -mgeneral-regs-only -mstrict-align -fno-stack-protector -Wall -Wextra -Iout -include out/board_config.h -DPSTORE_BUILD_ID=\"$build_id\""
+# GCC 16 PRE can hoist conditional string addresses into ABS64 tables.
+# Keep the relocation audit below; prevent that transform for MMU-off code.
+CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
+[ "$inventory" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY"
 if [ "$usb_gadget" = 1 ]; then
 	# Stage-2 CDC-ACM log gadget (default OFF): bluejay only (needs try_write32).
 	[ "$gs101" = 1 ] || { echo "--usb-gadget needs a gs101 board" >&2; exit 2; }

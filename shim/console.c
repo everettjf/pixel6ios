@@ -79,6 +79,8 @@ void wait_ticks(uint64_t ticks)
 #if SOC_GS101
 static void screen_room(void)
 {
+	if (!con_fb)
+		return;
 	if ((unsigned)(row + 1) * CH_H + MARGIN <= fb_h)
 		return;
 	wait_ticks(counter_freq() * 3);
@@ -148,6 +150,8 @@ void con_set_video(uintptr_t base, unsigned width, unsigned height, unsigned str
 
 void con_clear(uint32_t bg)
 {
+	if (!con_fb)
+		return;
 	for (unsigned y = 0; y < fb_h; y++) {
 		volatile uint32_t *line = con_fb + y * (fb_stride / 4);
 		for (unsigned x = 0; x < fb_w; x++)
@@ -159,6 +163,8 @@ void con_clear(uint32_t bg)
 
 static void put_char(int col, char ch, uint32_t fg)
 {
+	if (!con_fb)
+		return;
 	if (ch < 0x20 || ch > 0x7e)
 		ch = '?';
 	const unsigned char *g = font8x16[ch - 0x20];

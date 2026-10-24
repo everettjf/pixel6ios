@@ -8,7 +8,9 @@
 #include <string.h>
 
 struct fdt_builder {
-	uint8_t buf[12288];
+	/* DTSpec requires the reservation block to be 8-byte aligned.
+	 * A byte array in a 4-byte-aligned struct is insufficient on macOS. */
+	_Alignas(8) uint8_t buf[12288];
 	uint32_t struct_pos;
 	uint32_t str_pos;
 	uint32_t rsv_pos;	/* next free /memreserve/ slot (starts at 40) */

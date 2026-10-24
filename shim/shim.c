@@ -521,6 +521,29 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 {
 	stage = "bluejay probe";
 	struct wdt_state wdt_cl0 = {0}, wdt_cl1 = {0};
+#ifdef INVENTORY
+	/* Oriole first boot: use only the shim's RAM log and the existing,
+	 * live-FDT-validated USB pool. No framebuffer, pstore, UFS, secondary
+	 * CPUs, display trigger, touch, PMIC, DVFS, GPU or WLAN experiments.
+	 * WDT bases are verified in the current fetched vendor_boot DTB;
+	 * the existing reset chain is used after the bounded USB window. */
+	con_set_video(0, 0, 0, 0);
+	disable_bluejay_watchdog(WDT_CL0_BASE, &wdt_cl0);
+	disable_bluejay_watchdog(WDT_CL1_BASE, &wdt_cl1);
+	con_str("INVENTORY", "oriole: headless, no storage access");
+	con_hex("ENTRY EL", probe_entry_el);
+	con_hex("LIVE FDT", dtb);
+	report_bluejay_watchdog("WDT CL0", &wdt_cl0);
+	report_bluejay_watchdog("WDT CL1", &wdt_cl1);
+	report_cpu(0);
+	fdt_probe_report(dtb);
+#ifdef USB_GADGET
+	usb_gadget_start(dtb);
+	con_str("INVENTORY", "report complete");
+	usb_gadget_finish();
+#endif
+	bluejay_reset_chain();
+#endif
 	disable_bluejay_watchdog(WDT_CL0_BASE, &wdt_cl0);
 	disable_bluejay_watchdog(WDT_CL1_BASE, &wdt_cl1);
 
