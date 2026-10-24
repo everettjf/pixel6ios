@@ -309,5 +309,22 @@
     "port": 5038,
     "ADB_LIBUSB": "0",
     "reason": "Observed37.0.1 daemon crashes in libunwind on Darwin27.35.0.2 restored serial-specific Android queries. Original fastboot unchanged."
+  },
+  "full_ios_identity_input": {
+    "ipsw_sha256": "ece1194f7e233e9109c5790a8d23a4564a10a254e15ec5b09978a343265568fb",
+    "version": "16.7.16",
+    "build": "20H392",
+    "device_class": "d22ap",
+    "zip_member": "Firmware/all_flash/DeviceTree.d22ap.im4p",
+    "im4p_sha256": "480e8b0888949b4128b7aa2cd254497581c69e1bafa596a760b2fa955a8a6368",
+    "adt_sha256": "9e670987c80493bd69aba7be62e3179c04663324d9249b0973675baac175dbf1",
+    "adt_bytes": 186084,
+    "parsed_end_matches_file": true,
+    "product_nonplaceholder_properties": 61,
+    "canonical_RAM_profile_lookup_still_absent": true,
+    "RAM_payload_hash_unchanged": true,
+    "purpose": "Offline full iOS profile input; must be supplied by explicit path in a future separate builder. Not installed at fixed RAM lookup path and not hardware-booted.",
+    "source_manifest": "artifacts/fullroot-inputs/manifest.json (ignored, Apple-derived inputs stay local)",
+    "device_boot_status": "not used in any boot; fixed RAM payload unchanged"
   }
 }
