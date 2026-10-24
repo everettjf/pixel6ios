@@ -10,7 +10,7 @@ expected, the sources the image was built from have changed since (stale), or th
 import argparse, hashlib, json, os, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = ['shim', 'soc', 'device', 'xnu/patches', 'qrlog', 'xnu/qr', 'tools/mkadt.py', 'tools/mkpayload.py', 'tools/boards.py']
+SRC = ['shim', 'soc', 'device', 'xnu/patches', 'qrlog', 'xnu/qr', 'tools/mkadt.py', 'tools/mkpayload.py', 'tools/boards.py', 'tools/oriole_ramprobe.py', 'tools/oriole-ram-init.S']
 
 
 def sha(path):

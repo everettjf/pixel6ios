@@ -16,18 +16,11 @@
 #define BOOT_LINE_LENGTH	608
 #define PAGE_16K		0x4000UL
 
-struct payload_seg {
-	uint64_t vmaddr, vmsize, file_off, file_size;
-};
-
-struct payload {
-	char magic[8];
-	uint32_t version, nsegs;
-	uint64_t virt_base, entry_va, adt_off, adt_size, kernel_end;
-	uint64_t phys_base, mem_size;
-	char cmdline[BOOT_LINE_LENGTH];
-	struct payload_seg segs[];
-};
+#include "payload_layout.h"
+#ifdef ORIOLE_RAMPROBE
+#include "ramprobe_guard.h"
+#include "ufsinventory_guard.h"
+#endif
 
 /* pexpert/pexpert/arm64/boot.h, Revision/Version 2 */
 struct boot_video {
@@ -77,6 +70,7 @@ const char *loader_boot(uintptr_t dtb)
 		return "no initrd in /chosen";
 	con_hex2("INITRD", "lo=", rd_start, "hi=", rd_end);
 
+	if (rd_end <= rd_start) return "invalid initrd range";
 	uintptr_t payload_addr = shim_find_magic(rd_start, rd_end, "SWEETXNU", 8);
 	if (!payload_addr)
 		return "no SWEETXNU payload";
@@ -85,6 +79,26 @@ const char *loader_boot(uintptr_t dtb)
 	const struct payload *p = (const struct payload *)payload_addr;
 	if (p->version != 1 || (p->adt_off & 7) || (payload_addr & 7))
 		return "bad payload header";
+
+#ifdef ORIOLE_RAMPROBE
+    /* Validate every range before the first copy. The build also binds the
+     * complete payload SHA256, including ADT and boot arguments. */
+    if (!ramprobe_payload_ok(p, rd_end - payload_addr))
+        return "RAM probe payload bounds";
+    struct fdt_memmap mm;
+    if (!fdt_collect_memmap(dtb, &mm)) return "RAM probe malformed live FDT";
+    const uint8_t *fh = (const uint8_t *)dtb;
+    uint32_t fsize = ((uint32_t)fh[4]<<24) | ((uint32_t)fh[5]<<16) |
+                     ((uint32_t)fh[6]<<8) | fh[7];
+    extern char _head[], _end[], _stack_top[];
+    struct ufsi_avoid avoid[4];
+    avoid[0]=(struct ufsi_avoid){(uintptr_t)_head,(uintptr_t)_end-(uintptr_t)_head};
+    avoid[1]=(struct ufsi_avoid){(uintptr_t)_stack_top-0x8000,0x8000};
+    avoid[2]=(struct ufsi_avoid){dtb,fsize};
+    avoid[3]=(struct ufsi_avoid){rd_start,rd_end-rd_start};
+    if (!ufsi_range_free(&mm,p->phys_base,p->mem_size,avoid,4))
+        return "RAM probe target bank overlaps live objects/reservations";
+#endif
 
 	uint64_t pa_of_va_base = p->phys_base - p->virt_base;	/* pa = va + this */
 	con_hex2("PHYS", "base=", p->phys_base, "size=", p->mem_size);

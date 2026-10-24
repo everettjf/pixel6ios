@@ -33,9 +33,11 @@ dvfs_khz=
 inventory=0
 inventory_display=0
 inventory_ufs=0
+ramprobe=0
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--board) board="$2"; shift 2 ;;
+		--xnu-ramprobe) ramprobe=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--inventory) inventory=1; usb_gadget=1; shift ;;
 		--inventory-ufs) inventory=1; inventory_ufs=1; usb_gadget=1; shift ;;
 		--inventory-display) inventory=1; inventory_display=1; usb_gadget=1; shift ;;
@@ -72,8 +74,18 @@ done
 PYTHON=${PYTHON:-python3}
 soc=$("$PYTHON" ../tools/boards.py "$board" --get soc 2>/dev/null) || { echo "unknown board: $board (tools/pix devices)" >&2; exit 2; }
 gs101=0; [ "$soc" = google/gs101 ] && gs101=1
-if [ "$board" = oriole ] && [ "$inventory" != 1 ]; then
-	echo "oriole is inventory-only until its live memory map is measured" >&2; exit 2
+if [ "$board" = oriole ] && [ "$inventory" != 1 ] && [ "$ramprobe" != 1 ]; then
+	echo "oriole permits only inventory or the exact RAM-only XNU experiment" >&2; exit 2
+fi
+if [ "$ramprobe" = 1 ]; then
+    [ "$board:$inventory:$udump_mib:$touch_probe:$gpu_probe:$wlan_probe:$pstore_fast:$qrlog" = oriole:0:0:0:0:0:0:0 ] && [ -z "$dvfs_khz${USB_DMA_HI_BASE:-}${UFS_DMA_HI_BASE:-}${UFS_ATTEMPTS:-}${XNU_UFS:-}${REBOOT_BL:-}" ] || {
+        echo "--xnu-ramprobe forbids storage, DMA overrides and peripheral experiments" >&2; exit 2;
+    }
+    case "${USB_WINDOW:-30}" in ''|*[!0-9]*) echo "RAM probe USB_WINDOW must be 1..60" >&2; exit 2 ;; esac
+    [ "${USB_WINDOW:-30}" -ge 1 ] && [ "${USB_WINDOW:-30}" -le 60 ] || exit 2
+    USB_WINDOW=${USB_WINDOW:-30}
+    [ -n "$payload" ] || { echo "RAM probe requires reviewed payload" >&2; exit 2; }
+    "$PYTHON" ../tools/oriole_ramprobe.py --check "$payload" || exit 2
 fi
 if [ "$inventory_ufs" = 1 ]; then
     [ "$board:$inventory_display" = oriole:0 ] && [ -z "${UFS_DMA_HI_BASE:-}${UFS_ATTEMPTS:-}${XNU_UFS:-}${REBOOT_BL:-}" ] || {
@@ -117,6 +129,7 @@ CFLAGS="-O2 -ffreestanding -nostdlib -fno-pic -march=armv8-a+crc -mgeneral-regs-
 # Keep the relocation audit below; prevent that transform for MMU-off code.
 CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
 [ "$inventory" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY"
+[ "$ramprobe" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RAMPROBE"
 if [ "$usb_gadget" = 1 ]; then
 	# Stage-2 CDC-ACM log gadget (default OFF): bluejay only (needs try_write32).
 	[ "$gs101" = 1 ] || { echo "--usb-gadget needs a gs101 board" >&2; exit 2; }
@@ -266,6 +279,9 @@ fi
 [ "$inventory_ufs" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_UFS"
 [ "$inventory_display" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_DISPLAY"
 mkdir -p out
+# Invalidate provenance before every build, including failed/non-AVB builds.
+# Previous bytes may remain for inspection but cannot be boot-authorized.
+rm -f out/shim-boot-avb.img.meta.json
 "$PYTHON" ../tools/boards.py "$board" out/board_config.h
 [ "$gs101" = 1 ] && "$PYTHON" ../tools/boards.py "$board" out/wlan_seq.h --wlan-seq
 for f in start.S shim.c console.c ramlog.c mmu.c fdt.c pstore.c loader.c payload.c ufs.c usbprobe.c; do
@@ -547,7 +563,7 @@ if [ "$gs101" = 1 ]; then
 	"$PYTHON" ../tools/test-bluejay-boot.py out/shim-boot-lz4.img
 fi
 # provenance sidecar for the image fastboot will boot (tools/fboot.sh refuses images without a matching one)
-if [ -f out/shim-boot-avb.img ]; then
+if [ "$avb" = 1 ] && [ -f out/shim-boot-avb.img ]; then
 	if [ "$boot_xnu" = 1 ]; then kind=xnu; elif [ "$udump_mib" != 0 ]; then kind=udump; else kind=probe; fi
 	"$PYTHON" ../tools/imgmeta.py write out/shim-boot-avb.img --kind "$kind" --args "${META_ARGS:-}"
 fi

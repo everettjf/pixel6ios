@@ -20,7 +20,7 @@ class InventoryGateTests(unittest.TestCase):
         self.assertNotIn('nonexistent-inventory-compiler', p.stderr)
 
     def test_oriole_normal_boot_closed(self):
-        self.reject([], 'oriole is inventory-only')
+        self.reject([], 'oriole permits only inventory')
 
     def test_peripheral_and_payload_paths_closed(self):
         for args in [['--boot-xnu'], ['--udump', '1'], ['--touch-probe=rails'],

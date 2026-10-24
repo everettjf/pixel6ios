@@ -87,7 +87,7 @@ static const uint64_t board_mpidrs[NR_CPUS] = {
 };
 #endif
 
-#ifdef INVENTORY
+#if defined(INVENTORY) || defined(ORIOLE_RAMPROBE)
 static volatile uintptr_t inventory_dtb;
 static volatile unsigned inventory_panicking;
 #endif
@@ -525,6 +525,23 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 {
 	stage = "bluejay probe";
 	struct wdt_state wdt_cl0 = {0}, wdt_cl1 = {0};
+#ifdef ORIOLE_RAMPROBE
+    inventory_dtb = dtb;
+    stage = "Oriole RAM-only XNU handoff";
+    disable_bluejay_watchdog(WDT_CL0_BASE, &wdt_cl0);
+    disable_bluejay_watchdog(WDT_CL1_BASE, &wdt_cl1);
+    /* Measured RDMA0 base/geometry, inventory build 5b5dd7a.
+     * Existing gs101 DECON trigger only; no pstore or UFS path. */
+    con_set_video(FB_BASE, FB_W, FB_H, FB_STRIDE);
+    con_clear(0xff000000U);
+    decon_rearm_trigger();
+    con_str("ORIOLE_RAM_PROBE", "RAM-only XNU, no media/USB driver");
+    const char *why = loader_boot(dtb);
+    con_str("RAM probe refused/returned", why ? why : "?");
+    usb_gadget_start(dtb);
+    usb_gadget_finish();
+    bluejay_reset_chain();
+#endif
 #ifdef INVENTORY
     inventory_dtb = dtb;
 	/* Oriole first boot: use only the shim's RAM log and the existing,
@@ -1042,7 +1059,7 @@ void exc_handler(uint64_t slot, uint64_t *regs)
 		}
 	}
 #endif
-#ifdef INVENTORY
+#if defined(INVENTORY) || defined(ORIOLE_RAMPROBE)
     if (inventory_panicking) {
         /* A fault in USB/logging must not re-enter that same hook from
          * the reset chain's console calls. If even a reset SMC faults,
@@ -1084,7 +1101,7 @@ void exc_handler(uint64_t slot, uint64_t *regs)
 	 * the pstore copy survives even if the rest never runs. The panic
 	 * entry guards against recursion: a fault inside the save must not
 	 * re-enter it on this CPU. */
-#ifdef INVENTORY
+#if defined(INVENTORY) || defined(ORIOLE_RAMPROBE)
 #ifdef INVENTORY_UFS
     if (!ufs_inventory_stop()) bluejay_reset_chain();
 #endif
