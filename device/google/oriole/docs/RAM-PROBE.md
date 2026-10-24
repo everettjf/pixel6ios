@@ -42,3 +42,19 @@ Run focused tests and check-all, independently review, commit on local wip,
 then rebuild this exact profile after the gate (which overwrites shim/out).
 Verify image provenance, exact packaged payload and unlocked serial-specific
 oriole before temporary fastboot boot. Generic oriole --boot-xnu stays closed.
+
+## Transfer-boundary load check
+
+The first a181884 temporary boot was accepted by fastboot, but no native
+XNU execution evidence or automatic return was obtained. No screen report
+was available at the time of this note. Android subsequently reconnected;
+ro.boot.bootreason reported watchdog,apc,early. Whether the human pressed
+buttons is unknown. No native execution milestone is inferred from this.
+
+The opt-in --xnu-loadcheck profile uses the same fixed payload and loader
+guards, copies every segment, builds boot_args, logs JUMP, then intentionally
+returns before the CPU branch. The existing fallback USB gadget starts only
+after this return, replays the RAM log and resets. It does not test kernel
+execution. This avoids relying on best-effort USB stop before XNU: the
+current gadget stop API cannot positively prove controller quiescence.
+The rejected pre-jump USB draft was never booted.

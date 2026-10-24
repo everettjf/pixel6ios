@@ -73,6 +73,15 @@ int main(void) {
                             str(c),'-o',str(exe)], check=True)
             subprocess.run([str(exe)], check=True)
 
+    def test_profile_selections_are_exclusive(self):
+        for flags in (['--xnu-loadcheck','--xnu-ramprobe'],
+                      ['--xnu-ramprobe','--xnu-loadcheck']):
+            r=subprocess.run(['bash','shim/build.sh','--board','oriole']+flags,
+                cwd=ROOT,env=dict(os.environ,CROSS_CC='/nonexistent-ramprobe-compiler'),
+                capture_output=True,text=True,timeout=10)
+            self.assertEqual(r.returncode,2,r.stderr)
+            self.assertIn('select only one RAM probe profile',r.stderr)
+
     def test_build_rejects_before_compiler(self):
         env = dict(os.environ, CROSS_CC='/nonexistent-ramprobe-compiler')
         for key in ('USB_WINDOW','USB_DMA_HI_BASE','UFS_DMA_HI_BASE','UFS_ATTEMPTS','REBOOT_BL','XNU_UFS'):
@@ -83,10 +92,11 @@ int main(void) {
                 ([],{'USB_DMA_HI_BASE':'0x880100000'}),([],{'REBOOT_BL':'1'}),
                 ([],{'USB_WINDOW':'61'}),([],{'UFS_ATTEMPTS':'1'})]:
             with self.subTest(options=options,extra=extra):
-                r=subprocess.run(['bash','shim/build.sh','--board','oriole','--xnu-ramprobe']+options,
-                    cwd=ROOT,env=dict(env,**extra),capture_output=True,text=True,timeout=10)
-                self.assertEqual(r.returncode,2,r.stderr)
-                self.assertNotIn('nonexistent-ramprobe-compiler',r.stderr)
+                for profile in ('--xnu-ramprobe','--xnu-loadcheck'):
+                    r=subprocess.run(['bash','shim/build.sh','--board','oriole',profile]+options,
+                        cwd=ROOT,env=dict(env,**extra),capture_output=True,text=True,timeout=10)
+                    self.assertEqual(r.returncode,2,r.stderr)
+                    self.assertNotIn('nonexistent-ramprobe-compiler',r.stderr)
 
 
 if __name__=='__main__':

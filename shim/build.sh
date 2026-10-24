@@ -34,10 +34,12 @@ inventory=0
 inventory_display=0
 inventory_ufs=0
 ramprobe=0
+loadcheck=0
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--board) board="$2"; shift 2 ;;
-		--xnu-ramprobe) ramprobe=1; boot_xnu=1; usb_gadget=1; shift ;;
+		--xnu-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
+		--xnu-ramprobe) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--inventory) inventory=1; usb_gadget=1; shift ;;
 		--inventory-ufs) inventory=1; inventory_ufs=1; usb_gadget=1; shift ;;
 		--inventory-display) inventory=1; inventory_display=1; usb_gadget=1; shift ;;
@@ -130,6 +132,7 @@ CFLAGS="-O2 -ffreestanding -nostdlib -fno-pic -march=armv8-a+crc -mgeneral-regs-
 CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
 [ "$inventory" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY"
 [ "$ramprobe" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RAMPROBE"
+[ "$loadcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_LOADCHECK"
 if [ "$usb_gadget" = 1 ]; then
 	# Stage-2 CDC-ACM log gadget (default OFF): bluejay only (needs try_write32).
 	[ "$gs101" = 1 ] || { echo "--usb-gadget needs a gs101 board" >&2; exit 2; }
