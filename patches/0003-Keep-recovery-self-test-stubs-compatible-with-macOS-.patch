@@ -1,0 +1,25 @@
+From 89404f44fd422084a0cc660d235d9623df62af1e Mon Sep 17 00:00:00 2001
+From: Everett <everettjf@live.com>
+Date: Sat, 24 Oct 2026 13:05:52 -0700
+Subject: [PATCH 3/4] Keep recovery self-test stubs compatible with macOS Bash
+
+---
+ tools/hang-recover | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/hang-recover b/tools/hang-recover
+index 099625d..8739626 100755
+--- a/tools/hang-recover
++++ b/tools/hang-recover
+@@ -46,7 +46,7 @@ selftest() {
+ 	cat >"$d/lsusb" <<'S'
+ #!/bin/bash
+ n=$(cat "$HS_DIR/n" 2>/dev/null || echo 0); n=$((n+1)); echo $n >"$HS_DIR/n"
+-read -ra a <<<"$HS_SEQ"; s=${a[$((n-1))]:-${a[-1]}}
++read -ra a <<<"$HS_SEQ"; s=${a[$((n-1))]:-${a[$((${#a[@]}-1))]}}
+ [ -e "$HS_DIR/fb" ] && s=fastboot
+ echo "$s" >"$HS_DIR/cur"
+ case $s in fastboot) echo "Bus 1 Device 5: ID 18d1:4ee0 Google" ;; recovery) echo "Bus 1 Device 5: ID 18d1:d001 Google" ;; esac
+-- 
+2.54.0 (Apple Git-157)
+

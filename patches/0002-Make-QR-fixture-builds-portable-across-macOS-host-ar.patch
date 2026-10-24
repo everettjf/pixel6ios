@@ -1,0 +1,48 @@
+From ab1f5037dd267bd396617d359f3381388acc6cf3 Mon Sep 17 00:00:00 2001
+From: Everett <everettjf@live.com>
+Date: Sat, 24 Oct 2026 12:58:31 -0700
+Subject: [PATCH 2/4] Make QR fixture builds portable across macOS host
+ architectures
+
+---
+ qrlog/stubs/xnu/sys/param.h | 2 ++
+ tools/qrsim.py              | 4 ++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/qrlog/stubs/xnu/sys/param.h b/qrlog/stubs/xnu/sys/param.h
+index dc0cd6e..c90173a 100644
+--- a/qrlog/stubs/xnu/sys/param.h
++++ b/qrlog/stubs/xnu/sys/param.h
+@@ -3,5 +3,7 @@
+ #include <stddef.h>
+ #define MIN(a, b) (((a) < (b)) ? (a) : (b))
+ #define MAX(a, b) (((a) > (b)) ? (a) : (b))
++#ifndef __unused
+ #define __unused __attribute__((unused))
++#endif
+ #define PZERO 22
+diff --git a/tools/qrsim.py b/tools/qrsim.py
+index eed937d..8560ddd 100644
+--- a/tools/qrsim.py
++++ b/tools/qrsim.py
+@@ -6,7 +6,7 @@ through a model of the ESP32-CAM (scale, rotation, tilt, defocus blur, noise, lo
+   tools/qrsim.py deliver [--p P] [--burst B] ...                                          frames needed / time to deliver N bytes (schedule model)
+   tools/qrsim.py --selftest                                                                  one tiny end-to-end check
+ Needs opencv + numpy (PYTHONPATH=~/pixelios-artifacts/pylib) and gcc."""
+-import argparse, ctypes, os, random, subprocess, sys, tempfile, threading, time
++import argparse, ctypes, os, platform, random, subprocess, sys, tempfile, threading, time
+ 
+ LOCK = threading.Lock()      # the C encoder keeps static QR buffers
+ 
+@@ -34,7 +34,7 @@ def build_lib(tx_size=None):
+     os.makedirs(d, exist_ok=True)
+     srcs = [os.path.join(ROOT, "qrlog", f) for f in ("qrstream.c", "qrz.c", "qrlog.c", "qrcodegen.c", "qrstream.h", "qrz.h", "qrz_tables.h")]
+     stamp = int(max(os.path.getmtime(s) for s in srcs))
+-    so = os.path.join(d, "libqrstream-%d-%s-%d.so" % (stamp, tx_size or 0, os.getuid()))
++    so = os.path.join(d, "libqrstream-%s-%d-%s-%d.so" % (platform.machine(), stamp, tx_size or 0, os.getuid()))
+     if not os.path.exists(so):
+         subprocess.check_call(["gcc", "-O2", "-shared", "-fPIC", "-I", os.path.join(ROOT, "qrlog"), "-o", so + ".tmp"]
+                               + (["-DQS_TX_SIZE=%d" % tx_size] if tx_size else []) + [s for s in srcs if s.endswith(".c")])
+-- 
+2.54.0 (Apple Git-157)
+

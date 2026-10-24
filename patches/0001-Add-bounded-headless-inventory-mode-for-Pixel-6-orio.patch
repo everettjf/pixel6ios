@@ -1,0 +1,328 @@
+From 52c5ac9f30660e117ec491054d64eab3cc4cb7d4 Mon Sep 17 00:00:00 2001
+From: Everett <everettjf@live.com>
+Date: Sat, 24 Oct 2026 12:50:42 -0700
+Subject: [PATCH 1/4] Add bounded headless inventory mode for Pixel 6 oriole
+
+---
+ device/google/oriole/README.md  | 21 +++++++++++
+ device/google/oriole/board.json | 64 +++++++++++++++++++++++++++++++++
+ shim/build.sh                   | 19 ++++++++++
+ shim/console.c                  |  6 ++++
+ shim/fdt_test_builder.h         |  4 ++-
+ shim/host_test.c                |  6 ++++
+ shim/pstore_host_test.c         |  5 +--
+ shim/shim.c                     | 23 ++++++++++++
+ tools/test_oriole_inventory.py  | 42 ++++++++++++++++++++++
+ 9 files changed, 187 insertions(+), 3 deletions(-)
+ create mode 100644 device/google/oriole/README.md
+ create mode 100644 device/google/oriole/board.json
+ create mode 100644 tools/test_oriole_inventory.py
+
+diff --git a/device/google/oriole/README.md b/device/google/oriole/README.md
+new file mode 100644
+index 0000000..19ecdf8
+--- /dev/null
++++ b/device/google/oriole/README.md
+@@ -0,0 +1,21 @@
++# Pixel 6 (oriole): inventory bring-up
++
++Status: host build and object audits passed on 2026-10-24; first hardware run pending.
++
++The device is GS101 with an unlocked slider-17.0-15199431 bootloader and Android
++17 CP2A.260705.006. Current vendor_boot was fetched read-only and its first DTB
++declares abl@f8800000 with size 0x2000000 (32 MiB). No device identifiers or
++firmware are committed.
++
++Only `shim/build.sh --board oriole --inventory --avb` is accepted. This mode
++uses RAM/USB logging, no framebuffer/UART, no pstore, no storage, and no
++secondary CPU, PMIC, touch, GPU, WLAN or DVFS experiments. USB must reuse the
++live ABL event-buffer reservation and the existing overlap checks; a fixed
++high-DMA override is rejected. Default USB window: 30 seconds, maximum: 60.
++
++The source-candidate framebuffer/touch fields support the existing host
++fixtures and are not enabled by inventory. Physical DRAM bank sizes and XNU
++RAM remain deliberately unconfigured until a live-FDT report is captured.
++
++Reviewed independently with no remaining blocking source findings; negative
++gate tests are in tools/test_oriole_inventory.py. Hardware behavior is unknown.
+diff --git a/device/google/oriole/board.json b/device/google/oriole/board.json
+new file mode 100644
+index 0000000..7185fae
+--- /dev/null
++++ b/device/google/oriole/board.json
+@@ -0,0 +1,64 @@
++{
++  "name": "Pixel 6",
++  "codename": "oriole",
++  "soc": "google/gs101",
++  "status": "inventory-only; XNU memory unmeasured",
++  "dram_banks": [],
++  "fb_base": "0xfac00000",
++  "fb_size": "0x9e3400",
++  "fb_width": 1080,
++  "fb_height": 2400,
++  "fb_stride": 4320,
++  "uart_base": "0x0",
++  "usb_dma_range": [
++    "0xf8800000",
++    "0x2000000"
++  ],
++  "notes": {
++    "dram_banks": "Unknown sizes. Deliberately empty; no xnu_ram is supplied. Only --inventory may build this board until live FDT is captured.",
++    "framebuffer": "SOURCE CANDIDATE from Linux gs101-oriole.dts; inventory never writes the framebuffer or DECON.",
++    "uart_base": "Disabled intentionally in the first inventory image; not a physical UART address.",
++    "usb_dma_range": "READ FROM CURRENT DEVICE FIRMWARE: vendor_boot_a fetched via fastboot on 2026-10-24, slider-17.0-15199431 / CP2A.260705.006. First GS101 DTB reserved-memory/abl@f8800000 is base 0xf8800000, size 0x2000000. The inventory gadget independently chooses its actual pool from LIVE FDT and GEVNTADR; never assumes this constant alone.",
++    "userdata_mib": "NOT CONFIGURED. Fastboot reports byte size 0x1b91215000; GPT LBA bounds not yet measured. Inventory does not access storage.",
++    "touch": "SOURCE-CANDIDATE only: Google raviole gs101-oriole-touch.dtsi and gs101 common FTS/SPI tree specify FTM5 ID 36 48, 1079x2399, SPI11/gpp23/gpp26/gpa9. Fields are present for existing host fixtures; --inventory neither links nor calls touch/ACPM code. No touch writes have been enabled or tested on this phone."
++  },
++  "touch_chip_id": [
++    "0x36",
++    "0x48"
++  ],
++  "touch_usi": 11,
++  "touch_max_hz": 10000000,
++  "touch_max_coords": [
++    1079,
++    2399
++  ],
++  "touch_spi_pin_func": 2,
++  "touch_pin_clk": [
++    "gpp23",
++    0
++  ],
++  "touch_pin_mosi": [
++    "gpp23",
++    1
++  ],
++  "touch_pin_miso": [
++    "gpp23",
++    2
++  ],
++  "touch_pin_cs": [
++    "gpp23",
++    3
++  ],
++  "touch_pin_irq": [
++    "gpa9",
++    0
++  ],
++  "touch_pin_reset": [
++    "gpp26",
++    0
++  ],
++  "touch_pin_mux": [
++    "gpp26",
++    1
++  ]
++}
+diff --git a/shim/build.sh b/shim/build.sh
+index e053f87..f772edf 100755
+--- a/shim/build.sh
++++ b/shim/build.sh
+@@ -30,9 +30,11 @@ touch_opts=
+ touch_rails=0
+ touch_dvfs=0
+ dvfs_khz=
++inventory=0
+ while [ "$#" -gt 0 ]; do
+ 	case "$1" in
+ 		--board) board="$2"; shift 2 ;;
++		--inventory) inventory=1; usb_gadget=1; shift ;;
+ 		--avb) avb=1; shift ;;
+ 		--pstore-fast) pstore_fast=1; shift ;;
+ 		--usb-gadget) usb_gadget=1; shift ;;
+@@ -66,6 +68,19 @@ done
+ PYTHON=${PYTHON:-python3}
+ soc=$("$PYTHON" ../tools/boards.py "$board" --get soc 2>/dev/null) || { echo "unknown board: $board (tools/pix devices)" >&2; exit 2; }
+ gs101=0; [ "$soc" = google/gs101 ] && gs101=1
++if [ "$board" = oriole ] && [ "$inventory" != 1 ]; then
++	echo "oriole is inventory-only until its live memory map is measured" >&2; exit 2
++fi
++if [ "$inventory" = 1 ]; then
++	[ "$gs101" = 1 ] || { echo "--inventory needs gs101" >&2; exit 2; }
++	[ -z "${USB_DMA_HI_BASE:-}" ] || { echo "--inventory requires the live ABL USB pool, no USB_DMA_HI_BASE" >&2; exit 2; }
++	case "${USB_WINDOW:-30}" in ''|*[!0-9]*) echo "inventory USB_WINDOW must be 1..60" >&2; exit 2 ;; esac
++	[ "${USB_WINDOW:-30}" -ge 1 ] && [ "${USB_WINDOW:-30}" -le 60 ] || { echo "inventory USB_WINDOW must be 1..60" >&2; exit 2; }
++	USB_WINDOW=${USB_WINDOW:-30}
++	[ "$boot_xnu:$udump_mib:$touch_probe:$gpu_probe:$wlan_probe:$pstore_fast:$qrlog" = 0:0:0:0:0:0:0 ] && [ -z "$payload$dvfs_khz" ] || {
++		echo "--inventory cannot run payload, storage, power or peripheral experiments" >&2; exit 2;
++	}
++fi
+ if [ "$udump_mib" != 0 ]; then
+ 	# Framed read-only userdata dump over the USB gadget
+ 	# (default OFF). UDUMP_MAX_BLOCKS = 16384 blocks = 64 MiB.
+@@ -89,6 +104,10 @@ AVBTOOL=${AVBTOOL:-../tools/third_party/avbtool.py}
+ # when detached from git), so the pulled pstore log names its build.
+ build_id=$(git rev-parse --short HEAD 2>/dev/null || date -u +%Y%m%d)
+ CFLAGS="-O2 -ffreestanding -nostdlib -fno-pic -march=armv8-a+crc -mgeneral-regs-only -mstrict-align -fno-stack-protector -Wall -Wextra -Iout -include out/board_config.h -DPSTORE_BUILD_ID=\"$build_id\""
++# GCC 16 PRE can hoist conditional string addresses into ABS64 tables.
++# Keep the relocation audit below; prevent that transform for MMU-off code.
++CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
++[ "$inventory" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY"
+ if [ "$usb_gadget" = 1 ]; then
+ 	# Stage-2 CDC-ACM log gadget (default OFF): bluejay only (needs try_write32).
+ 	[ "$gs101" = 1 ] || { echo "--usb-gadget needs a gs101 board" >&2; exit 2; }
+diff --git a/shim/console.c b/shim/console.c
+index c2ec45a..854c398 100644
+--- a/shim/console.c
++++ b/shim/console.c
+@@ -79,6 +79,8 @@ void wait_ticks(uint64_t ticks)
+ #if SOC_GS101
+ static void screen_room(void)
+ {
++	if (!con_fb)
++		return;
+ 	if ((unsigned)(row + 1) * CH_H + MARGIN <= fb_h)
+ 		return;
+ 	wait_ticks(counter_freq() * 3);
+@@ -148,6 +150,8 @@ void con_set_video(uintptr_t base, unsigned width, unsigned height, unsigned str
+ 
+ void con_clear(uint32_t bg)
+ {
++	if (!con_fb)
++		return;
+ 	for (unsigned y = 0; y < fb_h; y++) {
+ 		volatile uint32_t *line = con_fb + y * (fb_stride / 4);
+ 		for (unsigned x = 0; x < fb_w; x++)
+@@ -159,6 +163,8 @@ void con_clear(uint32_t bg)
+ 
+ static void put_char(int col, char ch, uint32_t fg)
+ {
++	if (!con_fb)
++		return;
+ 	if (ch < 0x20 || ch > 0x7e)
+ 		ch = '?';
+ 	const unsigned char *g = font8x16[ch - 0x20];
+diff --git a/shim/fdt_test_builder.h b/shim/fdt_test_builder.h
+index 987f41b..b07f44b 100644
+--- a/shim/fdt_test_builder.h
++++ b/shim/fdt_test_builder.h
+@@ -8,7 +8,9 @@
+ #include <string.h>
+ 
+ struct fdt_builder {
+-	uint8_t buf[12288];
++	/* DTSpec requires the reservation block to be 8-byte aligned.
++	 * A byte array in a 4-byte-aligned struct is insufficient on macOS. */
++	_Alignas(8) uint8_t buf[12288];
+ 	uint32_t struct_pos;
+ 	uint32_t str_pos;
+ 	uint32_t rsv_pos;	/* next free /memreserve/ slot (starts at 40) */
+diff --git a/shim/host_test.c b/shim/host_test.c
+index 955f594..968e3d7 100644
+--- a/shim/host_test.c
++++ b/shim/host_test.c
+@@ -6,6 +6,12 @@ static uint32_t host_fb[FB_H * FB_STRIDE / 4];
+ 
+ int main(void)
+ {
++	/* Headless inventory must keep logging without drawing at address 0. */
++	con_set_video(0, 0, 0, 0);
++	con_clear(RED);
++	con_str("HEADLESS", "log only");
++	con_hex2("HEADLESS", "value=", 1, 0, 0);
++	con_set_video((uintptr_t)host_fb, FB_W, FB_H, FB_STRIDE);
+ 	con_fb = host_fb;
+ 	con_clear(RED);
+ 	con_str("SHIM", "sweet milestone 2");
+diff --git a/shim/pstore_host_test.c b/shim/pstore_host_test.c
+index 4c00c51..d9d2790 100644
+--- a/shim/pstore_host_test.c
++++ b/shim/pstore_host_test.c
+@@ -320,8 +320,9 @@ static void test_save_into_fake_zone(void)
+ static void test_save_tail_keep(void)
+ {
+ 	/* console-size 0x1000 -> data cap 0xff4; append more than that. */
+-	uint8_t *zone = malloc(0x1000);
+-	memset(zone, 0xee, 0x1000);
++	/* Include the out-of-zone sentinel checked below in the allocation. */
++	uint8_t *zone = malloc(0x1001);
++	memset(zone, 0xee, 0x1001);
+ 	struct fdt_builder b;
+ 	fb_init(&b);
+ 	fb_begin_node(&b, "");
+diff --git a/shim/shim.c b/shim/shim.c
+index 1a1be66..c370175 100644
+--- a/shim/shim.c
++++ b/shim/shim.c
+@@ -521,6 +521,29 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
+ {
+ 	stage = "bluejay probe";
+ 	struct wdt_state wdt_cl0 = {0}, wdt_cl1 = {0};
++#ifdef INVENTORY
++	/* Oriole first boot: use only the shim's RAM log and the existing,
++	 * live-FDT-validated USB pool. No framebuffer, pstore, UFS, secondary
++	 * CPUs, display trigger, touch, PMIC, DVFS, GPU or WLAN experiments.
++	 * WDT bases are verified in the current fetched vendor_boot DTB;
++	 * the existing reset chain is used after the bounded USB window. */
++	con_set_video(0, 0, 0, 0);
++	disable_bluejay_watchdog(WDT_CL0_BASE, &wdt_cl0);
++	disable_bluejay_watchdog(WDT_CL1_BASE, &wdt_cl1);
++	con_str("INVENTORY", "oriole: headless, no storage access");
++	con_hex("ENTRY EL", probe_entry_el);
++	con_hex("LIVE FDT", dtb);
++	report_bluejay_watchdog("WDT CL0", &wdt_cl0);
++	report_bluejay_watchdog("WDT CL1", &wdt_cl1);
++	report_cpu(0);
++	fdt_probe_report(dtb);
++#ifdef USB_GADGET
++	usb_gadget_start(dtb);
++	con_str("INVENTORY", "report complete");
++	usb_gadget_finish();
++#endif
++	bluejay_reset_chain();
++#endif
+ 	disable_bluejay_watchdog(WDT_CL0_BASE, &wdt_cl0);
+ 	disable_bluejay_watchdog(WDT_CL1_BASE, &wdt_cl1);
+ 
+diff --git a/tools/test_oriole_inventory.py b/tools/test_oriole_inventory.py
+new file mode 100644
+index 0000000..b6726a7
+--- /dev/null
++++ b/tools/test_oriole_inventory.py
+@@ -0,0 +1,42 @@
++"""Fail-closed first-boot gates must run before any compilation or device action."""
++import os
++from pathlib import Path
++import subprocess
++import unittest
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++class InventoryGateTests(unittest.TestCase):
++    def reject(self, args, message, **extra_env):
++        env = dict(os.environ, CROSS_CC='/nonexistent-inventory-compiler')
++        env.pop('USB_DMA_HI_BASE', None)
++        env.pop('USB_WINDOW', None)
++        env.update(extra_env)
++        p = subprocess.run(['bash', 'shim/build.sh', '--board', 'oriole'] + args,
++                           cwd=ROOT, env=env, capture_output=True, text=True, timeout=10)
++        self.assertEqual(p.returncode, 2, p.stderr)
++        self.assertIn(message, p.stderr)
++        self.assertNotIn('nonexistent-inventory-compiler', p.stderr)
++
++    def test_oriole_normal_boot_closed(self):
++        self.reject([], 'oriole is inventory-only')
++
++    def test_peripheral_and_payload_paths_closed(self):
++        for args in [['--boot-xnu'], ['--udump', '1'], ['--touch-probe=rails'],
++                     ['--gpu-job'], ['--wlan-link=27'], ['--dvfs', '100,100,100'],
++                     ['--pstore-fast'], ['--qrlog'], ['payload.bin']]:
++            with self.subTest(args=args):
++                self.reject(['--inventory'] + args, '--inventory cannot run')
++
++    def test_fixed_dma_override_closed(self):
++        self.reject(['--inventory'], 'no USB_DMA_HI_BASE', USB_DMA_HI_BASE='0x880200000ULL')
++
++    def test_window_bounded(self):
++        for value in ['0', '61', '-1', 'garbage']:
++            with self.subTest(value=value):
++                self.reject(['--inventory'], 'USB_WINDOW must be 1..60', USB_WINDOW=value)
++
++
++if __name__ == '__main__':
++    unittest.main()
+-- 
+2.54.0 (Apple Git-157)
+

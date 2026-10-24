@@ -1,0 +1,481 @@
+From 5b5dd7acf7ee5de8409d86bce1eb3bc6682bb16d Mon Sep 17 00:00:00 2001
+From: Everett <everettjf@live.com>
+Date: Sat, 24 Oct 2026 13:20:02 -0700
+Subject: [PATCH 4/4] Record Oriole memory and add read-only display inventory
+
+---
+ device/google/oriole/README.md                |   7 +-
+ device/google/oriole/board.json               |  25 ++-
+ .../oriole/hardware/inventory-2026-10-24.txt  | 154 ++++++++++++++++++
+ shim/build.sh                                 |  12 +-
+ shim/shim.c                                   |   4 +
+ soc/google/gs101/docs/display-inventory.md    |  20 +++
+ soc/google/gs101/shim/displayinventory.c      |  33 ++++
+ soc/google/gs101/soc.json                     |   4 +
+ tools/boards.py                               |   6 +
+ tools/test_display_inventory.py               |  58 +++++++
+ 10 files changed, 313 insertions(+), 10 deletions(-)
+ create mode 100644 device/google/oriole/hardware/inventory-2026-10-24.txt
+ create mode 100644 soc/google/gs101/docs/display-inventory.md
+ create mode 100644 soc/google/gs101/shim/displayinventory.c
+ create mode 100644 tools/test_display_inventory.py
+
+diff --git a/device/google/oriole/README.md b/device/google/oriole/README.md
+index 19ecdf8..3c0c643 100644
+--- a/device/google/oriole/README.md
++++ b/device/google/oriole/README.md
+@@ -1,6 +1,6 @@
+ # Pixel 6 (oriole): inventory bring-up
+ 
+-Status: host build and object audits passed on 2026-10-24; first hardware run pending.
++Status: OBSERVED ON HARDWARE 2026-10-24: headless inventory booted twice, USB log captured, returned automatically to Android. XNU has not run.
+ 
+ The device is GS101 with an unlocked slider-17.0-15199431 bootloader and Android
+ 17 CP2A.260705.006. Current vendor_boot was fetched read-only and its first DTB
+@@ -14,8 +14,7 @@ live ABL event-buffer reservation and the existing overlap checks; a fixed
+ high-DMA override is rejected. Default USB window: 30 seconds, maximum: 60.
+ 
+ The source-candidate framebuffer/touch fields support the existing host
+-fixtures and are not enabled by inventory. Physical DRAM bank sizes and XNU
+-RAM remain deliberately unconfigured until a live-FDT report is captured.
++fixtures and are not enabled by inventory. Four 2 GiB DRAM banks and a 16 MiB live ABL reservation were measured (hardware/inventory-2026-10-24.txt). Static vendor_boot declares 32 MiB, so the live checks are essential. XNU RAM remains deliberately unconfigured until framebuffer measurement.
+ 
+ Reviewed independently with no remaining blocking source findings; negative
+-gate tests are in tools/test_oriole_inventory.py. Hardware behavior is unknown.
++gate tests are in tools/test_oriole_inventory.py. The next opt-in --inventory-display reader samples RDMA configuration only, without writes or clock changes; see soc/google/gs101/docs/display-inventory.md. Its hardware result is pending.
+diff --git a/device/google/oriole/board.json b/device/google/oriole/board.json
+index 7185fae..7db2c5b 100644
+--- a/device/google/oriole/board.json
++++ b/device/google/oriole/board.json
+@@ -3,7 +3,24 @@
+   "codename": "oriole",
+   "soc": "google/gs101",
+   "status": "inventory-only; XNU memory unmeasured",
+-  "dram_banks": [],
++  "dram_banks": [
++    [
++      "0x80000000",
++      "0x80000000"
++    ],
++    [
++      "0x880000000",
++      "0x80000000"
++    ],
++    [
++      "0x900000000",
++      "0x80000000"
++    ],
++    [
++      "0x980000000",
++      "0x80000000"
++    ]
++  ],
+   "fb_base": "0xfac00000",
+   "fb_size": "0x9e3400",
+   "fb_width": 1080,
+@@ -12,13 +29,13 @@
+   "uart_base": "0x0",
+   "usb_dma_range": [
+     "0xf8800000",
+-    "0x2000000"
++    "0x1000000"
+   ],
+   "notes": {
+-    "dram_banks": "Unknown sizes. Deliberately empty; no xnu_ram is supplied. Only --inventory may build this board until live FDT is captured.",
++    "dram_banks": "OBSERVED ON HARDWARE 2026-10-24, 89404f4, hardware/inventory-2026-10-24.txt; four 2 GiB banks. XNU RAM remains unset until display measurement.",
+     "framebuffer": "SOURCE CANDIDATE from Linux gs101-oriole.dts; inventory never writes the framebuffer or DECON.",
+     "uart_base": "Disabled intentionally in the first inventory image; not a physical UART address.",
+-    "usb_dma_range": "READ FROM CURRENT DEVICE FIRMWARE: vendor_boot_a fetched via fastboot on 2026-10-24, slider-17.0-15199431 / CP2A.260705.006. First GS101 DTB reserved-memory/abl@f8800000 is base 0xf8800000, size 0x2000000. The inventory gadget independently chooses its actual pool from LIVE FDT and GEVNTADR; never assumes this constant alone.",
++    "usb_dma_range": "OBSERVED ON HARDWARE 2026-10-24: live FDT abl@f8800000 is 16 MiB, unlike static vendor_boot DTB 32 MiB. USB pool 0xf8d1b000. Runtime still independently validates live FDT/GEVNTADR and overlap checks.",
+     "userdata_mib": "NOT CONFIGURED. Fastboot reports byte size 0x1b91215000; GPT LBA bounds not yet measured. Inventory does not access storage.",
+     "touch": "SOURCE-CANDIDATE only: Google raviole gs101-oriole-touch.dtsi and gs101 common FTS/SPI tree specify FTM5 ID 36 48, 1079x2399, SPI11/gpp23/gpp26/gpa9. Fields are present for existing host fixtures; --inventory neither links nor calls touch/ACPM code. No touch writes have been enabled or tested on this phone."
+   },
+diff --git a/device/google/oriole/hardware/inventory-2026-10-24.txt b/device/google/oriole/hardware/inventory-2026-10-24.txt
+new file mode 100644
+index 0000000..3efdfcc
+--- /dev/null
++++ b/device/google/oriole/hardware/inventory-2026-10-24.txt
+@@ -0,0 +1,154 @@
++OBSERVED ON HARDWARE: 2026-10-24, 89404f4, image SHA256 452196b0c34b64d9abf8c083502043d1b53bf75cbb59afb9ffb9b2cbb0db6354
++Bootloader slider-17.0-15199431; USB capture run2. Boot args omitted.
++INVENTORY oriole: headless, no storage access
++ENTRY EL 0000000000000002
++LIVE FDT 000000008A000000
++WDT CL0 WTCON=0001AF39 WTCNT=0000FF8B
++WDT CL0 stopped=0001AF18 disabled=00000000
++WDT CL1 WTCON=00018021 WTCNT=00008000
++WDT CL1 stopped=00018000 disabled=00000000
++CPU MIDR id=00000000 value=412FD050
++MPIDR 0000000081000000
++MMFR0 0000000000101122
++ISAR1 0000000000100001
++PAC APA/API APA=00000000 API=00000000
++PAC GPA/GPI GPA=00000000 GPI=00000000
++CNTFRQ 0000000001770000
++timer freq used 0000000001770000
++FDT memory memory@980000000
++ base 0000000980000000
++ size 0000000080000000
++FDT memory memory@900000000
++ base 0000000900000000
++ size 0000000080000000
++FDT memory memory@880000000
++ base 0000000880000000
++ size 0000000080000000
++FDT memory memory@80000000
++ base 0000000080000000
++ size 0000000080000000
++FDT reserved sec_pt
++ base 00000000E0000000
++ size 0000000002500000
++FDT no-map yes sec_pt
++FDT reserved sec_dram
++ base 00000000B7200000
++ size 0000000008E00000
++FDT no-map yes sec_dram
++FDT reserved ect_binary
++ base 0000000090000000
++ size 000000000003A000
++FDT no-map no ect_binary
++FDT reserved tpu_fw@93000000
++ base 0000000093000000
++ size 0000000001000000
++FDT no-map yes tpu_fw@93000000
++FDT reserved gsa@90200000
++ base 0000000090200000
++ size 0000000000400000
++FDT no-map yes gsa@90200000
++FDT reserved aoc@94000000
++ base 0000000094000000
++ size 0000000003000000
++FDT no-map yes aoc@94000000
++FDT reserved abl@f8800000
++ base 00000000F8800000
++ size 0000000001000000
++FDT no-map yes abl@f8800000
++FDT reserved dss_log_reserved@fd3f0000
++ base 00000000FD3F0000
++ size 000000000000E000
++FDT no-map yes dss_log_reserved@fd3f0000
++FDT reserved debug_kinfo_reserved@fd3fe000
++ base 00000000FD3FE000
++ size 0000000000001000
++FDT no-map yes debug_kinfo_reserved@fd3fe000
++FDT reserved suspend_diag_log_reserved@fd90c000
++ base 00000000FD90C000
++ size 0000000000001000
++FDT no-map yes suspend_diag_log_reserved@fd90c000
++FDT reserved ramoops_mem@fd3ff000
++ base 00000000FD3FF000
++ size 0000000000400000
++FDT no-map no ramoops_mem@fd3ff000
++FDT reserved bldr_log_reserved@fd800000
++ base 00000000FD800000
++ size 0000000000100000
++FDT no-map yes bldr_log_reserved@fd800000
++FDT reserved cp_rmem
++ base 00000000F0000000
++ size 0000000000800000
++FDT no-map no cp_rmem
++FDT reserved cp_msi_rmem
++ base 00000000F6200000
++ size 0000000000001000
++FDT no-map no cp_msi_rmem
++FDT reserved cp_rmem_1
++ base 00000000E8000000
++ size 0000000001C00000
++FDT no-map no cp_rmem_1
++FDT reserved cp_rmem_2
++ base 00000000EE000000
++ size 0000000000400000
++FDT no-map no cp_rmem_2
++FDT reserved header
++ base 00000000D8100000
++ size 0000000000010000
++FDT no-map no header
++FDT reserved log_kevents
++ base 00000000D8110000
++ size 0000000000700000
++FDT no-map no log_kevents
++FDT reserved log_bcm
++ base 00000000DD610000
++ size 0000000000400000
++FDT no-map no log_bcm
++FDT reserved log_s2d
++ base 00000000D8810000
++ size 0000000001800000
++FDT no-map yes log_s2d
++FDT reserved log_array_reset
++ base 00000000DA010000
++ size 0000000000A00000
++FDT no-map no log_array_reset
++FDT reserved log_array_panic
++ base 00000000DAA10000
++ size 0000000000A00000
++FDT no-map no log_array_panic
++FDT reserved log_slcdump
++ base 00000000DB410000
++ size 0000000001100000
++FDT no-map no log_slcdump
++FDT reserved log_preslcdump
++ base 00000000DC510000
++ size 0000000001100000
++FDT no-map no log_preslcdump
++FDT reserved log_itmon
++ base 00000000DDA10000
++ size 0000000000010000
++FDT no-map no log_itmon
++FDT reserved seclog_mem
++ base 00000000C3000000
++ size 0000000000080000
++FDT no-map no seclog_mem
++FDT no-map no vstream
++FDT no-map no vframe
++FDT no-map no vscaler
++FDT no-map no tui
++FDT reserved xhci_dma@97000000
++ base 0000000097000000
++ size 0000000000400000
++FDT no-map yes xhci_dma@97000000
++FDT no-map no faceauth_tpu
++FDT no-map no famodel
++FDT no-map no faimg
++FDT no-map no farawimg
++FDT no-map no faprev
++FDT no-map no mfc_fw
++SECTION USB gadget (live log)
++USB gadget pool 00000000F8D1B000
++USB gadget: running
++USB gadget run tools/usb-log.py capture on the PC
++INVENTORY report complete
++USB EVT reset
++USB EVT conndone speed=0
+diff --git a/shim/build.sh b/shim/build.sh
+index f772edf..accc816 100755
+--- a/shim/build.sh
++++ b/shim/build.sh
+@@ -31,10 +31,12 @@ touch_rails=0
+ touch_dvfs=0
+ dvfs_khz=
+ inventory=0
++inventory_display=0
+ while [ "$#" -gt 0 ]; do
+ 	case "$1" in
+ 		--board) board="$2"; shift 2 ;;
+ 		--inventory) inventory=1; usb_gadget=1; shift ;;
++		--inventory-display) inventory=1; inventory_display=1; usb_gadget=1; shift ;;
+ 		--avb) avb=1; shift ;;
+ 		--pstore-fast) pstore_fast=1; shift ;;
+ 		--usb-gadget) usb_gadget=1; shift ;;
+@@ -254,6 +256,7 @@ if [ "$qrlog" = 1 ]; then
+ 	# Log as looping QR codes on the final screens (tools/qr-log.py reads them). Not with --pstore-fast (no pager).
+ 	CFLAGS="$CFLAGS -DQRLOG -I../qrlog -I../qrlog/stubs"
+ fi
++[ "$inventory_display" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_DISPLAY"
+ mkdir -p out
+ "$PYTHON" ../tools/boards.py "$board" out/board_config.h
+ [ "$gs101" = 1 ] && "$PYTHON" ../tools/boards.py "$board" out/wlan_seq.h --wlan-seq
+@@ -265,6 +268,11 @@ socshim=../$("$PYTHON" ../tools/boards.py "$board" --get soc_dir)/shim
+ for f in ufsdiag ufsinit; do
+ 	"$CC" $CFLAGS -I"$socshim" -I. -c "$socshim/$f.c" -o "out/$f.o"
+ done
++display_objs=""
++if [ "$inventory_display" = 1 ]; then
++    "$CC" $CFLAGS -I. -c "$socshim/displayinventory.c" -o out/displayinventory.o
++    display_objs=out/displayinventory.o
++fi
+ # Gate honesty: usbproto.c and usbgadget.c are
+ # cross-compiled with the shim CFLAGS on EVERY build so the object
+ # audits in tools/test-bluejay-boot.py always see them; they are only
+@@ -381,10 +389,10 @@ fi
+ if [ "$touch_rails" = 1 ] || [ "$touch_dvfs" = 1 ] || [ "$gpu_clk" = 1 ] || [ "$gpu_rails" = 1 ] || [ "$wlan_rails" = 1 ]; then
+ 	usb_objs="$usb_objs out/acpm.o"
+ fi
+-abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $qr_objs | grep -c ABS64 || true)
++abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $qr_objs $display_objs | grep -c ABS64 || true)
+ [ "$abs" = 0 ] || { echo "error: $abs absolute relocations in C objects" >&2; exit 1; }
+ "$CC" $CFLAGS -static -T shim.ld -Wl,--build-id=none -Wl,--no-warn-rwx-segments -Wl,-N \
+-	out/start.o out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbpool.o $usb_objs $qr_objs -o out/shim.elf
++	out/start.o out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbpool.o $usb_objs $qr_objs $display_objs -o out/shim.elf
+ "$OBJCOPY" -O binary out/shim.elf out/Image
+ size_hex=$("$NM" out/shim.elf | awk '$3=="_end"{print $1}')
+ size=$((16#$size_hex))
+diff --git a/shim/shim.c b/shim/shim.c
+index c370175..648b04b 100644
+--- a/shim/shim.c
++++ b/shim/shim.c
+@@ -539,6 +539,10 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
+ 	fdt_probe_report(dtb);
+ #ifdef USB_GADGET
+ 	usb_gadget_start(dtb);
++#ifdef INVENTORY_DISPLAY
++	extern void gs101_display_inventory(void);
++	gs101_display_inventory();
++#endif
+ 	con_str("INVENTORY", "report complete");
+ 	usb_gadget_finish();
+ #endif
+diff --git a/soc/google/gs101/docs/display-inventory.md b/soc/google/gs101/docs/display-inventory.md
+new file mode 100644
+index 0000000..1e1f817
+--- /dev/null
++++ b/soc/google/gs101/docs/display-inventory.md
+@@ -0,0 +1,20 @@
++# Read-only display inventory
++
++READ FROM SOURCE: Google display module commit
++[661047c0c1c4939aa81fcc822bb21dc5a484f913](https://android.googlesource.com/kernel/google-modules/display/+/661047c0c1c4939aa81fcc822bb21dc5a484f913/samsung/cal_9845/regs-dpp.h).
++RDMA L0..L5 base is 0x1c0b0000, spacing 0x1000. The current fetched
++vendor_boot_a DTB agrees (drmdpp0..5 DMA reg). Shadow offset is 0x400.
++Read offsets: ENABLE 0x00, IN_CTRL_0 0x08, SRC_SIZE 0x10,
++SRC_OFFSET 0x14, IMG_SIZE 0x18, BASEADDR_Y8 0x40, SRC_STRIDE_0 0x50,
++SRC_STRIDE_1 0x54. These are configuration registers, not interrupt-clear
++or FIFO registers. soc.json is the source of all numeric read addresses.
++
++UNVERIFIED on Oriole until a capture: configuration values and whether
++all RDMA blocks remain readable after ABL. A synchronous fault skips the
++rest of that channel. There are six channels, two banks and eight offsets;
++no waits, no writes, no clock/trigger/DSIM actions. Only opt-in
++--inventory-display links this reader. Ordinary inventory is unchanged.
++
++The extra generated macros intentionally affect GS101 headers; existing
++non-inventory image code has no references to them. This does not enable
++a display or grant permission to write the candidate framebuffer.
+diff --git a/soc/google/gs101/shim/displayinventory.c b/soc/google/gs101/shim/displayinventory.c
+new file mode 100644
+index 0000000..2e189d5
+--- /dev/null
++++ b/soc/google/gs101/shim/displayinventory.c
+@@ -0,0 +1,33 @@
++/* Read-only GS101 RDMA inventory. No framebuffer or MMIO stores.
++ * Register source: Google display commit 661047c0c1c4939aa81fcc822bb21dc5a484f913,
++ * samsung/cal_9845/regs-dpp.h: RDMA(L0~L5), DMA_SHD_OFFSET, RDMA_ENABLE,
++ * RDMA_IN_CTRL_0, RDMA_SRC_SIZE/OFFSET, RDMA_IMG_SIZE, RDMA_BASEADDR_Y8,
++ * RDMA_SRC_STRIDE_0/1. Base/stride also match current vendor_boot drmdpp0..5.
++ * See soc/google/gs101/docs/display-inventory.md. A fault stops that channel.
++ */
++#include <stdint.h>
++#include "console.h"
++int try_read32(uintptr_t address, uint32_t *value);
++
++void gs101_display_inventory(void)
++{
++    const unsigned offsets[] = { DISPLAY_INV_REG_OFFSETS };
++    con_str("DISPLAY inventory", "read only; no clocks or triggers changed");
++    for (unsigned ch = 0; ch < DISPLAY_INV_RDMA_COUNT; ch++) {
++        uintptr_t base = DISPLAY_INV_RDMA_BASE + ch * DISPLAY_INV_RDMA_STRIDE;
++        con_hex("RDMA channel", ch);
++        int fault = 0;
++        for (unsigned shadow = 0; shadow < 2 && !fault; shadow++) {
++            for (unsigned n = 0; n < sizeof(offsets) / sizeof(offsets[0]); n++) {
++                uintptr_t address = base + shadow * DISPLAY_INV_SHADOW_OFFSET + offsets[n];
++                uint32_t value;
++                if (!try_read32(address, &value)) {
++                    con_hex("RDMA read fault", address);
++                    fault = 1;
++                    break;
++                }
++                con_hex2("RDMA", "address=", address, "value=", value);
++            }
++        }
++    }
++}
+diff --git a/soc/google/gs101/soc.json b/soc/google/gs101/soc.json
+index df8be1d..507627b 100644
+--- a/soc/google/gs101/soc.json
++++ b/soc/google/gs101/soc.json
+@@ -17,6 +17,10 @@
+   "usb_base": "0x11110000",
+   "usb_size": "0x10000",
+   "uart_base": "0x10a00000",
++  "display_inventory": {
++    "rdma_base": "0x1c0b0000", "rdma_stride": "0x1000", "rdma_count": 6,
++    "shadow_offset": "0x400", "reg_offsets": [0, 8, 16, 20, 24, 64, 80, 84]
++  },
+   "wlan": {
+     "pmu_pcie1_iso": "0x17463EC4",
+     "pmu_pcie0_iso": "0x17463EC0",
+diff --git a/tools/boards.py b/tools/boards.py
+index 5054d08..a73b06d 100644
+--- a/tools/boards.py
++++ b/tools/boards.py
+@@ -382,6 +382,12 @@ def c_header(board: str) -> str:
+     for name in sorted({os.path.basename(os.path.dirname(p)).upper()
+                         for p in glob.glob(os.path.join(ROOT, "soc", "*", "*", "soc.json"))}):
+         lines.append(f"#define SOC_{name} {1 if name == this_soc else 0}")
++    for key, value in sorted(values.get("display_inventory", {}).items()):
++        if isinstance(value, list):
++            value = ", ".join(f"{_num(v):#x}u" for v in value)
++        else:
++            value = f"{_num(value):#x}UL"
++        lines.append(f"#define DISPLAY_INV_{key.upper()} {value}")
+     for key, addr in sorted(values.get("wlan", {}).items()):
+         lines.append(f"#define WLAN_{key.upper()} {int(addr, 0):#x}UL")
+     if "gpu" in values:
+diff --git a/tools/test_display_inventory.py b/tools/test_display_inventory.py
+new file mode 100644
+index 0000000..1694f84
+--- /dev/null
++++ b/tools/test_display_inventory.py
+@@ -0,0 +1,58 @@
++"""Execute the display reader with fake MMIO, including each channel's fault path."""
++import os
++from pathlib import Path
++import subprocess
++import tempfile
++import unittest
++from tools import boards
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++class DisplayInventoryTests(unittest.TestCase):
++    def test_addresses_and_fault_isolation(self):
++        with tempfile.TemporaryDirectory() as work:
++            work = Path(work)
++            (work / 'board.h').write_text(boards.c_header('oriole'))
++            (work / 'fixture.c').write_text(r'''
++#include <stdint.h>
++#include <stdlib.h>
++#include <assert.h>
++#include "console.h"
++static unsigned counts[6];
++static int fault_channel;
++int try_read32(uintptr_t pa, uint32_t *v) {
++    assert(pa >= 0x1c0b0000 && pa < 0x1c0b6000);
++    unsigned ch = (pa - 0x1c0b0000) / 0x1000;
++    unsigned off = (pa - 0x1c0b0000) % 0x1000;
++    const unsigned order[] = {0,8,16,20,24,64,80,84};
++    assert(counts[ch] < 16);
++    assert(off == order[counts[ch] % 8] + (counts[ch] / 8) * 0x400);
++    counts[ch]++;
++    if ((int)ch == fault_channel) return 0;
++    *v = 0;
++    return 1;
++}
++void con_str(const char *a, const char *b) {(void)a;(void)b;}
++void con_hex(const char *a, uint64_t b) {(void)a;(void)b;}
++void con_hex2(const char *a, const char *b, uint32_t c, const char *d, uint32_t e)
++{(void)a;(void)b;(void)c;(void)d;(void)e;}
++void gs101_display_inventory(void);
++int main(int argc, char **argv) {
++    assert(argc == 2); fault_channel = atoi(argv[1]);
++    gs101_display_inventory();
++    for (int ch=0; ch<6; ch++) assert(counts[ch] == (ch == fault_channel ? 1 : 16));
++    return 0;
++}
++''')
++            exe = work / 'fixture'
++            cc = os.environ.get('HOST_CC', 'cc')
++            subprocess.run([cc, '-O1', '-Wall', '-Wextra', '-Werror', '-I', str(ROOT / 'shim'),
++                            '-include', str(work / 'board.h'), str(work / 'fixture.c'),
++                            str(ROOT / 'soc/google/gs101/shim/displayinventory.c'), '-o', str(exe)], check=True)
++            for fault in range(-1, 6):
++                subprocess.run([str(exe), str(fault)], check=True, timeout=5)
++
++
++if __name__ == '__main__':
++    unittest.main()
+-- 
+2.54.0 (Apple Git-157)
+

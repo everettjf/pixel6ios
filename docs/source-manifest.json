@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-24",
+  "repos": {
+    "pixelios-kernel": {
+      "commit": "41198ee612c87314f66a2c067146729d290c6ba4",
+      "remote": "https://github.com/PixOS-Project/pixelios-kernel.git"
+    },
+    "pixelios-userland": {
+      "commit": "18a51b5333c09e4ac4c6f6dcd7f6eb91c2d2e040",
+      "remote": "https://github.com/PixOS-Project/pixelios-userland.git"
+    },
+    "pixelios-site": {
+      "commit": "bd88f993b551a0bceb797ffbcd27ac86cda60302",
+      "remote": "https://github.com/PixOS-Project/pixelios-site.git"
+    },
+    "ios-bluejay": {
+      "commit": "770236a7ab8ea14101304e50b06d6fa54c49d52c",
+      "remote": "https://github.com/dristotle/ios-bluejay.git"
+    }
+  },
+  "ios_sweet_pin": "11da58bd050672960c0a83b5bef2176047eea479",
+  "raviole_pin": "81506b991a5385be6c59ee27df4dda2b1379c507",
+  "gs101_source_ref": "android-gs-bluejay-6.1-android16",
+  "note": "Google gs101 source fetched from named branch, file SHA256s retained; phone values are in ignored private/device-facts.json. No hardware boot validation performed.",
+  "source_file_sha256": {
+    "research/google-raviole/gs101-oriole-pmic.dtsi": "26f35e637dd84448ad61b673f7e43f49c6f481d6118be22046dbbe3d3c5208b2",
+    "research/google-raviole/gs101-oriole-touch.dtsi": "972201f20865d2cd26840120e07bada58e916bc39f3e4b3121421d75b30192ff",
+    "research/google-raviole/gs101-oriole-display.dtsi": "c29b42e2b2c74a2636ab4c75cc7fff80fa598c05bcb10306744ddf885212cbee",
+    "research/google-raviole/gs101-oriole.dtsi": "ec0874e0739d8e329c688f89e88146534844458c419819c525e067f4d7ef870e",
+    "research/google-raviole/tree.json": "4cc4eb973c1301888749357ff09bcab72f13e0c0037b91b721192d993edfe9b4",
+    "research/google-gs101/gs101.dtsi": "e011f55a740190ad5ffb29f27b7a00daef97e9c8400bc67799ea887cd25aaf87",
+    "research/google-gs101/gs101-pmic.dtsi": "ad1fca6b34f6e75ab880dc2fbdf1beb63831b2ee60b3cf9dd82634751ec462f5",
+    "research/google-gs101/gs101-fts-touch.dtsi": "d27ad0b4579ac94b5650d7a78a6799ec6781195a59a9993ce88d65b25eae59a9",
+    "research/google-gs101/gs101-common-touch.dtsi": "a3b6c75ada052e5945422269376b4a561e4d7bcc42a75d34ea5a81b69a93bac2",
+    "research/ios-sweet-pinned/tools/mkadt.py": "fe5e2f34fdd7c94358a8c1d89bbff3cd8529a3ba0d16df13a025730c3cf35571",
+    "research/ios-sweet-pinned/tools/sweet-root-tweaks.py": "d604e9fd74f8344b87a351cf573346f4b8d2a3f73e9b3948cb720abcefd56398",
+    "research/ios-sweet-pinned/tools/mkiosroot.sh": "b1b28a8ca69e572452872e0622f441c0cee170ddf94e51f6a8709adcb53e8655",
+    "research/ios-sweet-pinned/tools/mkpayload.py": "b85e1b50cfa73102b0d2c04e133f8f63b5a7f1e85b9b0cf4fbfbb24d47782936"
+  }
+}
