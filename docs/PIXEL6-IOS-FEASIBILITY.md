@@ -4,29 +4,29 @@
 
 **建议：立项做分阶段移植验证，首个产品目标限定为“原生启动 iOS 16、触摸操作主屏和少量系统应用”。选择 iPhone X 的 iOS 16.7.16（20H392）用户态，配合现有项目的 XNU 8796.141.3 补丁栈。当前证据支持尝试，尚不能承诺这台 Pixel 6 能启动到 GUI，更不能承诺日常使用。**
 
-证据分四类：**本机实测**（ADB、fastboot 与裸机 USB 日志）、**上游报告**（维护者在 Pixel 6a 上的结果，本轮未独立复现）、**源码事实**（固定版本的代码/设备树）、**工程判断**（据此提出的开发路线）。四类不能互相替代。初始调研之后，已两次通过 `fastboot boot` 启动本地审查过的 oriole 只读探测镜像，收到 USB 日志并自动回到 Android。尚未刷写分区或在本机运行 XNU/iOS。开发过程与实测记录见 [ACTIVE-WORK.md](ACTIVE-WORK.md)。
+证据分四类：**本机实测**（ADB、fastboot 与裸机 USB 日志）、**上游报告**（维护者在 Pixel 6a 上的结果，本轮未独立复现）、**源码事实**（固定版本的代码/设备树）、**工程判断**（据此提出的开发路线）。四类不能互相替代。初始调研之后，已四次通过 `fastboot boot` 启动本地审查过的 oriole 只读探测镜像，收到 USB 日志并自动回到 Android。实验未执行分区刷写；加载器已在真机完成 XNU 段复制与启动参数构造，但尚未获得本机 XNU/iOS 执行证据。期间 Android 自行完成 OTA，当前版本与最初采集不同。开发过程与实测记录见 [ACTIVE-WORK.md](ACTIVE-WORK.md)。
 
 **1. 已连接设备的实际条件**
 
 | 项目 | 本机实测结果 | 对开发的意义 |
 |---|---|---|
 | 产品 / 平台 | Pixel 6，`oriole`，`gs101`，SKU `GB7N6` | 是所讨论的 Tensor G1 目标 |
-| Android | 17，`CP2A.260705.006/15641320`，安全补丁 2026-07-05 | 不应降级 Android/Bootloader 来追参考项目 |
-| Bootloader | `slider-17.0-15199431` | 与参考 6a 的 `bluejay-16.3-13642543` 不同，需要重新验证交接行为 |
+| Android | 17，`CP3A.261005.002.A1/16269273`，安全补丁 2026-10-05 | 不应降级 Android/Bootloader 来追参考项目 |
+| Bootloader | `slider-17.0-15681480` | 与参考 6a 的 `bluejay-16.3-13642543` 不同，需要重新验证交接行为 |
 | 解锁状态 | `ro.boot.flash.locked=0`、`vbmeta.device_state=unlocked`、Verified Boot 为 `orange` | 已解锁；不需要为了本项目再执行一次解锁清数据 |
-| 活动槽位 | `_a` | 只作记录，本轮不切换槽位 |
+| 活动槽位 | `_b` | Android OTA 后切换；实验没有发出切槽命令 |
 | CPU | 4 × A55（part d05）、2 × A76（d0b）、2 × X1（d44） | 与参考 Tensor G1 核心配置一致 |
 | CPU features | 没有报告 `paca` / `pacg` | 不应以 arm64e iPhone 用户态作为第一阶段目标；还需裸机逐核 ID 寄存器确认 |
 | 内存 | 裸机 live FDT：`0x80000000`、`0x880000000`、`0x900000000`、`0x980000000`，每段 `0x80000000`（2 GiB） | 低地址区有大量保留区域；后续 XNU 应从已验证的高地址区选择连续范围 |
 | 屏幕 | `wm size` 返回 `1080x2400` | 与 6a 相同的物理像素尺寸；尚不证明 Bootloader framebuffer 的地址/步长 |
-| 内核 | `6.1.157-android14-11-gbd23337e42e7-ab14791245` | 是当前固件内核标识；其中 android14 字样不等于手机运行 Android 14 |
+| 内核 | `6.1.157-android14-11-gbd23337e42e7-ab14791245` | 这是初始 CP2A 固件的记录；不是新版 CP3A 的内核证明 |
 | 设备树目录 | 能看到 `memory@80000000`、`memory@880000000`、`memory@900000000`、`memory@980000000` 等节点名 | 高内存确实有额外节点，不能原样复制 6a 的 6 GB 表 |
-| 读取权限 | 普通 shell；DT 属性、`/proc/partitions`、块设备尺寸等被拒绝 | 还没有得到可用于启动的完整内存/GPT/DMA 参数 |
+| 读取权限 | Android 普通 shell 的 DT/块设备读取被拒绝；改用临时裸机探测 | 已测 live FDT、显示寄存器、高地址 UFS DMA 和 GPT；仍保留每次启动的运行时检查 |
 | 存储路径 | `userdata -> /dev/block/sda27`，存在 `persist`、`efs`、`efs_backup` 等 | 只确认命名与链接，不代表已知分区大小或已完成备份 |
 
 原始选定信息保存于本地忽略目录 `private/device-facts.json`，采集器为 `tools/inspect_pixel6.py`。采集器只接受单个已授权的 `oriole`，不会自动重启、提权或写设备；不会保存设备序列号。权限不足明确记录为未知，不把失败读取当成硬件值。
 
-本轮系统属性读取能证明 Bootloader 已解锁，但还没有在 fastboot 模式实测 `getvar product/unlocked`、临时启动镜像兼容性及复位路径。
+本机 fastboot 已实测 `product: oriole`、`unlocked: yes`。初始 CP2A 位于槽 a；后续 Android OTA 完成后，已重新采集当前 CP3A / 新 Bootloader / 槽 b。早期实验没有逐次记录固件与槽位，不能精确断定 OTA 发生在哪次启动之间。新增主机门禁严格核对 Bootloader、活动槽、该槽分区大小及获准实验类型；版本变化拒绝启动，不能自动继承旧版测量结论。
 
 **2. 现有成果到底能提供多少帮助**
 
@@ -55,12 +55,12 @@ GitHub API 显示两套项目近期都有成功 CI：PixeliOS 的 [39906729708](
 | 子系统 | 已查到的事实 | 方案与待验证点 |
 |---|---|---|
 | CPU、GIC、timer、PSCI | 同为 GS101；本机核型号与上游配置匹配 | 优先复用 SoC 代码，先 `cpus=1`，再 4、8；逐核验证 feature/中断，不先做 DVFS |
-| 内存 | 本机 8 GB 级，参考机 6 GB；DT 属性未读到 | 从当前固件 DTB 和启动时 live FDT 取 banks、reserved-memory、memreserve；选经过验证的连续高内存子集，无须第一天用完 8 GB |
-| 显示 | [Linux 主线 oriole DTS](https://github.com/torvalds/linux/blob/master/arch/arm64/boot/dts/exynos/google/gs101-oriole.dts) 给出 `0xfac00000`、1080×2400、stride 4320、`a8r8g8b8` | 与 6a 默认表相同，是很强的候选值；仍须验证当前 ABL handoff、DECON/DSIM、保留区，不能当成本机测量 |
+| 内存 | 本机 live FDT 已测四段各 2 GiB，参考机 6 GB | 从当前固件 DTB 和启动时 live FDT 取 banks、reserved-memory、memreserve；选经过验证的连续高内存子集，无须第一天用完 8 GB |
+| 显示 | [Linux 主线 oriole DTS](https://github.com/torvalds/linux/blob/master/arch/arm64/boot/dts/exynos/google/gs101-oriole.dts) 给出 `0xfac00000`、1080×2400、stride 4320、`a8r8g8b8` | 本机 RDMA0 与 shadow 实测 Y8=0xfac00000、1080×2400、自然步长4320；尚待实际清屏/绘制验证 |
 | 面板 | Google oriole 树列出 `samsung,s6e3fc3`，以及备选 `s6e3hc2-fhd` | 第一阶段借用 Bootloader 已点亮的面板；不先写完整面板驱动、不追 90 Hz |
 | 触摸 | Google oriole DTS 指定 ST FTM5，ID `36 48`，坐标 1079×2399；继承共用 FTS/SPI 配置 | 推翻“Pixel 6 大概率触摸芯片不同”的旧假设。优先复用 FTM5；确认本机固件、SPI/AP-AOC 所有权、reset、IRQ、rail，再读 ID/FIFO |
 | 触摸接线/供电 | Google 共用树给出 SPI11、gpp23、gpp26、gpa9、LDO25M/LDO26M；oriole 固件名为 `ftm5_fw_o6.ftb` | 不拿 6a 固件刷触摸芯片；初期不更新触控固件，先使用其既有固件 |
-| UFS | 同一 SoC 的驱动实现已经处理 Exynos 的 PRDT/slot/OCS 差异；本机 userdata 链接为 sda27 | 复用 cold-init 与 block driver，但每台设备重新读 GPT、LUN、block size、边界与 DMA 可达性 |
+| UFS | 同一 SoC 的驱动实现已经处理 Exynos 的 PRDT/slot/OCS 差异；本机 userdata 链接为 sda27 | 本机已实测 cold-init/HS-G4、高地址 DMA、LUN0 4096-byte blocks；GPT header/entries CRC 与 userdata 容量校验通过 |
 | USB | GS101 DWC3 路径已有实现 | USB DMA pool 必须从当前 live FDT/控制器状态确认；不能只因存在 `abl@f8800000` 节点名就复制 16 MiB 长度 |
 | Wi-Fi / GPU | 有上游早期进展 | 不列入第一次主屏演示的依赖；等本机基本启动稳定再逐项引入 |
 | 电池、热、充电、休眠 | 上游不完整 | 初期短时、保守频率运行；先建立温度/供电记录，再谈长时间或性能测试 |
@@ -138,7 +138,7 @@ flowchart LR
 
 建议第一轮投入只交付以下四项，暂不把 rootfs 刷机作为任务完成条件：
 
-1. **oriole 配置与证据表**：每个常量附来源、固件版本、`source_candidate` / `measured` 状态；未测的 `dram_banks`、`xnu_ram`、USB DMA 和 GPT 不得用 6a 值冒充。优先从与 CP2A.260705.006 匹配的官方镜像离线取 DTB/DTBO，再与 live FDT 对照。
+1. **oriole 配置与证据表**：每个常量附来源、固件版本、`source_candidate` / `measured` 状态；未测的 `dram_banks`、`xnu_ram`、USB DMA 和 GPT 不得用 6a 值冒充。已读取初始 vendor_boot_a 与新版 vendor_boot_b；仍须以当前固件的 live FDT 校验运行时范围。
 2. **构建链贯穿目标参数**：修正 mkpayload、build-xnu-image、phone-state/测试入口；用图像 metadata 绑定 board、commit、boot args、源配置哈希。构建输出不能让 bluejay/oriole 互相覆盖。
 3. **最小 inventory 镜像**：先移除默认 full-probe 中不必要的 UFS/SMP/电源试验；地址未确认时支持不绘屏并通过可验证的日志路径报告。没有可信 DMA scratch 区时不启用 USB gadget DMA。
 4. **一次受控的临时启动记录**：加载经过主机检查的 oriole 镜像，抓取 FDT/CPU/启动状态，返回 Android。之后才把探测结果转成可启动板表，并评估 G3。
@@ -146,6 +146,8 @@ flowchart LR
 上述工作完成后，最有价值的继续/停止判断是：“当前 Bootloader 是否接受我们准备的临时镜像，能否得到可信 live FDT 与日志，XNU 是否到达 waiting-for-root”。在这个判断前承诺 GUI 工期或成功百分比都缺乏依据。
 
 **8. 开发环境与工作量边界**
+
+以下首段是初次调研时的环境。后续已补齐交叉工具链、QEMU、官方 IPSW、参考 XNU 构建，以及隔离 Debian ARM64 VM；16 GiB 根镜像已构建并通过离线检查。
 
 本机是 Apple Silicon Mac，装有 Xcode/Apple clang 21、`gh`，本轮已在项目内放置官方 Platform Tools 37.0.1。检查时未发现 Docker、qemu-system-aarch64 或 AArch64 GCC；磁盘可用约 110 GiB。没有为本轮下载完整 IPSW、安装 VM 或启动内核构建。
 
@@ -159,21 +161,27 @@ flowchart LR
 
 **9. 能得到什么，以及明确的退出条件**
 
-第一阶段成功应定义为：本机原生执行补丁 XNU 与 iPhone X 用户态；能重复进入锁屏/主屏；实际触摸可用；能进入少量系统应用并返回；每次都能回到 fastboot。它不意味着所有 Apple 系统服务、应用安装、账号、网络或硬件都工作。
+第一阶段成功应定义为：本机原生执行补丁 XNU 与 iPhone X 用户态；能重复进入锁屏/主屏；实际触摸可用；能进入少量系统应用并返回；每次都能恢复到 Android 或 fastboot。它不意味着所有 Apple 系统服务、应用安装、账号、网络或硬件都工作。
 
 现有方案使用平台服务替身和降低安全约束的兼容补丁。SEP、Face ID/指纹、Apple Pay、DRM/App Store 完整链路、OTA、相机、蜂窝及正常休眠均不能从“主屏出现”推出。初期按离线研究设备使用，不引入真实 Apple ID 或个人数据作为验收依赖。
 
 出现以下情况应暂停对应阶段：没有可验证的恢复路径；临时镜像无法运行且解决方案要求写 bootloader/GPT/vbmeta；只能依赖无法确认的内存/DMA 地址；存储边界不明确；出现热/供电异常；写路径无法证明限制在目标 userdata。暂停的目的是缩小未知，不是通过降低 gate 获得一次偶然启动。
 
-恢复应遵循 [Google 官方 factory image 说明](https://developers.google.com/android/images) 与实际版本的防回滚要求。本轮未完成与本机 CP2A build 匹配的下载项及 SHA-256 核验，故不能承诺“随时必然可恢复”。不要将重新锁 Bootloader 当作调试动作；只有完全恢复兼容的原厂系统后才评估是否重锁。
+恢复应遵循 [Google 官方 factory image 说明](https://developers.google.com/android/images) 与实际版本的防回滚要求。本轮未完成与当前本机 CP3A build 匹配的下载项及 SHA-256 核验，故不能承诺“随时必然可恢复”。不要将重新锁 Bootloader 当作调试动作；只有完全恢复兼容的原厂系统后才评估是否重锁。
 
 **10. 当前交付与下一步**
 
 - 已完成：官方/项目资料核验、四个源码快照、Pixel 6 身份和解锁状态读取、CPU/显示基础信息、访问限制记录、源码级适配点和阶段验收设计。
-- 新增真机结果：oriole 探测镜像已两次临时启动成功，USB 日志已采回；live FDT 的四个 2 GiB 内存段与 16 MiB ABL 保留区已经实测。静态 vendor_boot DTB 的 ABL 大小为 32 MiB，与 live FDT 不同，运行时校验不可省略。
+- 新增真机结果：oriole 探测镜像已四次临时启动成功，USB 日志已采回；live FDT 的四个 2 GiB 内存段与 16 MiB ABL 保留区已经实测。静态 vendor_boot DTB 的 ABL 大小为 32 MiB，与 live FDT 不同，运行时校验不可省略。
 - 新增离线结果：iPhone X iOS 16.7.16 用户态的 16 GiB HFSX 根镜像在隔离 Linux VM 中构建完成，fsck 和 12 项离线检查通过；不代表 XNU 已能挂载或启动 GUI。
-- 尚未完成：GPT LBA 边界、有效 framebuffer 的真机验证，以及任何 XNU 或 iOS 真机运行。
-- 下一步：先用只读 RDMA 配置探测确认显示交接，再尝试单核、不访问 UFS 的 XNU 临时启动。匹配原厂恢复材料仍需补齐。**现在不需要清 userdata，也不需要为了调研把手机降级或重新解锁。**
+- 新增存储实测（5332b32）：UFS high-DMA 0x880100000，userdata LBA0x22f1e6..0x1dc03fa，块长4096，容量0x1b91215000，与 fastboot 匹配；最终 doorbell/runstop 均0。没有媒体写入。
+- 显示寄存器已测得 framebuffer 地址与几何参数；加载器日志证明清屏/绘制与 DECON 写入后能继续执行，实际屏幕可见内容尚未观察。
+- 最小 RAM-only XNU 载荷已在 QEMU 启动 PID1，并完成三次等待系统调用；随后因 QEMU 没有板级 reset 实现而在重启路径 panic。真机 XNU 与完整 iOS 仍未验证，不能把模拟器结果视为本机成功。
+- 第一次真机 RAM-only XNU 尝试（a181884）：21项完整检查与独立复核通过，fastboot 接受临时镜像；未取得加载器 USB 故障日志，之后 Android 已重新上线，报告 watchdog,apc,early。该 bootreason 不能区分正常复位 fallback 与异常，也不能证明 XNU/PID1 已成功。
+- 新增加载器实测（9181290）：11段复制、启动参数构造与跳转地址计算完成，主动返回后 USB 收到592字节日志，手机回到 Android；这不包含 XNU 执行。耗时与约一分钟 MMU-off 显示/复制、30秒USB窗口及Android启动一致，watchdog原因可能来自正常复位fallback。
+- 新增复位实验（a2687bc）：USB 日志直接证明模式 SMC 返回 0、SYSIP 读回 0xfc；SWRESET 后手机仍进入 Android，未进入 fastboot。完整返回 Bootloader 路径未验证，不能拿这个结果作为 XNU 成功标记。
+- 新版 CP3A 再验证：仅开放基础 inventory，fastboot 接受镜像；USB 收到完整报告，内存与日志路径再次可用；随后确认 Android 启动完成（sys.boot_completed=1）。显示/UFS/XNU 尚未在这个新基线上重验。
+- 下一步：建立 XNU 入口后的直接观测（优先早期 framebuffer 标记/入口日志，取得可用的屏幕观察或独立日志通道）；不能以沉默或重启耗时推断成功。之后才接入完整用户态。匹配原厂恢复材料仍需补齐。**当前 RAM-only 验证不需要清 userdata，也不需要降级或重新解锁。**
 
 本轮可重复的只读采集命令（在仓库根目录执行）：
 

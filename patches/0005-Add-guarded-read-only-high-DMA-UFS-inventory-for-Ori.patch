@@ -1,0 +1,901 @@
+From 5332b32174dd03f478189bc196ff105d7e5b1730 Mon Sep 17 00:00:00 2001
+From: Everett <everettjf@live.com>
+Date: Sat, 24 Oct 2026 13:52:46 -0700
+Subject: [PATCH 5/6] Add guarded read-only high-DMA UFS inventory for Oriole
+
+---
+ device/google/oriole/README.md                |  22 ++-
+ device/google/oriole/board.json               |  22 ++-
+ .../oriole/hardware/display-2026-10-24.txt    | 107 ++++++++++++
+ shim/build.sh                                 |   8 +
+ shim/shim.c                                   |  57 ++++++-
+ shim/ufs.c                                    | 159 ++++++++++++++++--
+ shim/ufs.h                                    |   5 +
+ shim/ufsinventory_gpt.h                       |  57 +++++++
+ shim/ufsinventory_guard.h                     |  29 ++++
+ soc/google/gs101/docs/oriole-ufs-inventory.md |  42 +++++
+ tools/boards.py                               |   5 +
+ tools/test_oriole_inventory.py                |  10 +-
+ tools/test_ufs_inventory.py                   | 112 ++++++++++++
+ 13 files changed, 609 insertions(+), 26 deletions(-)
+ create mode 100644 device/google/oriole/hardware/display-2026-10-24.txt
+ create mode 100644 shim/ufsinventory_gpt.h
+ create mode 100644 shim/ufsinventory_guard.h
+ create mode 100644 soc/google/gs101/docs/oriole-ufs-inventory.md
+ create mode 100644 tools/test_ufs_inventory.py
+
+diff --git a/device/google/oriole/README.md b/device/google/oriole/README.md
+index 3c0c643..ea8c82e 100644
+--- a/device/google/oriole/README.md
++++ b/device/google/oriole/README.md
+@@ -7,14 +7,28 @@ The device is GS101 with an unlocked slider-17.0-15199431 bootloader and Android
+ declares abl@f8800000 with size 0x2000000 (32 MiB). No device identifiers or
+ firmware are committed.
+ 
+-Only `shim/build.sh --board oriole --inventory --avb` is accepted. This mode
+-uses RAM/USB logging, no framebuffer/UART, no pstore, no storage, and no
++`--inventory` and opt-in `--inventory-display` collect read-only observations. These modes
++use RAM/USB logging, no framebuffer/UART, no pstore, no storage, and no
+ secondary CPU, PMIC, touch, GPU, WLAN or DVFS experiments. USB must reuse the
+ live ABL event-buffer reservation and the existing overlap checks; a fixed
+ high-DMA override is rejected. Default USB window: 30 seconds, maximum: 60.
+ 
+ The source-candidate framebuffer/touch fields support the existing host
+-fixtures and are not enabled by inventory. Four 2 GiB DRAM banks and a 16 MiB live ABL reservation were measured (hardware/inventory-2026-10-24.txt). Static vendor_boot declares 32 MiB, so the live checks are essential. XNU RAM remains deliberately unconfigured until framebuffer measurement.
++fixtures and are not enabled by inventory. Four 2 GiB DRAM banks and a 16 MiB live ABL reservation were measured (hardware/inventory-2026-10-24.txt). Static vendor_boot declares 32 MiB, so the live checks are essential. RDMA0 and shadow now confirm the framebuffer source candidate at 0xfac00000,1080x2400. The first high2GiB bank is selected for the next single-core XNU probe.
+ 
+ Reviewed independently with no remaining blocking source findings; negative
+-gate tests are in tools/test_oriole_inventory.py. The next opt-in --inventory-display reader samples RDMA configuration only, without writes or clock changes; see soc/google/gs101/docs/display-inventory.md. Its hardware result is pending.
++gate tests are in tools/test_oriole_inventory.py. The next opt-in --inventory-display reader samples RDMA configuration only, without writes or clock changes; see soc/google/gs101/docs/display-inventory.md. All96 RDMA reads succeeded; see hardware/display-2026-10-24.txt.
++
++
++XNU remains gated off pending storage/DMA bring-up. No XNU image has booted.
++
++
++--inventory-ufs is the next, UNVERIFIED hardware stage. It uses a fixed,
++live-map-validated128KiB scratch allocation at0x880100000 in the first high
++bank. Existing GS101 cold-init writes only volatile controller/PHY state;
++existing doorbell allowlist still rejects every media-writing command.
++The legacy vendor/PHY survey is skipped. Capacity and CRC-validated GPT
++metadata are read; userdata contents are not dumped. No arbitrary DMA,
++reset-mode or peripheral overrides are accepted. A synchronous panic emits
++the RAM log through the bounded gadget and resets, without pstore/pager.
++See soc/google/gs101/docs/oriole-ufs-inventory.md. XNU remains disabled.
+diff --git a/device/google/oriole/board.json b/device/google/oriole/board.json
+index 7db2c5b..ed5ab65 100644
+--- a/device/google/oriole/board.json
++++ b/device/google/oriole/board.json
+@@ -2,7 +2,7 @@
+   "name": "Pixel 6",
+   "codename": "oriole",
+   "soc": "google/gs101",
+-  "status": "inventory-only; XNU memory unmeasured",
++  "status": "inventory; XNU still gated",
+   "dram_banks": [
+     [
+       "0x80000000",
+@@ -32,12 +32,15 @@
+     "0x1000000"
+   ],
+   "notes": {
+-    "dram_banks": "OBSERVED ON HARDWARE 2026-10-24, 89404f4, hardware/inventory-2026-10-24.txt; four 2 GiB banks. XNU RAM remains unset until display measurement.",
+-    "framebuffer": "SOURCE CANDIDATE from Linux gs101-oriole.dts; inventory never writes the framebuffer or DECON.",
++    "dram_banks": "OBSERVED ON HARDWARE 2026-10-24, 89404f4, hardware/inventory-2026-10-24.txt; four 2 GiB banks. First high bank selected for XNU probe.",
++    "framebuffer": "OBSERVED ON HARDWARE 2026-10-24: RDMA0 and shadow Y8=0xfac00000, SRC_SIZE/IMG_SIZE=0x09600438 (1080x2400), SRC_OFFSET=0, format0 (BGRA8888 in Google header), explicit stride selectors0 (natural1080*4). Matches Linux oriole simplefb source candidate. Display output still unverified until first write.",
+     "uart_base": "Disabled intentionally in the first inventory image; not a physical UART address.",
+     "usb_dma_range": "OBSERVED ON HARDWARE 2026-10-24: live FDT abl@f8800000 is 16 MiB, unlike static vendor_boot DTB 32 MiB. USB pool 0xf8d1b000. Runtime still independently validates live FDT/GEVNTADR and overlap checks.",
+     "userdata_mib": "NOT CONFIGURED. Fastboot reports byte size 0x1b91215000; GPT LBA bounds not yet measured. Inventory does not access storage.",
+-    "touch": "SOURCE-CANDIDATE only: Google raviole gs101-oriole-touch.dtsi and gs101 common FTS/SPI tree specify FTM5 ID 36 48, 1079x2399, SPI11/gpp23/gpp26/gpa9. Fields are present for existing host fixtures; --inventory neither links nor calls touch/ACPM code. No touch writes have been enabled or tested on this phone."
++    "touch": "SOURCE-CANDIDATE only: Google raviole gs101-oriole-touch.dtsi and gs101 common FTS/SPI tree specify FTM5 ID 36 48, 1079x2399, SPI11/gpp23/gpp26/gpa9. Fields are present for existing host fixtures; --inventory neither links nor calls touch/ACPM code. No touch writes have been enabled or tested on this phone.",
++    "xnu_ram": "OBSERVED DRAM range in inventory-2026-10-24.txt; first high 2 GiB bank only. Captured reservations are below4GiB. Conservative single-bank subset; 32MiB aligned. Other4GiB high RAM unused for first probe.",
++    "ufs_inventory_window": "SOFTWARE ALLOCATION inside the measured first high2GiB bank, for isolated UFS DMA proof only. Reset before any XNU load; never assumed free without live map/overlap checks. Layout: UTRL+0, UCD+0x1000, 8KiB data+0x4000,16KiB GPT entries+0x10000. No arbitrary DMA override.",
++    "ufs_inventory_userdata_bytes": "OBSERVED via serial-specific fastboot getvar partition-size:userdata on2026-10-24. Require CRC-validated GPT size to match before reporting usable bounds."
+   },
+   "touch_chip_id": [
+     "0x36",
+@@ -77,5 +80,14 @@
+   "touch_pin_mux": [
+     "gpp26",
+     1
+-  ]
++  ],
++  "xnu_ram": [
++    "0x880000000",
++    "0x80000000"
++  ],
++  "ufs_inventory_window": [
++    "0x880100000",
++    "0x20000"
++  ],
++  "ufs_inventory_userdata_bytes": "0x1b91215000"
+ }
+diff --git a/device/google/oriole/hardware/display-2026-10-24.txt b/device/google/oriole/hardware/display-2026-10-24.txt
+new file mode 100644
+index 0000000..71ca019
+--- /dev/null
++++ b/device/google/oriole/hardware/display-2026-10-24.txt
+@@ -0,0 +1,107 @@
++OBSERVED ON HARDWARE2026-10-24,5b5dd7a; imageSHA25635c27659cc62e7f2dfaa98cb6c32bc939439f0e00bf930844f49593e72d6afde
++INVENTORY oriole: headless, no storage access
++USB gadget pool 00000000F8D1B000
++DISPLAY inventory read only; no clocks or triggers changed
++RDMA channel 0000000000000000
++RDMA address=1C0B0000 value=40000000
++RDMA address=1C0B0008 value=FF400000
++RDMA address=1C0B0010 value=09600438
++RDMA address=1C0B0014 value=00000000
++RDMA address=1C0B0018 value=09600438
++RDMA address=1C0B0040 value=FAC00000
++RDMA address=1C0B0050 value=00000000
++RDMA address=1C0B0054 value=00000000
++RDMA address=1C0B0400 value=40000000
++RDMA address=1C0B0408 value=FF400000
++RDMA address=1C0B0410 value=09600438
++RDMA address=1C0B0414 value=00000000
++RDMA address=1C0B0418 value=09600438
++RDMA address=1C0B0440 value=FAC00000
++RDMA address=1C0B0450 value=00000000
++RDMA address=1C0B0454 value=00000000
++RDMA channel 0000000000000001
++RDMA address=1C0B1000 value=40000000
++RDMA address=1C0B1008 value=00400000
++RDMA address=1C0B1010 value=00000000
++RDMA address=1C0B1014 value=00000000
++RDMA address=1C0B1018 value=00000000
++RDMA address=1C0B1040 value=00000000
++RDMA address=1C0B1050 value=00000000
++RDMA address=1C0B1054 value=00000000
++RDMA address=1C0B1400 value=00000000
++RDMA address=1C0B1408 value=00000000
++RDMA address=1C0B1410 value=00000000
++RDMA address=1C0B1414 value=00000000
++RDMA address=1C0B1418 value=00000000
++RDMA address=1C0B1440 value=00000000
++RDMA address=1C0B1450 value=00000000
++RDMA address=1C0B1454 value=00000000
++RDMA channel 0000000000000002
++RDMA address=1C0B2000 value=40000000
++RDMA address=1C0B2008 value=00400000
++RDMA address=1C0B2010 value=00000000
++RDMA address=1C0B2014 value=00000000
++RDMA address=1C0B2018 value=00000000
++RDMA address=1C0B2040 value=00000000
++RDMA address=1C0B2050 value=00000000
++RDMA address=1C0B2054 value=00000000
++RDMA address=1C0B2400 value=00000000
++RDMA address=1C0B2408 value=00000000
++RDMA address=1C0B2410 value=00000000
++RDMA address=1C0B2414 value=00000000
++RDMA address=1C0B2418 value=00000000
++RDMA address=1C0B2440 value=00000000
++RDMA address=1C0B2450 value=00000000
++RDMA address=1C0B2454 value=00000000
++RDMA channel 0000000000000003
++RDMA address=1C0B3000 value=40000000
++RDMA address=1C0B3008 value=00400000
++RDMA address=1C0B3010 value=00000000
++RDMA address=1C0B3014 value=00000000
++RDMA address=1C0B3018 value=00000000
++RDMA address=1C0B3040 value=00000000
++RDMA address=1C0B3050 value=00000000
++RDMA address=1C0B3054 value=00000000
++RDMA address=1C0B3400 value=00000000
++RDMA address=1C0B3408 value=00000000
++RDMA address=1C0B3410 value=00000000
++RDMA address=1C0B3414 value=00000000
++RDMA address=1C0B3418 value=00000000
++RDMA address=1C0B3440 value=00000000
++RDMA address=1C0B3450 value=00000000
++RDMA address=1C0B3454 value=00000000
++RDMA channel 0000000000000004
++RDMA address=1C0B4000 value=40000000
++RDMA address=1C0B4008 value=00400000
++RDMA address=1C0B4010 value=00000000
++RDMA address=1C0B4014 value=00000000
++RDMA address=1C0B4018 value=00000000
++RDMA address=1C0B4040 value=00000000
++RDMA address=1C0B4050 value=00000000
++RDMA address=1C0B4054 value=00000000
++RDMA address=1C0B4400 value=00000000
++RDMA address=1C0B4408 value=00000000
++RDMA address=1C0B4410 value=00000000
++RDMA address=1C0B4414 value=00000000
++RDMA address=1C0B4418 value=00000000
++RDMA address=1C0B4440 value=00000000
++RDMA address=1C0B4450 value=00000000
++RDMA address=1C0B4454 value=00000000
++RDMA channel 0000000000000005
++RDMA address=1C0B5000 value=40000000
++RDMA address=1C0B5008 value=00400000
++RDMA address=1C0B5010 value=00000000
++RDMA address=1C0B5014 value=00000000
++RDMA address=1C0B5018 value=00000000
++RDMA address=1C0B5040 value=00000000
++RDMA address=1C0B5050 value=00000000
++RDMA address=1C0B5054 value=00000000
++RDMA address=1C0B5400 value=00000000
++RDMA address=1C0B5408 value=00000000
++RDMA address=1C0B5410 value=00000000
++RDMA address=1C0B5414 value=00000000
++RDMA address=1C0B5418 value=00000000
++RDMA address=1C0B5440 value=00000000
++RDMA address=1C0B5450 value=00000000
++RDMA address=1C0B5454 value=00000000
++INVENTORY report complete
+diff --git a/shim/build.sh b/shim/build.sh
+index accc816..47b4f1f 100755
+--- a/shim/build.sh
++++ b/shim/build.sh
+@@ -32,10 +32,12 @@ touch_dvfs=0
+ dvfs_khz=
+ inventory=0
+ inventory_display=0
++inventory_ufs=0
+ while [ "$#" -gt 0 ]; do
+ 	case "$1" in
+ 		--board) board="$2"; shift 2 ;;
+ 		--inventory) inventory=1; usb_gadget=1; shift ;;
++		--inventory-ufs) inventory=1; inventory_ufs=1; usb_gadget=1; shift ;;
+ 		--inventory-display) inventory=1; inventory_display=1; usb_gadget=1; shift ;;
+ 		--avb) avb=1; shift ;;
+ 		--pstore-fast) pstore_fast=1; shift ;;
+@@ -73,6 +75,11 @@ gs101=0; [ "$soc" = google/gs101 ] && gs101=1
+ if [ "$board" = oriole ] && [ "$inventory" != 1 ]; then
+ 	echo "oriole is inventory-only until its live memory map is measured" >&2; exit 2
+ fi
++if [ "$inventory_ufs" = 1 ]; then
++    [ "$board:$inventory_display" = oriole:0 ] && [ -z "${UFS_DMA_HI_BASE:-}${UFS_ATTEMPTS:-}${XNU_UFS:-}${REBOOT_BL:-}" ] || {
++        echo "--inventory-ufs requires oriole and forbids overrides/display/reset experiments" >&2; exit 2;
++    }
++fi
+ if [ "$inventory" = 1 ]; then
+ 	[ "$gs101" = 1 ] || { echo "--inventory needs gs101" >&2; exit 2; }
+ 	[ -z "${USB_DMA_HI_BASE:-}" ] || { echo "--inventory requires the live ABL USB pool, no USB_DMA_HI_BASE" >&2; exit 2; }
+@@ -256,6 +263,7 @@ if [ "$qrlog" = 1 ]; then
+ 	# Log as looping QR codes on the final screens (tools/qr-log.py reads them). Not with --pstore-fast (no pager).
+ 	CFLAGS="$CFLAGS -DQRLOG -I../qrlog -I../qrlog/stubs"
+ fi
++[ "$inventory_ufs" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_UFS"
+ [ "$inventory_display" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_DISPLAY"
+ mkdir -p out
+ "$PYTHON" ../tools/boards.py "$board" out/board_config.h
+diff --git a/shim/shim.c b/shim/shim.c
+index 648b04b..b1ef9ff 100644
+--- a/shim/shim.c
++++ b/shim/shim.c
+@@ -87,6 +87,10 @@ static const uint64_t board_mpidrs[NR_CPUS] = {
+ };
+ #endif
+ 
++#ifdef INVENTORY
++static volatile uintptr_t inventory_dtb;
++static volatile unsigned inventory_panicking;
++#endif
+ static const char *stage;	/* set at runtime: no absolute pointers in data */
+ volatile uint64_t probe_entry_el;
+ static volatile uint32_t probe_guard, probe_fault;
+@@ -522,6 +526,7 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
+ 	stage = "bluejay probe";
+ 	struct wdt_state wdt_cl0 = {0}, wdt_cl1 = {0};
+ #ifdef INVENTORY
++    inventory_dtb = dtb;
+ 	/* Oriole first boot: use only the shim's RAM log and the existing,
+ 	 * live-FDT-validated USB pool. No framebuffer, pstore, UFS, secondary
+ 	 * CPUs, display trigger, touch, PMIC, DVFS, GPU or WLAN experiments.
+@@ -530,7 +535,11 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
+ 	con_set_video(0, 0, 0, 0);
+ 	disable_bluejay_watchdog(WDT_CL0_BASE, &wdt_cl0);
+ 	disable_bluejay_watchdog(WDT_CL1_BASE, &wdt_cl1);
+-	con_str("INVENTORY", "oriole: headless, no storage access");
++#ifdef INVENTORY_UFS
++    con_str("INVENTORY", "oriole: headless, media-read-only UFS/GPT");
++#else
++    con_str("INVENTORY", "oriole: headless, no storage access");
++#endif
+ 	con_hex("ENTRY EL", probe_entry_el);
+ 	con_hex("LIVE FDT", dtb);
+ 	report_bluejay_watchdog("WDT CL0", &wdt_cl0);
+@@ -538,7 +547,12 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
+ 	report_cpu(0);
+ 	fdt_probe_report(dtb);
+ #ifdef USB_GADGET
+-	usb_gadget_start(dtb);
++    usb_gadget_start(dtb);
++#ifdef INVENTORY_UFS
++    stage = "Oriole high-DMA UFS inventory";
++    test_ufs_bluejay(dtb);
++    if (!ufs_inventory_stop()) bluejay_reset_chain();
++#endif
+ #ifdef INVENTORY_DISPLAY
+ 	extern void gs101_display_inventory(void);
+ 	gs101_display_inventory();
+@@ -1028,8 +1042,30 @@ void exc_handler(uint64_t slot, uint64_t *regs)
+ 		}
+ 	}
+ #endif
+-	con_clear(BLUE);
+-	switch (slot & 3) {
++#ifdef INVENTORY
++    if (inventory_panicking) {
++        /* A fault in USB/logging must not re-enter that same hook from
++         * the reset chain's console calls. If even a reset SMC faults,
++         * use only the existing, guarded WDT fallback (no more SMCs). */
++        con_service_hook = 0;
++        usbg_on = 0;
++        con_set_video(0, 0, 0, 0);
++        if (inventory_panicking > 1) {
++            if (WDT_CL0_BASE) {
++                try_write32(WDT_CL0_BASE + 4, 1);
++                try_write32(WDT_CL0_BASE + 8, 1);
++                try_write32(WDT_CL0_BASE, (3U << 3) | (1U << 5) | 1U);
++            }
++            for (;;) __asm__ volatile("wfi");
++        }
++        inventory_panicking = 2;
++        bluejay_reset_chain();
++    }
++    inventory_panicking = 1;
++    con_set_video(0, 0, 0, 0);
++#endif
++    con_clear(BLUE);
++    switch (slot & 3) {
+ 	case 0: con_str("PANIC", "SYNC"); break;
+ 	case 1: con_str("PANIC", "IRQ"); break;
+ 	case 2: con_str("PANIC", "FIQ"); break;
+@@ -1048,8 +1084,17 @@ void exc_handler(uint64_t slot, uint64_t *regs)
+ 	 * the pstore copy survives even if the rest never runs. The panic
+ 	 * entry guards against recursion: a fault inside the save must not
+ 	 * re-enter it on this CPU. */
+-	pstore_panic_save();
+-	reset(40);
++#ifdef INVENTORY
++#ifdef INVENTORY_UFS
++    if (!ufs_inventory_stop()) bluejay_reset_chain();
++#endif
++    if (!usbg_on) usb_gadget_start(inventory_dtb);
++    usb_gadget_finish();
++    bluejay_reset_chain();
++#else
++    pstore_panic_save();
++    reset(40);
++#endif
+ }
+ 
+ /* ---- SMP ---- */
+diff --git a/shim/ufs.c b/shim/ufs.c
+index 04007c8..aee18a1 100644
+--- a/shim/ufs.c
++++ b/shim/ufs.c
+@@ -15,6 +15,10 @@
+ #include "ufs.h"
+ #include "ufsdiag.h"
+ #include "ufsinit.h"
++#ifdef INVENTORY_UFS
++#include "ufsinventory_guard.h"
++#include "ufsinventory_gpt.h"
++#endif
+ 
+ #ifndef UFS_BASE
+ #define UFS_BASE	0x01d84000UL
+@@ -521,6 +525,14 @@ static int ufs_takeover_list(const struct ufs_dma *dma, const char *label)
+ 		con_str(label, "UTRL base not accepted");
+ 		return 0;
+ 	}
++#ifdef INVENTORY_UFS
++    uint64_t ready_start=ticks();
++    while (!(ufs_rd(REG_HCS)&HCS_UTRLRDY)) {
++        if (ticks()-ready_start>counter_freq()/10) {
++            con_str(label,"UTRLRDY timeout after list start"); return 0;
++        }
++    }
++#endif
+ 	uint32_t stale = ufs_rd(REG_UTRLDBR);
+ 	if (stale) {
+ 		ufs_wr(REG_UTRLCLR, stale);	/* BROKEN_REQ_LIST_CLR: write 1 */
+@@ -807,32 +819,140 @@ static void report_placement(const char *what, uint64_t addr, uint64_t size,
+ 	con_str(what, flg);
+ }
+ 
++#ifdef INVENTORY_UFS
++static volatile unsigned inventory_controller_owned;
++int try_read32(uintptr_t address,uint32_t *value);
++int try_write32(uintptr_t address,uint32_t value);
++/* Same existing HCI registers/gs101 write-one clear semantics as
++ * ufs_slot_clear and ufs_takeover_list. No CDB or media command here. */
++int ufs_inventory_stop(void)
++{
++    if (!inventory_controller_owned) return 1;
++    uint32_t dbr=0,rsr=1; int cleared=0,stopped=0;
++    if (!try_read32(UFS_BASE+REG_UTRLDBR,&dbr)) return 0;
++    if (dbr && !try_write32(UFS_BASE+REG_UTRLCLR,dbr)) return 0;
++    for (uint64_t start=ticks(); ticks()-start<counter_freq();) {
++        if (!try_read32(UFS_BASE+REG_UTRLDBR,&dbr)) break;
++        if (!dbr) { cleared=1; break; }
++    }
++    /* Stop even when the doorbell could not be cleared. */
++    if (try_write32(UFS_BASE+REG_UTRLRSR,0)) {
++        for (uint64_t start=ticks(); ticks()-start<counter_freq();) {
++            if (!try_read32(UFS_BASE+REG_UTRLRSR,&rsr)) break;
++            if (!(rsr&1)) { stopped=1; break; }
++        }
++    }
++    __asm__ volatile("dsb sy" ::: "memory");
++    if (!try_read32(UFS_BASE+REG_UTRLDBR,&dbr) || dbr) cleared=0;
++    con_hex2("UFS INVENTORY stopped","dbr=",dbr,"rsr=",rsr);
++    if (cleared && stopped) { inventory_controller_owned=0; return 1; }
++    con_str("UFS INVENTORY","quiesce failed: reset immediately");
++    return 0;
++}
++static int inventory_window_ok(uintptr_t dtb)
++{
++    struct fdt_memmap mm;
++    if (!fdt_collect_memmap(dtb, &mm)) return 0;
++    extern char _head[], _end[], _stack_top[];
++    uint64_t lo=0, hi=0;
++    int haslo=fdt_chosen_u64(dtb,"linux,initrd-start",&lo);
++    int hashi=fdt_chosen_u64(dtb,"linux,initrd-end",&hi);
++    if (haslo!=hashi || (haslo && hi<lo)) return 0;
++    struct ufsi_avoid avoid[4];
++    avoid[0]=(struct ufsi_avoid){(uintptr_t)_head,(uintptr_t)_end-(uintptr_t)_head};
++    avoid[1]=(struct ufsi_avoid){(uintptr_t)_stack_top-0x8000,0x8000};
++    avoid[2]=(struct ufsi_avoid){dtb,be32((const uint8_t *)dtb+4)};
++    avoid[3]=(struct ufsi_avoid){lo,hi-lo};
++    /* The USB pool is inside a live ABL reservation, hence excluded by
++     * the complete reserved-range check even if its address changes. */
++    return ufsi_range_free(&mm,UFS_INVENTORY_BASE,UFS_INVENTORY_SIZE,avoid,4);
++}
++static void inventory_gpt(struct ufs_attempt *a)
++{
++    con_hex("UFS INVENTORY UTRL",(uintptr_t)a->dma.utrl);
++    con_hex("UFS INVENTORY UCD",(uintptr_t)a->dma.ucd);
++    con_hex("UFS INVENTORY data",(uintptr_t)a->dma.data);
++    con_hex("UFS INVENTORY entries",(uintptr_t)a->dma.entries);
++    uint32_t ocs,st,rt,rc=4;
++    const uint8_t cap10[10]={0x25};
++    for(unsigned tries=0; tries<3 && rc==4; tries++)
++        rc=upiu_submit(&a->dma,UPIU_COMMAND,0,cap10,sizeof cap10,SCSI_DIR_READ,
++            a->dma.data,8,a->dword_gran,&ocs,&st,&rt);
++    con_hex("UFS INVENTORY capacity rc",rc);
++    if(rc || be32(a->dma.data+4)!=BLOCK) return;
++    uint32_t capacity=be32(a->dma.data);
++    con_hex2("UFS INVENTORY capacity","last=",capacity,"block=",BLOCK);
++    if(read_blocks_dma(&a->dma,a->dword_gran,0,1,1,a->dma.data)) return;
++    struct ufsi_gpt g;
++    if(!ufsi_gpt_header(a->dma.data,capacity,&g)) {
++        con_str("UFS INVENTORY","GPT header refused"); return;
++    }
++    for(unsigned b=0;b<g.blocks;b++)
++        if(read_blocks_dma(&a->dma,a->dword_gran,0,(uint32_t)g.table+b,1,
++            a->dma.entries+b*BLOCK)) return;
++    uint64_t first=0,last=0;
++    if(!ufsi_gpt_userdata(a->dma.entries,&g,&first,&last) ||
++       (last-first+1)*BLOCK!=UFS_INVENTORY_USERDATA_BYTES) {
++        con_str("UFS INVENTORY","GPT entries/CRC/userdata size refused"); return;
++    }
++    con_hex2("UFS INVENTORY userdata","first=",(uint32_t)first,"last=",(uint32_t)last);
++    con_hex("UFS INVENTORY userdata bytes",(last-first+1)*BLOCK);
++    con_str("UFS INVENTORY","header/entry CRCs and capacity ranges PASS; no media writes");
++}
++#endif
++
+ void test_ufs_bluejay(uintptr_t dtb)
+ {
+ 	con_str("UFS", "GS101 read-only probe v2");
+-	con_str("UFS note", "timeout dumps IS/UTRD/UPIU");
+-	uint32_t cap = ufs_rd(REG_CAP), hcs = ufs_rd(REG_HCS), hce = ufs_rd(REG_HCE);
++    con_str("UFS note", "timeout dumps IS/UTRD/UPIU");
++#ifdef INVENTORY_UFS
++    /* Refuse before ANY cold-init writer or DMA doorbell. */
++    if (!inventory_window_ok(dtb)) {
++        con_str("UFS INVENTORY", "live DMA placement refused"); return;
++    }
++    con_hex("UFS INVENTORY high DMA", UFS_INVENTORY_BASE);
++    inventory_controller_owned=1;
++    if (ufs_cold_init()) {
++        con_str("UFS INVENTORY", "cold init failed"); return;
++    }
++#endif
++    uint32_t cap = ufs_rd(REG_CAP), hcs = ufs_rd(REG_HCS), hce = ufs_rd(REG_HCE);
+ 	con_hex2("UFS", "hce=", hce, "hcs=", hcs);
+ 	con_hex2("UFS", "cap=", cap, "ver=", ufs_rd(REG_VER));
+ 	con_hex2("UFS", "is=", ufs_rd(REG_IS), "ie=", ufs_rd(REG_IE));
+ 	con_hex2("UFS", "utrlba=", ufs_rd(REG_UTRLBA), "hi=", ufs_rd(REG_UTRLBAU));
+ 	con_hex2("UFS", "rsr=", ufs_rd(REG_UTRLRSR), "dbr=", ufs_rd(REG_UTRLDBR));
+ 	/* Read-only survey first (docs/research/07): what did ABL's shutdown leave? */
+-	ufs_vendor_diag();
++#ifndef INVENTORY_UFS
++    ufs_vendor_diag();
++#else
++    /* Avoid the legacy survey's potentially gated PHY reads and DME_GET. */
++    if (!(cap & (1u<<24))) {
++        con_str("UFS INVENTORY","64-bit DMA unsupported"); return;
++    }
++#endif
+ #if !UFS_ATTEMPTS
+ 	/* -DUFS_ATTEMPTS=0 reduces the probe to the read-only survey. */
+ 	return;
+ #endif
+-	if (!(hce & 1) || !(hcs & HCS_DP) || !(hcs & HCS_UTRLRDY)) {
++    /* GS101 UTRLRDY follows UTRLRSR (XNU patch0080). The takeover
++     * starts the list later; cold init promises only HCE and link-up. */
++    if (!(hce & 1) || !(hcs & HCS_DP)
++#ifndef INVENTORY_UFS
++        || !(hcs & HCS_UTRLRDY)
++#endif
++    ) {
+ 		con_str("UFS", "device absent or UTRL not ready");
+ 		return;
+ 	}
++#ifndef INVENTORY_UFS
+ 	/* ABL shut the device link down: cold re-init (shim/ufsinit.c) before touching the list. */
+ 	if (ufs_cold_init()) {
+-		con_str("UFS", "cold init failed");
+-		return;
+-	}
+-	/* Same takeover guard as v1: a doorbell left set by ABL would make
++        con_str("UFS", "cold init failed");
++        return;
++    }
++#endif
++    /* Same takeover guard as v1: a doorbell left set by ABL would make
+ 	 * the host fetch our zeroed slot 0 as soon as the list restarts. */
+ 	if (ufs_rd(REG_UTRLDBR)) {
+ 		con_str("UFS", "requests outstanding: stop");
+@@ -867,6 +987,21 @@ void test_ufs_bluejay(uintptr_t dtb)
+ 	own_dma.ucd = (struct ucd *)(uintptr_t)(UFS_DMA_HI_BASE + 0x1000);
+ 	own_dma.data = (uint8_t *)(uintptr_t)(UFS_DMA_HI_BASE + 0x4000);
+ 	own_dma.entries = (uint8_t *)(uintptr_t)(UFS_DMA_HI_BASE + 0x10000);
++#endif
++#ifdef INVENTORY_UFS
++    _Static_assert(sizeof utrl<=0x1000 && sizeof ucd<=0x3000 &&
++        sizeof data<=0xc000 && sizeof entries<=0x10000, "inventory DMA layout");
++    _Static_assert(UFS_INVENTORY_SIZE>=0x20000, "inventory DMA extent");
++    own_dma.utrl=(struct utrd *)(uintptr_t)UFS_INVENTORY_BASE;
++    own_dma.ucd=(struct ucd *)(uintptr_t)(UFS_INVENTORY_BASE+0x1000);
++    own_dma.data=(uint8_t *)(uintptr_t)(UFS_INVENTORY_BASE+0x4000);
++    own_dma.entries=(uint8_t *)(uintptr_t)(UFS_INVENTORY_BASE+0x10000);
++#endif
++#ifdef INVENTORY_UFS
++    con_hex("UFS INVENTORY UTRL",(uintptr_t)own_dma.utrl);
++    con_hex("UFS INVENTORY UCD",(uintptr_t)own_dma.ucd);
++    con_hex("UFS INVENTORY data",(uintptr_t)own_dma.data);
++    con_hex("UFS INVENTORY entries",(uintptr_t)own_dma.entries);
+ #endif
+ 	struct ufs_attempt attempts[1];
+ 	unsigned n = 0;
+@@ -874,8 +1009,12 @@ void test_ufs_bluejay(uintptr_t dtb)
+ 	ufs_attempt_init(&attempts[n++], "A1", "A1 byte-gran own/v1", &own_dma, 0);
+ 	for (unsigned i = 0; i < n; i++) {
+ 		if (ufs_run_attempt(&attempts[i])) {
+-			ufs_full_sequence(&attempts[i]);
+-			return;
++#ifdef INVENTORY_UFS
++            inventory_gpt(&attempts[i]);
++#else
++            ufs_full_sequence(&attempts[i]);
++#endif
++            return;
+ 		}
+ 	}
+ 	con_str("UFS", "no attempt completed; see dumps");
+diff --git a/shim/ufs.h b/shim/ufs.h
+index 5b65232..0c79ae8 100644
+--- a/shim/ufs.h
++++ b/shim/ufs.h
+@@ -14,3 +14,8 @@ int ufs_userdata_found(uint64_t *first, uint64_t *last);
+ uint32_t ufs_read_userdata(uint64_t lba, uint32_t nblocks, void *buf);
+ extern uint8_t ufs_udump_stage[UFS_UDUMP_STAGE_LEN];
+ #endif
++
++#ifdef INVENTORY_UFS
++/* Bounded read-list cleanup; returns0 to request immediate reset. */
++int ufs_inventory_stop(void);
++#endif
+diff --git a/shim/ufsinventory_gpt.h b/shim/ufsinventory_gpt.h
+new file mode 100644
+index 0000000..041eaf0
+--- /dev/null
++++ b/shim/ufsinventory_gpt.h
+@@ -0,0 +1,57 @@
++#pragma once
++#include <stdint.h>
++/* UEFI2.10 section5.3: GPT header/partition layout and IEEE CRC32.
++ * This experiment deliberately supports only 4KiB sectors and <=128 entries. */
++struct ufsi_gpt { uint64_t table, first, last; uint32_t count, crc, bytes, blocks; };
++static inline uint32_t ufsi_le32(const uint8_t *p)
++{ return (uint32_t)p[0] | (uint32_t)p[1]<<8 | (uint32_t)p[2]<<16 | (uint32_t)p[3]<<24; }
++static inline uint64_t ufsi_le64(const uint8_t *p)
++{ return ufsi_le32(p) | (uint64_t)ufsi_le32(p+4)<<32; }
++static inline uint32_t ufsi_crc(const uint8_t *p, unsigned n, int header)
++{
++    uint32_t crc=~0u;
++    for (unsigned i=0; i<n; i++) {
++        crc ^= header && i>=16 && i<20 ? 0 : p[i];
++        for (unsigned k=0; k<8; k++) crc=crc>>1 ^ (0xedb88320u & -(crc&1));
++    }
++    return ~crc;
++}
++static inline int ufsi_gpt_header(const uint8_t *p, uint32_t capacity_last, struct ufsi_gpt *g)
++{
++    const char sig[]="EFI PART";
++    for (unsigned i=0;i<8;i++) if(p[i]!=(uint8_t)sig[i]) return 0;
++    uint32_t hs=ufsi_le32(p+12);
++    if(ufsi_le32(p+8)!=0x10000 || hs<92 || hs>4096 || ufsi_le32(p+20) ||
++       ufsi_crc(p,hs,1)!=ufsi_le32(p+16) || ufsi_le64(p+24)!=1 ||
++       ufsi_le64(p+32)!=capacity_last) return 0;
++    g->first=ufsi_le64(p+40); g->last=ufsi_le64(p+48);
++    g->table=ufsi_le64(p+72); g->count=ufsi_le32(p+80); g->crc=ufsi_le32(p+88);
++    if(!g->count || g->count>128 || ufsi_le32(p+84)!=128 ||
++       g->first<2 || g->first>g->last || g->last>=capacity_last) return 0;
++    g->bytes=g->count*128; g->blocks=(g->bytes+4095)/4096;
++    return g->table>=2 && g->table<g->first && g->blocks<=g->first-g->table &&
++        g->blocks<=capacity_last-g->last-1;
++}
++static inline int ufsi_gpt_userdata(const uint8_t *p, const struct ufsi_gpt *g,
++    uint64_t *first, uint64_t *last)
++{
++    if(ufsi_crc(p,g->bytes,0)!=g->crc) return 0;
++    unsigned matches=0;
++    for(unsigned i=0;i<g->count;i++) {
++        const uint8_t *e=p+i*128; unsigned used=0;
++        for(unsigned j=0;j<16;j++) used|=e[j];
++        if(!used) continue;
++        uint64_t a=ufsi_le64(e+32), b=ufsi_le64(e+40);
++        if(a<g->first || a>b || b>g->last) return 0;
++        for(unsigned j=0;j<i;j++) {
++            const uint8_t *q=p+j*128; unsigned prior=0;
++            for(unsigned k=0;k<16;k++) prior|=q[k];
++            if(prior && a<=ufsi_le64(q+40) && ufsi_le64(q+32)<=b) return 0;
++        }
++        const char name[]="userdata"; unsigned match=1;
++        for(unsigned j=0;j<9;j++)
++            if(e[56+2*j]!=(uint8_t)name[j] || e[57+2*j]) match=0;
++        if(match) { *first=a; *last=b; matches++; }
++    }
++    return matches==1;
++}
+diff --git a/shim/ufsinventory_guard.h b/shim/ufsinventory_guard.h
+new file mode 100644
+index 0000000..496e109
+--- /dev/null
++++ b/shim/ufsinventory_guard.h
+@@ -0,0 +1,29 @@
++#pragma once
++#include <stdint.h>
++#include "fdt.h"
++
++struct ufsi_avoid { uint64_t base, size; };
++/* Pure range policy: no DMA until a complete live map proves this software
++ * scratch allocation lies in DRAM, outside every reservation and live object. */
++static inline int ufsi_range_free(const struct fdt_memmap *m, uint64_t base,
++    uint64_t size, const struct ufsi_avoid *avoid, unsigned n)
++{
++    if (!size || base + size < base || !m->n_banks || m->n_banks>FDT_MAX_BANKS ||
++        m->n_reserved>FDT_MAX_RESERVED || m->n_reserved_dropped)
++        return 0;
++    int bank = 0;
++    for (unsigned i=0; i<m->n_banks; i++) {
++        uint64_t b=m->banks[i].base, s=m->banks[i].size;
++        if (s && b+s>=b && base>=b && base+size<=b+s) bank=1;
++    }
++    if (!bank) return 0;
++    for (unsigned i=0; i<m->n_reserved; i++) {
++        uint64_t b=m->reserved[i].base, s=m->reserved[i].size;
++        if (s && (b+s<b || (base<b+s && b<base+size))) return 0;
++    }
++    for (unsigned i=0; i<n; i++) {
++        uint64_t b=avoid[i].base, s=avoid[i].size;
++        if (s && (b+s<b || (base<b+s && b<base+size))) return 0;
++    }
++    return 1;
++}
+diff --git a/soc/google/gs101/docs/oriole-ufs-inventory.md b/soc/google/gs101/docs/oriole-ufs-inventory.md
+new file mode 100644
+index 0000000..47a30f5
+--- /dev/null
++++ b/soc/google/gs101/docs/oriole-ufs-inventory.md
+@@ -0,0 +1,42 @@
++# Oriole UFS inventory — UNVERIFIED on hardware
++
++OBSERVED: inventory-2026-10-24.txt proves0x880000000+0x80000000 is DRAM,
++and display-2026-10-24.txt proves the framebuffer configuration. No UFS DMA
++or GPT result has been observed yet.
++
++SOFTWARE ALLOCATION: board.json reserves a128KiB experiment window at
++0x880100000, inside that measured2GiB bank: UTRL+0 (1024B), UCD+0x1000
++(1056B), data+0x4000 (8KiB), GPT entries+0x10000 (16KiB). Every buffer
++fits with independent alignment/size assertions. This is not a peripheral
++address. The experiment resets before loading any XNU, so no kernel is
++resident there. No arbitrary environment override is allowed.
++
++READ FROM SOURCE: the existing cold init is soc/google/gs101/shim/ufsinit.c
++and its cited docs/07-gs101-ufs-bringup.md + docs/08-abl-ufs-shutdown.md.
++It configures volatile clocks/host/PHY/UniPro, not storage blocks. The
++existing shim/ufs.c doorbell-time UPIU/CDB allowlist is unchanged. A fresh
++live FDT must prove the complete scratch range lies in DRAM and outside
++all reserved ranges, live image/stacks, FDT and initrd BEFORE cold init.
++The USB pool is necessarily inside the excluded live ABL reservation.
++The legacy vendor survey is skipped because gated PHY reads can hang.
++
++READ FROM SOURCE: GPT layout/CRC follow UEFI2.10 section5.3:
++https://uefi.org/specs/UEFI/2.10/05_GUID_Partition_Table_Format.html
++The same field offsets and CRC32 with zeroed header-CRC field were cross-checked against Linuxv6.12 block/partitions/efi.h and efi.c (https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux/+/refs/tags/v6.12/block/partitions/). Only LUN0 and4KiB blocks are supported. Capacity must answer first. Header
++signature/revision/size/CRC/current/alternate LBAs and usable/table ranges
++are checked before reading entries. Entries are capped at128 of128bytes,
++CRC checked, and each used partition must be in-range and nonoverlapping.
++Exactly one UTF16 userdata name must exist, with length matching the
++serial-specific fastboot observation0x1b91215000. Only capacity and GPT
++metadata are read; no media write, query command or userdata content dump.
++
++UNVERIFIED: current firmware's cold-init behavior, high-bank DMA/S2MPU
++acceptance, valid GPT bounds and reset after a UFS failure. The bounded
++polled paths may still stop on an unrecoverable hardware bus hang. Do not
++infer XNU/iOS readiness or flash userdata merely from a successful build.
++
++On every normal/error return, the caller clears and bounded-verifies UTRLDBR,
++stops UTRLRSR and verifies it. A failed cleanup requests immediate reset,
++without keeping the USB window open. The panic path uses the same guarded
++cleanup; recursive panic resets immediately. UTRLRDY is polled with100ms
++bound after list start before issuing the first doorbell.
+diff --git a/tools/boards.py b/tools/boards.py
+index a73b06d..d71e45c 100644
+--- a/tools/boards.py
++++ b/tools/boards.py
+@@ -371,6 +371,11 @@ def c_header(board: str) -> str:
+     for macro, key in names.items():
+         value = 8 if key == "cpu_count" else values[key]
+         lines.append(f"#define {macro} {value}" if key == "cpu_count" else f"#define {macro} {value:#x}UL")
++    if "ufs_inventory_window" in values:
++        base, size = values["ufs_inventory_window"]
++        lines.extend([f"#define UFS_INVENTORY_BASE {base:#x}UL",
++                      f"#define UFS_INVENTORY_SIZE {size:#x}UL",
++                      f"#define UFS_INVENTORY_USERDATA_BYTES {values['ufs_inventory_userdata_bytes']:#x}UL"])
+     for i, mpidr in enumerate(values["cpu_mpidrs"]):
+         lines.append(f"#define BOARD_MPIDR_{i} {mpidr:#x}UL")
+     watchdogs = values["watchdog_bases"] + (0, 0)
+diff --git a/tools/test_oriole_inventory.py b/tools/test_oriole_inventory.py
+index b6726a7..e189cc9 100644
+--- a/tools/test_oriole_inventory.py
++++ b/tools/test_oriole_inventory.py
+@@ -27,11 +27,19 @@ class InventoryGateTests(unittest.TestCase):
+                      ['--gpu-job'], ['--wlan-link=27'], ['--dvfs', '100,100,100'],
+                      ['--pstore-fast'], ['--qrlog'], ['payload.bin']]:
+             with self.subTest(args=args):
+-                self.reject(['--inventory'] + args, '--inventory cannot run')
++
++                for mode in ['--inventory', '--inventory-display', '--inventory-ufs']:
++                    self.reject([mode] + args, '--inventory cannot run')
+ 
+     def test_fixed_dma_override_closed(self):
+         self.reject(['--inventory'], 'no USB_DMA_HI_BASE', USB_DMA_HI_BASE='0x880200000ULL')
+ 
++    def test_ufs_overrides_closed(self):
++        for name in ['UFS_DMA_HI_BASE', 'UFS_ATTEMPTS', 'XNU_UFS', 'REBOOT_BL']:
++            with self.subTest(variable=name):
++                self.reject(['--inventory-ufs'], 'forbids overrides', **{name: '1'})
++        self.reject(['--inventory-ufs', '--inventory-display'], 'forbids overrides')
++
+     def test_window_bounded(self):
+         for value in ['0', '61', '-1', 'garbage']:
+             with self.subTest(value=value):
+diff --git a/tools/test_ufs_inventory.py b/tools/test_ufs_inventory.py
+new file mode 100644
+index 0000000..d140ee0
+--- /dev/null
++++ b/tools/test_ufs_inventory.py
+@@ -0,0 +1,112 @@
++"""Independently generate UEFI GPT CRC fixtures and test no-DMA placement failures."""
++from pathlib import Path
++import struct
++import subprocess
++import tempfile
++import unittest
++import zlib
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++class UfsInventoryTests(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.tmp = tempfile.TemporaryDirectory()
++        cls.work = Path(cls.tmp.name)
++        source = cls.work / 'fixture.c'
++        source.write_text(r'''
++#include <stdio.h>
++#include <assert.h>
++#include "ufsinventory_guard.h"
++#include "ufsinventory_gpt.h"
++int main(int argc,char **argv) {
++ if(argc==1) {
++  struct fdt_memmap m={0}; struct ufsi_avoid a={0x880100000,0x1000};
++  m.n_banks=1;m.banks[0].base=0x880000000;m.banks[0].size=0x80000000;
++  assert(ufsi_range_free(&m,0x880100000,0x20000,0,0));
++  assert(!ufsi_range_free(&m,0x880100000,0x20000,&a,1));
++  assert(!ufsi_range_free(&m,0,0x20000,0,0));
++  assert(!ufsi_range_free(&m,0xffffffffffffffff,2,0,0));
++  assert(!ufsi_range_free(&m,0x880100000,0,0,0));
++  m.n_reserved=1;m.reserved[0].base=0x880110000;m.reserved[0].size=0x1000;
++  assert(!ufsi_range_free(&m,0x880100000,0x20000,0,0));
++  m.n_reserved=0;m.n_reserved_dropped=1;
++  assert(!ufsi_range_free(&m,0x880100000,0x20000,0,0));
++  m.n_reserved_dropped=0;m.n_banks=0;
++  assert(!ufsi_range_free(&m,0x880100000,0x20000,0,0));
++  return 0;
++ }
++ unsigned char h[4096],e[16384];FILE *f=fopen(argv[1],"rb");assert(f);
++ assert(fread(h,1,sizeof h,f)==sizeof h);assert(fread(e,1,sizeof e,f)==sizeof e);fclose(f);
++ struct ufsi_gpt g;uint64_t first=0,last=0;
++ if(!ufsi_gpt_header(h,100000,&g)||!ufsi_gpt_userdata(e,&g,&first,&last))return 1;
++ return first==100&&last==999 ? 0 : 2;
++}
++''')
++        cls.exe = cls.work / 'fixture'
++        subprocess.run(['cc', '-O1', '-Wall', '-Wextra', '-Werror', '-I', str(ROOT / 'shim'),
++                        str(source), '-o', str(cls.exe)], check=True)
++
++    @classmethod
++    def tearDownClass(cls):
++        cls.tmp.cleanup()
++
++    def fixture(self):
++        e = bytearray(16384)
++        e[0] = 1
++        struct.pack_into('<2Q', e, 32, 100, 999)
++        name = 'userdata\0'.encode('utf-16le')
++        e[56:56+len(name)] = name
++        h = bytearray(4096)
++        struct.pack_into('<8s4I4Q', h, 0, b'EFI PART', 0x10000, 92, 0, 0,
++                         1, 100000, 34, 99998)
++        struct.pack_into('<Q3I', h, 72, 2, 4, 128, zlib.crc32(e[:512]))
++        self.header_crc(h)
++        return h, e
++
++    @staticmethod
++    def header_crc(h):
++        struct.pack_into('<I', h, 16, 0)
++        struct.pack_into('<I', h, 16, zlib.crc32(h[:92]))
++
++    def run_fixture(self, h, e):
++        path = self.work / 'gpt.bin'
++        path.write_bytes(h+e)
++        return subprocess.run([str(self.exe), str(path)], timeout=5).returncode
++
++    def test_free_ram_and_fail_closed_dma_cases(self):
++        subprocess.run([str(self.exe)], check=True, timeout=5)
++
++    def test_valid_header_and_userdata(self):
++        self.assertEqual(self.run_fixture(*self.fixture()), 0)
++
++    def test_header_crc_and_signature_corruption(self):
++        for offset in [0, 16, 40, 72]:
++            h,e=self.fixture();h[offset]^=1
++            with self.subTest(offset=offset):self.assertEqual(self.run_fixture(h,e),1)
++
++    def test_header_capacity_and_table_bounds(self):
++        for offset,fmt,value in [(32,'Q',100001),(40,'Q',100000),(48,'Q',100000),
++                                 (72,'Q',0xffffffff),(80,'I',0x80000001),(84,'I',256)]:
++            h,e=self.fixture();struct.pack_into('<'+fmt,h,offset,value);self.header_crc(h)
++            with self.subTest(offset=offset):self.assertEqual(self.run_fixture(h,e),1)
++
++    def test_entry_crc_corruption(self):
++        h,e=self.fixture();e[80]^=1
++        self.assertEqual(self.run_fixture(h,e),1)
++
++    def test_partition_range_overlap_duplicate_or_missing(self):
++        for kind in ['reverse','outside','overlap','duplicate','missing']:
++            h,e=self.fixture()
++            if kind=='reverse':struct.pack_into('<2Q',e,32,1000,999)
++            if kind=='outside':struct.pack_into('<2Q',e,32,100,100000)
++            if kind in ['overlap','duplicate']:
++                e[128:256]=e[:128]
++                if kind=='duplicate':struct.pack_into('<2Q',e,160,2000,2999)
++            if kind=='missing':e[56]=ord('x')
++            struct.pack_into('<I',h,88,zlib.crc32(e[:512]));self.header_crc(h)
++            with self.subTest(kind=kind):self.assertEqual(self.run_fixture(h,e),1)
++
++
++if __name__ == '__main__':unittest.main()
+-- 
+2.54.0 (Apple Git-157)
+

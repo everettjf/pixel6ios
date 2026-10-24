@@ -1,0 +1,715 @@
+From a2687bc680fd4db647f955457351fd2d214c7838 Mon Sep 17 00:00:00 2001
+From: Everett <everettjf@live.com>
+Date: Sat, 24 Oct 2026 15:09:28 -0700
+Subject: [PATCH] Measure Oriole bootloader reset with bounded USB and pinned
+ EL3 audit
+
+---
+ device/google/oriole/docs/RAM-PROBE.md        |  41 +++++
+ .../oriole/hardware/loadcheck-2026-10-24.txt  |  19 ++
+ shim/build.sh                                 |  13 +-
+ shim/resetcheck.c                             |  36 ++++
+ shim/resetcheck.h                             |  16 ++
+ shim/shim.c                                   |  21 +++
+ tools/audit_oriole_resetcheck.py              | 102 +++++++++++
+ .../fixtures/oriole-resetcheck-writer.disasm  |  26 +++
+ tools/fixtures/oriole-resetcheck.disasm       | 164 ++++++++++++++++++
+ tools/imgmeta.py                              |   2 +-
+ tools/test_oriole_ramprobe.py                 |   8 +-
+ tools/test_oriole_resetcheck.py               |  96 ++++++++++
+ 12 files changed, 537 insertions(+), 7 deletions(-)
+ create mode 100644 device/google/oriole/hardware/loadcheck-2026-10-24.txt
+ create mode 100644 shim/resetcheck.c
+ create mode 100644 shim/resetcheck.h
+ create mode 100644 tools/audit_oriole_resetcheck.py
+ create mode 100644 tools/fixtures/oriole-resetcheck-writer.disasm
+ create mode 100644 tools/fixtures/oriole-resetcheck.disasm
+ create mode 100644 tools/test_oriole_resetcheck.py
+
+diff --git a/device/google/oriole/docs/RAM-PROBE.md b/device/google/oriole/docs/RAM-PROBE.md
+index fc7a024..ec2d16e 100644
+--- a/device/google/oriole/docs/RAM-PROBE.md
++++ b/device/google/oriole/docs/RAM-PROBE.md
+@@ -58,3 +58,44 @@ after this return, replays the RAM log and resets. It does not test kernel
+ execution. This avoids relying on best-effort USB stop before XNU: the
+ current gadget stop API cannot positively prove controller quiescence.
+ The rejected pre-jump USB draft was never booted.
++
++Observed on hardware2026-10-24,9181290: the loader check completed all11
++segment copies, boot_args and JUMP0x881493488; the intentional-return marker
++and592bytes were received over USB, and Android returned. See
++hardware/loadcheck-2026-10-24.txt. The approximately61s pre-USB path plus
++30s USB window and18s to Android kernel startup explains the elapsed time.
++The reset chain intentionally uses a CL0 WDT if both PSCI reset calls return;
++watchdog classification therefore does not prove an independent timer.
++No headless/display-removal change was made. NativeXNU remains unverified.
++
++## Observed reset protocol candidate (not yet run)
++
++--xnu-resetcheck implies the same fixed payload and no-entry loadcheck.
++After validated fallback USB is configured with DTR, it reads SYSIP_DAT0,
++issues the existing REBOOT_BL SMC write0xfc, records full return/readback,
++and requires return0 plus successful0xfc readback. It drains the log for8s
++with USB serviced and requires USB still ready before SWRESET_SYSTEM=2.
++If reset returns, it logs/drains again and uses ordinary USBfinish/reset.
++No USB controller is handed to XNU. The two volatile command/value pairs
++are allowlisted again in the shim wrapper; no flash/misc write is involved.
++Other RAM profile selections and all existing prohibited mixes are refused.
++
++The addresses match the current vendor_boot pixel-reboot node (source
++image SHA256f06ab190accef4f96e7504adbc7076612a07fcfe08694190f5c1a786b3c41db0):
++PMU17460000, reboot-cmd-offset810, swreset-system-offset3a00/trigger2.
++Prior bluejay acceptance is a reference observation, not proof onOriole.
++The actual C protocol is host-tested with no host, read failures, bad
++readback, bad SMC return, disconnect during drain and accepted exact writes.
++
++Resetcheck build audit: source hook/profile placement, protocol source,
++GCC16.2 protocol opcode stream, external relocation call order, stack-only
++stores, undefined symbols, and the exact19-opcode writer (object+ELF) are
++pinned. Every non-reset profile must omit all resetcheck symbols. Compiler
++variation fails closed and requires independent review; the audit is not
++a generic compiler portability promise. Mutation tests exercise the source
++and compiled guards. Official Google reboot source corroborates the mode
++and SMC sequence:
++https://android.googlesource.com/kernel/google-modules/power/reset/+/refs/heads/android-gs-raviole-android14-release/exynos-gs101-reboot.c
++The Android driver also performs ACPM coordination, which this isolated
++experiment deliberately does not add; success on current firmware remains
++a measured outcome rather than an assumption.
+diff --git a/device/google/oriole/hardware/loadcheck-2026-10-24.txt b/device/google/oriole/hardware/loadcheck-2026-10-24.txt
+new file mode 100644
+index 0000000..18652d2
+--- /dev/null
++++ b/device/google/oriole/hardware/loadcheck-2026-10-24.txt
+@@ -0,0 +1,19 @@
++OBSERVED ON HARDWARE2026-10-24,9181290; imageSHA256fb1d3d0b52f82f65e43bb3391f2674ee738d8c18b4739541ebe76904490856f3
++NOTE:con_hex2fieldsarelower32bits;fullJUMPis64bit. NativeXNUentrywasintentionallyskipped.
++DECON TRIG before=00003070 after=00003061
++ORIOLE_RAM_PROBE RAM-only XNU, no media/USB driver
++INITRD lo=86000000 hi=88DEB511
++PHYS base=80000000 size=80000000
++VIRT FFFFFE0006000000
++ENTRY FFFFFE0007493488
++SEGS n=0000000B end=82730000
++BOOTARG pa=82734000 top=82738000
++JUMP 0000000881493488
++ORIOLE_LOADCHECK all copies complete; XNU entry intentionally skipped
++RAM probe refused/returned load check complete
++SECTION USB gadget (live log)
++USB gadget pool 00000000F8D1B000
++USB gadget: running
++USB gadget run tools/usb-log.py capture on the PC
++USB EVT reset
++USB EVT conndone speed=0
+diff --git a/shim/build.sh b/shim/build.sh
+index 1a06f87..ad2db82 100755
+--- a/shim/build.sh
++++ b/shim/build.sh
+@@ -35,9 +35,11 @@ inventory_display=0
+ inventory_ufs=0
+ ramprobe=0
+ loadcheck=0
++resetcheck=0
+ while [ "$#" -gt 0 ]; do
+ 	case "$1" in
+ 		--board) board="$2"; shift 2 ;;
++		--xnu-resetcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; resetcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
+ 		--xnu-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
+ 		--xnu-ramprobe) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; boot_xnu=1; usb_gadget=1; shift ;;
+ 		--inventory) inventory=1; usb_gadget=1; shift ;;
+@@ -133,6 +135,7 @@ CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
+ [ "$inventory" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY"
+ [ "$ramprobe" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RAMPROBE"
+ [ "$loadcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_LOADCHECK"
++[ "$resetcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RESETCHECK"
+ if [ "$usb_gadget" = 1 ]; then
+ 	# Stage-2 CDC-ACM log gadget (default OFF): bluejay only (needs try_write32).
+ 	[ "$gs101" = 1 ] || { echo "--usb-gadget needs a gs101 board" >&2; exit 2; }
+@@ -295,6 +298,11 @@ socshim=../$("$PYTHON" ../tools/boards.py "$board" --get soc_dir)/shim
+ for f in ufsdiag ufsinit; do
+ 	"$CC" $CFLAGS -I"$socshim" -I. -c "$socshim/$f.c" -o "out/$f.o"
+ done
++reset_objs=""
++if [ "$resetcheck" = 1 ]; then
++    "$CC" $CFLAGS -I. -c resetcheck.c -o out/resetcheck.o
++    reset_objs=out/resetcheck.o
++fi
+ display_objs=""
+ if [ "$inventory_display" = 1 ]; then
+     "$CC" $CFLAGS -I. -c "$socshim/displayinventory.c" -o out/displayinventory.o
+@@ -416,10 +424,11 @@ fi
+ if [ "$touch_rails" = 1 ] || [ "$touch_dvfs" = 1 ] || [ "$gpu_clk" = 1 ] || [ "$gpu_rails" = 1 ] || [ "$wlan_rails" = 1 ]; then
+ 	usb_objs="$usb_objs out/acpm.o"
+ fi
+-abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $qr_objs $display_objs | grep -c ABS64 || true)
++abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $qr_objs $display_objs $reset_objs | grep -c ABS64 || true)
+ [ "$abs" = 0 ] || { echo "error: $abs absolute relocations in C objects" >&2; exit 1; }
+ "$CC" $CFLAGS -static -T shim.ld -Wl,--build-id=none -Wl,--no-warn-rwx-segments -Wl,-N \
+-	out/start.o out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbpool.o $usb_objs $qr_objs $display_objs -o out/shim.elf
++	out/start.o out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbpool.o $usb_objs $qr_objs $display_objs $reset_objs -o out/shim.elf
++"$PYTHON" ../tools/audit_oriole_resetcheck.py --enabled "$resetcheck" --object out/shim.o --elf out/shim.elf --objdump "${CROSS_OBJDUMP:-${prefix}objdump}"
+ "$OBJCOPY" -O binary out/shim.elf out/Image
+ size_hex=$("$NM" out/shim.elf | awk '$3=="_end"{print $1}')
+ size=$((16#$size_hex))
+diff --git a/shim/resetcheck.c b/shim/resetcheck.c
+new file mode 100644
+index 0000000..f42423a
+--- /dev/null
++++ b/shim/resetcheck.c
+@@ -0,0 +1,36 @@
++#include "resetcheck.h"
++#include "console.h"
++
++/* No kernel entry or controller handoff: the caller always resets. Keeping
++ * USB active here makes the EL3 return/readback evidence observable. */
++void oriole_resetcheck(uint64_t deadline)
++{
++    con_str("ORIOLE_RESETCHECK", "waiting boundedly for USB configured+DTR");
++    while ((int64_t)(deadline-resetcheck_ticks())>0 && !resetcheck_ready())
++        resetcheck_wait_ms(1);
++    if (!resetcheck_ready()) {
++        con_str("RESETCHECK", "no host; no PMU writes");
++        return;
++    }
++    uint32_t before=0, after=0;
++    if (!resetcheck_read(RC_SYSIP,&before)) {
++        con_str("RESETCHECK", "SYSIP read fault; no PMU writes");
++        return;
++    }
++    con_hex("RESETCHECK SYSIP before",before);
++    uint64_t ret=resetcheck_write(RC_SYSIP,0xfc);
++    int read_ok=resetcheck_read(RC_SYSIP,&after);
++    con_hex("RESETCHECK mode SMC ret",ret);
++    con_hex("RESETCHECK readback valid",read_ok);
++    con_hex("RESETCHECK SYSIP after",after);
++    int accepted=ret==0 && read_ok && after==0xfc;
++    con_str("RESETCHECK",accepted ? "mode accepted; drain before SWRESET" :
++                                   "mode refused; no SWRESET");
++    /* Existing eight-second final-log drain, serviced by the console hook.
++     * Any USB fault/disconnect during it also closes the SWRESET gate. */
++    resetcheck_wait_ms(8000);
++    if (!accepted || !resetcheck_ready()) return;
++    ret=resetcheck_write(RC_SWRESET,2);
++    con_hex("RESETCHECK SWRESET returned",ret);
++    resetcheck_wait_ms(8000);
++}
+diff --git a/shim/resetcheck.h b/shim/resetcheck.h
+new file mode 100644
+index 0000000..d2747fb
+--- /dev/null
++++ b/shim/resetcheck.h
+@@ -0,0 +1,16 @@
++#pragma once
++#include <stdint.h>
++
++/* Existing REBOOT_BL source: docs/research/10-reboot-to-bootloader-gs101.md;
++ * offsets independently match the current Oriole vendor_boot pixel-reboot
++ * node: PMU17460000, reboot-cmd810, swreset-system3a00, trigger2.
++ * These are volatile PMU registers, never flash/misc writes. */
++#define RC_SYSIP 0x17460810UL
++#define RC_SWRESET 0x17463a00UL
++
++int resetcheck_ready(void);
++uint64_t resetcheck_ticks(void);
++void resetcheck_wait_ms(unsigned ms);
++int resetcheck_read(uintptr_t pa, uint32_t *v);
++uint64_t resetcheck_write(uintptr_t pa, uint32_t v);
++void oriole_resetcheck(uint64_t connect_deadline);
+diff --git a/shim/shim.c b/shim/shim.c
+index d5827d5..7630f91 100644
+--- a/shim/shim.c
++++ b/shim/shim.c
+@@ -521,6 +521,23 @@ static void udump_dump(void)
+ #endif
+ #endif
+ 
++#ifdef ORIOLE_RESETCHECK
++#include "resetcheck.h"
++int resetcheck_ready(void) { return usbg_on && usbgadget_ready(); }
++uint64_t resetcheck_ticks(void) { return now(); }
++void resetcheck_wait_ms(unsigned ms) { delay_ms(ms); }
++int resetcheck_read(uintptr_t pa, uint32_t *v)
++{
++    return pa==RC_SYSIP && try_read32(pa,v);
++}
++uint64_t resetcheck_write(uintptr_t pa, uint32_t v)
++{
++    /* Exact two existing REBOOT_BL command/value pairs only. */
++    if (!((pa==RC_SYSIP && v==0xfc) || (pa==RC_SWRESET && v==2))) return ~0ULL;
++    return smc(0x82000504UL,pa,1,v);
++}
++#endif
++
+ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
+ {
+ 	stage = "bluejay probe";
+@@ -539,6 +556,10 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
+     const char *why = loader_boot(dtb);
+     con_str("RAM probe refused/returned", why ? why : "?");
+     usb_gadget_start(dtb);
++#ifdef ORIOLE_RESETCHECK
++    stage = "Oriole observed EL3 reset check";
++    oriole_resetcheck(usbg_end);
++#endif
+     usb_gadget_finish();
+     bluejay_reset_chain();
+ #endif
+diff --git a/tools/audit_oriole_resetcheck.py b/tools/audit_oriole_resetcheck.py
+new file mode 100644
+index 0000000..a6d12b7
+--- /dev/null
++++ b/tools/audit_oriole_resetcheck.py
+@@ -0,0 +1,102 @@
++#!/usr/bin/env python3
++"""Fail-closed audit of the two-pair EL3 writer. Compiler changes need review."""
++import argparse
++import hashlib
++from pathlib import Path
++import re
++import subprocess
++
++ROOT=Path(__file__).resolve().parents[1]
++# Exact reviewed GCC16.2 AArch64 instructions; all branches are intra-function,
++# so the bytes are identical in shim.o and the linked ELF. This pins both the
++# full-width PA/value guards and x0=82000504,x1=PA,x2=1,x3=value at the sole SMC.
++WORDS='''2a0103e3 aa0003e2 7103f07f d2810200 f2a2e8c0 fa400040 540000e0
++d2874000 f2a2e8c0 eb00005f 7a420860 92800000 540000c1 d280a080
++aa0203e1 f2b04000 d2800022 d4000003 d65f03c0'''.split()
++PROTOCOL_SHA='5ee167c91f91f9cb6fe70e56b5c1e4e149ebf59240b3d1a91e16e92a06a66742'
++PROTOCOL_WORDS_SHA='acdff603d0f3ac830023fd3551001a95d3afe5f50e3d0c9563911e5c5a054b47'
++CALLS='''20:CALL26:con_str 28:CALL26:resetcheck_ready 34:CALL26:resetcheck_wait_ms
++38:CALL26:resetcheck_ticks 48:CALL26:resetcheck_ready 60:CALL26:resetcheck_read
++74:CALL26:con_hex 84:CALL26:resetcheck_write 98:CALL26:resetcheck_read
++ac:CALL26:con_hex bc:CALL26:con_hex cc:CALL26:con_hex f8:CALL26:con_str
++100:CALL26:resetcheck_wait_ms 120:CALL26:con_str 140:CALL26:con_str
++148:CALL26:resetcheck_wait_ms 14c:CALL26:resetcheck_ready 160:CALL26:resetcheck_write
++170:CALL26:con_hex 178:CALL26:resetcheck_wait_ms 1a0:JUMP26:con_str'''.split()
++
++
++def source_check(shim,header,protocol):
++    code=re.sub(r'/\*.*?\*/','',shim,flags=re.S)
++    m=re.search(r'uint64_t resetcheck_write\(uintptr_t pa, uint32_t v\)\s*\{(.*?)\n\}',code,re.S)
++    expected='''if (!((pa==RC_SYSIP && v==0xfc) || (pa==RC_SWRESET && v==2))) return ~0ULL;
++    return smc(0x82000504UL,pa,1,v);'''
++    compact=lambda s:re.sub(r'\s+','',s)
++    if not m or compact(m[1])!=compact(expected):
++        raise ValueError('resetcheck source writer/allowlist changed')
++    # Includes readiness, guarded read, serviced wait, deadline and placement
++    # after USB start / before finish-reset. A changed profile requires review.
++    for pattern,digest in [
++        (r'#ifdef ORIOLE_RESETCHECK\n#include "resetcheck.h".*?\n#endif',
++         'db4d2e1aa0623733a1f7923e179f378fa35ccb9dfd961d6b231999b30ddab486'),
++        (r'#ifdef ORIOLE_RAMPROBE\n    inventory_dtb = dtb;.*?\n#endif\n#ifdef INVENTORY',
++         '8a5ae8d4c490feed3114d2f07d9cce4f7fed87547c32f79800d36949c33b9015')]:
++        block=re.search(pattern,code,re.S)
++        if not block or hashlib.sha256(compact(block[0]).encode()).hexdigest()!=digest:
++            raise ValueError('resetcheck hooks/profile placement changed')
++    for macro,value in [('RC_SYSIP','0x17460810UL'),('RC_SWRESET','0x17463a00UL')]:
++        if not re.search(r'^#define\s+'+macro+r'\s+'+value+r'\s*$',header,re.M):
++            raise ValueError('resetcheck PMU constant changed')
++    if hashlib.sha256(protocol).hexdigest()!=PROTOCOL_SHA:
++        raise ValueError('resetcheck protocol differs from reviewed source')
++
++
++def writer_check(disasm):
++    words=re.findall(r'^\s*[0-9a-f]+:\s+([0-9a-f]{8})\s',disasm,re.M)
++    if words!=WORDS:
++        raise ValueError('resetcheck compiled guard/SMC sequence changed; independent review required')
++
++
++def protocol_check(disasm):
++    words=re.findall(r'^\s*[0-9a-f]+:\s+([0-9a-f]{8})\s',disasm,re.M)
++    if hashlib.sha256(' '.join(words).encode()).hexdigest()!=PROTOCOL_WORDS_SHA:
++        raise ValueError('resetcheck protocol compiled instructions changed')
++    calls=[':'.join(t) for t in re.findall(
++        r'^\s*([0-9a-f]+):\s+R_AARCH64_(CALL26|JUMP26)\s+(\w+)',disasm,re.M)]
++    if calls!=CALLS:
++        raise ValueError('resetcheck protocol call targets/count/order changed')
++    for line in disasm.splitlines():
++        m=re.match(r'^\s*[0-9a-f]+:\s+[0-9a-f]{8}\s+(\w+)\s+(.*)',line)
++        if m and m[1].startswith(('str','stp','stur','stl','stx')) and '[sp' not in m[2]:
++            raise ValueError('resetcheck protocol store outside stack')
++
++
++def main():
++    p=argparse.ArgumentParser(description=__doc__)
++    p.add_argument('--enabled',choices=('0','1'),required=True)
++    p.add_argument('--object',type=Path,required=True)
++    p.add_argument('--elf',type=Path,required=True)
++    p.add_argument('--objdump',required=True)
++    a=p.parse_args()
++    source_check((ROOT/'shim/shim.c').read_text(),(ROOT/'shim/resetcheck.h').read_text(),
++                 (ROOT/'shim/resetcheck.c').read_bytes())
++    for file in (a.object,a.elf):
++        if a.enabled=='1':
++            s=subprocess.check_output([a.objdump,'-d','--disassemble=resetcheck_write',str(file)],text=True)
++            writer_check(s)
++        else:
++            symbols=subprocess.check_output([a.objdump,'-t',str(file)],text=True)
++            if re.search(r'\b(?:resetcheck_\w+|oriole_resetcheck)\b',symbols):
++                raise ValueError('resetcheck symbol present in a non-reset profile')
++    if a.enabled=='1':
++        disasm=subprocess.check_output([a.objdump,'-dr','--disassemble=oriole_resetcheck',
++                                        str(a.object.parent/'resetcheck.o')],text=True)
++        protocol_check(disasm)
++        table=subprocess.check_output([a.objdump,'-t',str(a.object.parent/'resetcheck.o')],text=True)
++        undef={line.split()[-1] for line in table.splitlines() if '*UND*' in line}
++        if undef!={'con_hex','con_str','resetcheck_read','resetcheck_ready','resetcheck_ticks',
++                   'resetcheck_wait_ms','resetcheck_write'}:
++            raise ValueError('resetcheck protocol acquired a new external surface')
++    print('PASS resetcheck source, compiled writer and profile omission audit')
++
++
++if __name__=='__main__':
++    main()
+diff --git a/tools/fixtures/oriole-resetcheck-writer.disasm b/tools/fixtures/oriole-resetcheck-writer.disasm
+new file mode 100644
+index 0000000..21f7b58
+--- /dev/null
++++ b/tools/fixtures/oriole-resetcheck-writer.disasm
+@@ -0,0 +1,26 @@
++
++shim/out/shim.elf:     file format elf64-littleaarch64
++
++
++Disassembly of section .text:
++
++0000000000002104 <resetcheck_write>:
++    2104:	2a0103e3 	mov	w3, w1
++    2108:	aa0003e2 	mov	x2, x0
++    210c:	7103f07f 	cmp	w3, #0xfc
++    2110:	d2810200 	mov	x0, #0x810                 	// #2064
++    2114:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
++    2118:	fa400040 	ccmp	x2, x0, #0x0, eq	// eq = none
++    211c:	540000e0 	b.eq	2138 <resetcheck_write+0x34>  // b.none
++    2120:	d2874000 	mov	x0, #0x3a00                	// #14848
++    2124:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
++    2128:	eb00005f 	cmp	x2, x0
++    212c:	7a420860 	ccmp	w3, #0x2, #0x0, eq	// eq = none
++    2130:	92800000 	mov	x0, #0xffffffffffffffff    	// #-1
++    2134:	540000c1 	b.ne	214c <resetcheck_write+0x48>  // b.any
++    2138:	d280a080 	mov	x0, #0x504                 	// #1284
++    213c:	aa0203e1 	mov	x1, x2
++    2140:	f2b04000 	movk	x0, #0x8200, lsl #16
++    2144:	d2800022 	mov	x2, #0x1                   	// #1
++    2148:	d4000003 	smc	#0x0
++    214c:	d65f03c0 	ret
+diff --git a/tools/fixtures/oriole-resetcheck.disasm b/tools/fixtures/oriole-resetcheck.disasm
+new file mode 100644
+index 0000000..ee35334
+--- /dev/null
++++ b/tools/fixtures/oriole-resetcheck.disasm
+@@ -0,0 +1,164 @@
++
++shim/out/resetcheck.o:     file format elf64-littleaarch64
++
++
++Disassembly of section .text:
++
++0000000000000000 <oriole_resetcheck>:
++   0:	a9bd7bfd 	stp	x29, x30, [sp, #-48]!
++   4:	90000001 	adrp	x1, 0 <oriole_resetcheck>
++			4: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8
++   8:	91000021 	add	x1, x1, #0x0
++			8: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8
++   c:	910003fd 	mov	x29, sp
++  10:	a90153f3 	stp	x19, x20, [sp, #16]
++  14:	aa0003f3 	mov	x19, x0
++  18:	90000000 	adrp	x0, 0 <oriole_resetcheck>
++			18: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x30
++  1c:	91000000 	add	x0, x0, #0x0
++			1c: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x30
++  20:	94000000 	bl	0 <con_str>
++			20: R_AARCH64_CALL26	con_str
++  24:	14000005 	b	38 <oriole_resetcheck+0x38>
++  28:	94000000 	bl	0 <resetcheck_ready>
++			28: R_AARCH64_CALL26	resetcheck_ready
++  2c:	350000e0 	cbnz	w0, 48 <oriole_resetcheck+0x48>
++  30:	52800020 	mov	w0, #0x1                   	// #1
++  34:	94000000 	bl	0 <resetcheck_wait_ms>
++			34: R_AARCH64_CALL26	resetcheck_wait_ms
++  38:	94000000 	bl	0 <resetcheck_ticks>
++			38: R_AARCH64_CALL26	resetcheck_ticks
++  3c:	cb000260 	sub	x0, x19, x0
++  40:	f100001f 	cmp	x0, #0x0
++  44:	54ffff2c 	b.gt	28 <oriole_resetcheck+0x28>
++  48:	94000000 	bl	0 <resetcheck_ready>
++			48: R_AARCH64_CALL26	resetcheck_ready
++  4c:	340009e0 	cbz	w0, 188 <oriole_resetcheck+0x188>
++  50:	d2810200 	mov	x0, #0x810                 	// #2064
++  54:	9100a3e1 	add	x1, sp, #0x28
++  58:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
++  5c:	29057fff 	stp	wzr, wzr, [sp, #40]
++  60:	94000000 	bl	0 <resetcheck_read>
++			60: R_AARCH64_CALL26	resetcheck_read
++  64:	34000560 	cbz	w0, 110 <oriole_resetcheck+0x110>
++  68:	b9402be1 	ldr	w1, [sp, #40]
++  6c:	90000000 	adrp	x0, 0 <oriole_resetcheck>
++			6c: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x90
++  70:	91000000 	add	x0, x0, #0x0
++			70: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x90
++  74:	94000000 	bl	0 <con_hex>
++			74: R_AARCH64_CALL26	con_hex
++  78:	d2810200 	mov	x0, #0x810                 	// #2064
++  7c:	52801f81 	mov	w1, #0xfc                  	// #252
++  80:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
++  84:	94000000 	bl	0 <resetcheck_write>
++			84: R_AARCH64_CALL26	resetcheck_write
++  88:	aa0003f4 	mov	x20, x0
++  8c:	d2810200 	mov	x0, #0x810                 	// #2064
++  90:	9100b3e1 	add	x1, sp, #0x2c
++  94:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
++  98:	94000000 	bl	0 <resetcheck_read>
++			98: R_AARCH64_CALL26	resetcheck_read
++  9c:	2a0003f3 	mov	w19, w0
++  a0:	aa1403e1 	mov	x1, x20
++  a4:	90000000 	adrp	x0, 0 <oriole_resetcheck>
++			a4: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0xa8
++  a8:	91000000 	add	x0, x0, #0x0
++			a8: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0xa8
++  ac:	94000000 	bl	0 <con_hex>
++			ac: R_AARCH64_CALL26	con_hex
++  b0:	93407e61 	sxtw	x1, w19
++  b4:	90000000 	adrp	x0, 0 <oriole_resetcheck>
++			b4: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0xc0
++  b8:	91000000 	add	x0, x0, #0x0
++			b8: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0xc0
++  bc:	94000000 	bl	0 <con_hex>
++			bc: R_AARCH64_CALL26	con_hex
++  c0:	b9402fe1 	ldr	w1, [sp, #44]
++  c4:	90000000 	adrp	x0, 0 <oriole_resetcheck>
++			c4: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0xe0
++  c8:	91000000 	add	x0, x0, #0x0
++			c8: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0xe0
++  cc:	94000000 	bl	0 <con_hex>
++			cc: R_AARCH64_CALL26	con_hex
++  d0:	f100029f 	cmp	x20, #0x0
++  d4:	7a400a64 	ccmp	w19, #0x0, #0x4, eq	// eq = none
++  d8:	54000080 	b.eq	e8 <oriole_resetcheck+0xe8>  // b.none
++  dc:	b9402fe0 	ldr	w0, [sp, #44]
++  e0:	7103f01f 	cmp	w0, #0xfc
++  e4:	54000260 	b.eq	130 <oriole_resetcheck+0x130>  // b.none
++  e8:	90000001 	adrp	x1, 0 <oriole_resetcheck>
++			e8: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x120
++  ec:	91000021 	add	x1, x1, #0x0
++			ec: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x120
++  f0:	90000000 	adrp	x0, 0 <oriole_resetcheck>
++			f0: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x60
++  f4:	91000000 	add	x0, x0, #0x0
++			f4: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x60
++  f8:	94000000 	bl	0 <con_str>
++			f8: R_AARCH64_CALL26	con_str
++  fc:	5283e800 	mov	w0, #0x1f40                	// #8000
++ 100:	94000000 	bl	0 <resetcheck_wait_ms>
++			100: R_AARCH64_CALL26	resetcheck_wait_ms
++ 104:	a94153f3 	ldp	x19, x20, [sp, #16]
++ 108:	a8c37bfd 	ldp	x29, x30, [sp], #48
++ 10c:	d65f03c0 	ret
++ 110:	90000001 	adrp	x1, 0 <oriole_resetcheck>
++			110: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x70
++ 114:	90000000 	adrp	x0, 0 <oriole_resetcheck>
++			114: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x60
++ 118:	91000021 	add	x1, x1, #0x0
++			118: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x70
++ 11c:	91000000 	add	x0, x0, #0x0
++			11c: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x60
++ 120:	94000000 	bl	0 <con_str>
++			120: R_AARCH64_CALL26	con_str
++ 124:	a94153f3 	ldp	x19, x20, [sp, #16]
++ 128:	a8c37bfd 	ldp	x29, x30, [sp], #48
++ 12c:	d65f03c0 	ret
++ 130:	90000001 	adrp	x1, 0 <oriole_resetcheck>
++			130: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0xf8
++ 134:	91000021 	add	x1, x1, #0x0
++			134: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0xf8
++ 138:	90000000 	adrp	x0, 0 <oriole_resetcheck>
++			138: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x60
++ 13c:	91000000 	add	x0, x0, #0x0
++			13c: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x60
++ 140:	94000000 	bl	0 <con_str>
++			140: R_AARCH64_CALL26	con_str
++ 144:	5283e800 	mov	w0, #0x1f40                	// #8000
++ 148:	94000000 	bl	0 <resetcheck_wait_ms>
++			148: R_AARCH64_CALL26	resetcheck_wait_ms
++ 14c:	94000000 	bl	0 <resetcheck_ready>
++			14c: R_AARCH64_CALL26	resetcheck_ready
++ 150:	34fffea0 	cbz	w0, 124 <oriole_resetcheck+0x124>
++ 154:	52800041 	mov	w1, #0x2                   	// #2
++ 158:	d2874000 	mov	x0, #0x3a00                	// #14848
++ 15c:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
++ 160:	94000000 	bl	0 <resetcheck_write>
++			160: R_AARCH64_CALL26	resetcheck_write
++ 164:	aa0003e1 	mov	x1, x0
++ 168:	90000000 	adrp	x0, 0 <oriole_resetcheck>
++			168: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x140
++ 16c:	91000000 	add	x0, x0, #0x0
++			16c: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x140
++ 170:	94000000 	bl	0 <con_hex>
++			170: R_AARCH64_CALL26	con_hex
++ 174:	5283e800 	mov	w0, #0x1f40                	// #8000
++ 178:	94000000 	bl	0 <resetcheck_wait_ms>
++			178: R_AARCH64_CALL26	resetcheck_wait_ms
++ 17c:	a94153f3 	ldp	x19, x20, [sp, #16]
++ 180:	a8c37bfd 	ldp	x29, x30, [sp], #48
++ 184:	d65f03c0 	ret
++ 188:	a94153f3 	ldp	x19, x20, [sp, #16]
++ 18c:	90000001 	adrp	x1, 0 <oriole_resetcheck>
++			18c: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x48
++ 190:	a8c37bfd 	ldp	x29, x30, [sp], #48
++ 194:	91000021 	add	x1, x1, #0x0
++			194: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x48
++ 198:	90000000 	adrp	x0, 0 <oriole_resetcheck>
++			198: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x60
++ 19c:	91000000 	add	x0, x0, #0x0
++			19c: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x60
++ 1a0:	14000000 	b	0 <con_str>
++			1a0: R_AARCH64_JUMP26	con_str
+diff --git a/tools/imgmeta.py b/tools/imgmeta.py
+index ce37535..547d874 100755
+--- a/tools/imgmeta.py
++++ b/tools/imgmeta.py
+@@ -10,7 +10,7 @@ expected, the sources the image was built from have changed since (stale), or th
+ import argparse, hashlib, json, os, subprocess, sys, time
+ 
+ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+-SRC = ['shim', 'soc', 'device', 'xnu/patches', 'qrlog', 'xnu/qr', 'tools/mkadt.py', 'tools/mkpayload.py', 'tools/boards.py', 'tools/oriole_ramprobe.py', 'tools/oriole-ram-init.S']
++SRC = ['shim', 'soc', 'device', 'xnu/patches', 'qrlog', 'xnu/qr', 'tools/mkadt.py', 'tools/mkpayload.py', 'tools/boards.py', 'tools/oriole_ramprobe.py', 'tools/oriole-ram-init.S', 'tools/audit_oriole_resetcheck.py']
+ 
+ 
+ def sha(path):
+diff --git a/tools/test_oriole_ramprobe.py b/tools/test_oriole_ramprobe.py
+index ec3958e..3d1fcc4 100644
+--- a/tools/test_oriole_ramprobe.py
++++ b/tools/test_oriole_ramprobe.py
+@@ -1,5 +1,6 @@
+ """Loader range failures and fail-closed build profile (no Apple inputs needed)."""
+ import os
++import itertools
+ from pathlib import Path
+ import subprocess
+ import tempfile
+@@ -74,9 +75,8 @@ int main(void) {
+             subprocess.run([str(exe)], check=True)
+ 
+     def test_profile_selections_are_exclusive(self):
+-        for flags in (['--xnu-loadcheck','--xnu-ramprobe'],
+-                      ['--xnu-ramprobe','--xnu-loadcheck']):
+-            r=subprocess.run(['bash','shim/build.sh','--board','oriole']+flags,
++        for flags in itertools.permutations(('--xnu-loadcheck','--xnu-ramprobe','--xnu-resetcheck'),2):
++            r=subprocess.run(['bash','shim/build.sh','--board','oriole']+list(flags),
+                 cwd=ROOT,env=dict(os.environ,CROSS_CC='/nonexistent-ramprobe-compiler'),
+                 capture_output=True,text=True,timeout=10)
+             self.assertEqual(r.returncode,2,r.stderr)
+@@ -92,7 +92,7 @@ int main(void) {
+                 ([],{'USB_DMA_HI_BASE':'0x880100000'}),([],{'REBOOT_BL':'1'}),
+                 ([],{'USB_WINDOW':'61'}),([],{'UFS_ATTEMPTS':'1'})]:
+             with self.subTest(options=options,extra=extra):
+-                for profile in ('--xnu-ramprobe','--xnu-loadcheck'):
++                for profile in ('--xnu-ramprobe','--xnu-loadcheck','--xnu-resetcheck'):
+                     r=subprocess.run(['bash','shim/build.sh','--board','oriole',profile]+options,
+                         cwd=ROOT,env=dict(env,**extra),capture_output=True,text=True,timeout=10)
+                     self.assertEqual(r.returncode,2,r.stderr)
+diff --git a/tools/test_oriole_resetcheck.py b/tools/test_oriole_resetcheck.py
+new file mode 100644
+index 0000000..9a9cede
+--- /dev/null
++++ b/tools/test_oriole_resetcheck.py
+@@ -0,0 +1,96 @@
++"""Execute the actual reset protocol with fake host, MMIO and EL3 responses."""
++from pathlib import Path
++import subprocess
++import tempfile
++import unittest
++import importlib.util
++import re
++
++ROOT=Path(__file__).resolve().parents[1]
++spec=importlib.util.spec_from_file_location('reset_audit',ROOT/'tools/audit_oriole_resetcheck.py')
++audit=importlib.util.module_from_spec(spec)
++spec.loader.exec_module(audit)
++
++
++class ResetCheckTests(unittest.TestCase):
++    def test_source_audit_mutations(self):
++        s=(ROOT/'shim/shim.c').read_text()
++        h=(ROOT/'shim/resetcheck.h').read_text()
++        c=(ROOT/'shim/resetcheck.c').read_bytes()
++        audit.source_check(s,h,c)
++        for bad in [s.replace('pa==RC_SYSIP && v==0xfc','pa==RC_SYSIP'),
++                    s.replace('smc(0x82000504UL,pa,1,v)','smc(0x82000505UL,pa,1,v)'),
++                    s.replace('smc(0x82000504UL,pa,1,v)','smc(0x82000504UL,pa,2,v)'),
++                    s.replace('return usbg_on && usbgadget_ready();','return 1;'),
++                    s.replace('pa==RC_SYSIP && try_read32(pa,v)','try_read32(pa,v)'),
++                    s.replace('void resetcheck_wait_ms(unsigned ms) { delay_ms(ms); }',
++                              'void resetcheck_wait_ms(unsigned ms) { (void)ms; }'),
++                    s.replace('oriole_resetcheck(usbg_end);','oriole_resetcheck(now()+1);'),
++                    s.replace('usb_gadget_start(dtb);\n#ifdef ORIOLE_RESETCHECK',
++                              '#ifdef ORIOLE_RESETCHECK').replace('oriole_resetcheck(usbg_end);',
++                              'oriole_resetcheck(usbg_end); usb_gadget_start(dtb);')]:
++            self.assertNotEqual(bad,s)
++            with self.assertRaises(ValueError): audit.source_check(bad,h,c)
++        with self.assertRaises(ValueError):
++            audit.source_check(s,h.replace('0x17460810UL','0x17460814UL'),c)
++        with self.assertRaises(ValueError):
++            audit.source_check(s,h,c.replace(b'RC_SWRESET,2',b'RC_SWRESET,3'))
++
++    def test_compiled_audit_mutations(self):
++        s=(ROOT/'tools/fixtures/oriole-resetcheck-writer.disasm').read_text()
++        audit.writer_check(s)
++        # Every compiled instruction is material; mutate one opcode at a time.
++        matches=list(re.finditer(r'^\s*[0-9a-f]+:\s+([0-9a-f]{8})\s',s,re.M))
++        self.assertEqual(len(matches),19)
++        for m in matches:
++            bad=s[:m.start(1)]+f'{int(m[1],16)^1:08x}'+s[m.end(1):]
++            with self.assertRaises(ValueError): audit.writer_check(bad)
++        p=(ROOT/'tools/fixtures/oriole-resetcheck.disasm').read_text()
++        audit.protocol_check(p)
++        for bad in [p.replace('a9bd7bfd','a9bd7bfc',1),
++                    p.replace('R_AARCH64_CALL26\tresetcheck_write','R_AARCH64_CALL26\tresetcheck_read',1),
++                    p.replace('[sp, #-48]','[x0, #-48]',1)]:
++            self.assertNotEqual(bad,p)
++            with self.assertRaises(ValueError): audit.protocol_check(bad)
++
++    def test_protocol_faults_and_exact_write_sequence(self):
++        with tempfile.TemporaryDirectory() as d:
++            c,exe=Path(d)/'test.c',Path(d)/'test'
++            c.write_text(r'''
++#include <assert.h>
++#include "resetcheck.h"
++static unsigned mode, reads, writes, t;
++void con_str(const char *a,const char *b){(void)a;(void)b;}
++void con_hex(const char *a,uint64_t v){(void)a;(void)v;}
++int resetcheck_ready(void){return mode!=1 && !(mode==7 && t>=8000);}
++uint64_t resetcheck_ticks(void){return t;}
++void resetcheck_wait_ms(unsigned ms){assert(ms==1||ms==8000);t+=ms;}
++int resetcheck_read(uintptr_t pa,uint32_t *v){
++ assert(pa==RC_SYSIP);reads++;
++ if((mode==2&&reads==1)||(mode==3&&reads==2))return 0;
++ *v=reads==1 ? 0x1234 : mode==4 ? 0x1234 : 0xfc;return 1;
++}
++uint64_t resetcheck_write(uintptr_t pa,uint32_t v){
++ writes++;assert(writes<=2);
++ assert(writes==1 ? pa==RC_SYSIP&&v==0xfc : pa==RC_SWRESET&&v==2);
++ return mode==5 ? 0xffffffffffffffffULL : 0;
++}
++int main(void){
++ for(mode=0;mode<8;mode++){
++  reads=writes=t=0;oriole_resetcheck(10);
++  assert(t<=16000);
++  if(mode==1){assert(t==10&&reads==0&&writes==0);}
++  else if(mode==2){assert(reads==1&&writes==0);}
++  else if(mode==3||mode==4||mode==5||mode==7){assert(reads==2&&writes==1&&t==8000);}
++  else {assert(reads==2&&writes==2&&t==16000);}
++ }
++ return 0;
++}
++''')
++            subprocess.run(['cc','-O1','-Wall','-Wextra','-Werror','-I',str(ROOT/'shim'),
++                            str(c),str(ROOT/'shim/resetcheck.c'),'-o',str(exe)],check=True)
++            subprocess.run([str(exe)],check=True)
++
++
++if __name__=='__main__':
++    unittest.main()
+-- 
+2.54.0 (Apple Git-157)
+

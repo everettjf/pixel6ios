@@ -21,7 +21,7 @@
   "ios_sweet_pin": "11da58bd050672960c0a83b5bef2176047eea479",
   "raviole_pin": "81506b991a5385be6c59ee27df4dda2b1379c507",
   "gs101_source_ref": "android-gs-bluejay-6.1-android16",
-  "note": "Google gs101 source fetched from named branch, file SHA256s retained; phone values are in ignored private/device-facts.json. No hardware boot validation performed.",
+  "note": "Initial immutable snapshots above; local hardware work below and ACTIVE-WORK.md. No experimental flash/erase/media writes. Android completed OTA to CP3A/slot b; exact transition between earlier experiments unknown. Raw target data stays private.",
   "source_file_sha256": {
     "research/google-raviole/gs101-oriole-pmic.dtsi": "26f35e637dd84448ad61b673f7e43f49c6f481d6118be22046dbbe3d3c5208b2",
     "research/google-raviole/gs101-oriole-touch.dtsi": "972201f20865d2cd26840120e07bada58e916bc39f3e4b3121421d75b30192ff",
@@ -36,5 +36,98 @@
     "research/ios-sweet-pinned/tools/sweet-root-tweaks.py": "d604e9fd74f8344b87a351cf573346f4b8d2a3f73e9b3948cb720abcefd56398",
     "research/ios-sweet-pinned/tools/mkiosroot.sh": "b1b28a8ca69e572452872e0622f441c0cee170ddf94e51f6a8709adcb53e8655",
     "research/ios-sweet-pinned/tools/mkpayload.py": "b85e1b50cfa73102b0d2c04e133f8f63b5a7f1e85b9b0cf4fbfbb24d47782936"
+  },
+  "local_work": {
+    "checkout": "research/pixelios-kernel",
+    "branch": "wip/oriole-bringup",
+    "commit": "a2687bc",
+    "publication": "local only, unpushed",
+    "patch_sha256": {
+      "patches/0001-Add-bounded-headless-inventory-mode-for-Pixel-6-orio.patch": "85b1bf20d0b68a3157c094f6093505273ff9f9955c2c3f05b1cb03fdc181d9ce",
+      "patches/0002-Make-QR-fixture-builds-portable-across-macOS-host-ar.patch": "54c4cd51d3b5d77293cf518c92f2680c686711817dd8c4bdbef8102193ff390d",
+      "patches/0003-Keep-recovery-self-test-stubs-compatible-with-macOS-.patch": "3d8490778b37ed70a7181143c8d0a70bdd7aa47593afebd522eccca4a1e9ef21",
+      "patches/0004-Record-Oriole-memory-and-add-read-only-display-inven.patch": "e4c7b65a33e7470591750f40387118271a388548967a1ddc070a9149a3fdff40",
+      "patches/0005-Add-guarded-read-only-high-DMA-UFS-inventory-for-Ori.patch": "accd4a3b63f604042711a3826dd4f7da11915a288afce771d013d10a8440168c",
+      "patches/0006-Gate-an-exact-RAM-only-XNU-probe-on-measured-Oriole-.patch": "2b40c88d74d30c5ae2625c1a6075d9a24d2305a82d579d8ba7af68bdec6259a8",
+      "patches/0007-Add-a-non-entry-loader-check-to-isolate-the-Oriole-X.patch": "20c33db39d0d212d3bcb320cf4e1870b71b05dc4fd0a158d29c76ff2ee6e271d",
+      "patches/0008-Measure-Oriole-bootloader-reset-with-bounded-USB-and.patch": "c6c645350bd0a30f538fd272096881f3f9607a99b69d7b80425fb79ef5922609"
+    },
+    "gates_passed": [
+      "89404f4",
+      "5b5dd7a",
+      "5332b32",
+      "a181884",
+      "9181290",
+      "a2687bc"
+    ],
+    "gates_pending": [],
+    "hardware_status": "4 inventory boots succeeded; RAM-only native boot attempted but XNU execution unverified; no-entry loader check completed and returned Android. Resetcheck not yet run."
+  },
+  "ios_inputs": {
+    "product": "iPhone10,3/D22AP",
+    "version": "16.7.16",
+    "build": "20H392",
+    "ipsw_sha256": "ece1194f7e233e9109c5790a8d23a4564a10a254e15ec5b09978a343265568fb",
+    "kernel_ci_run": 39906729708,
+    "kernel_sha256": "8e4d38ea655930ef1da4998ab236962caabb9c8af1efaed6a96e243039af2292",
+    "ramprobe_payload_sha256": "6ae22614d729439dcff3345c41f4e3aefd6451be5b77f7518757c89ae9567f66",
+    "hfsx_root_sha256": "d6082d24496c81136060f183c9265e308bc925fa10869c062597b231bd19cce1",
+    "hfsx_location": "inside local Linux VM only; not flashed"
+  },
+  "current_firmware": {
+    "android_build": "CP3A.261005.002.A1/16269273",
+    "security_patch": "2026-10-05",
+    "bootloader": "slider-17.0-15681480",
+    "slot": "b",
+    "vendor_boot_sha256": "450dbe70f90627ac7cef2ea3e878e2bb30f05061adf9a025427c5b3326625b55",
+    "revalidation_profile": "inventory only",
+    "prior_experiment_firmware_attribution": "Not all earlier boots captured firmware/slot; no exact OTA transition claim.",
+    "inventory_result": {
+      "log_bytes": 6099,
+      "log_sha256": "c588aec5bfa6e88b5cf413fee6f607d39f951579dc4551a1ae4acfc90103cd47",
+      "live_fdt": "00000000B4000000",
+      "memory_banks": [
+        [
+          "memory@980000000",
+          "0000000980000000",
+          "0000000080000000"
+        ],
+        [
+          "memory@900000000",
+          "0000000900000000",
+          "0000000080000000"
+        ],
+        [
+          "memory@880000000",
+          "0000000880000000",
+          "0000000080000000"
+        ],
+        [
+          "memory@80000000",
+          "0000000080000000",
+          "0000000080000000"
+        ]
+      ],
+      "report_complete": true,
+      "usb_pool": "00000000F8D1B000",
+      "android_return_verified": true,
+      "android_boot_completed": "1"
+    }
+  },
+  "host_firmware_guard": {
+    "path": "tools/boot_inventory.py",
+    "sha256": "24c7a00914244e318a3808b70d9bbeedd70067f4ab3281275d447b2131e17803",
+    "tests": "7 unit tests passed; independent GPT5.6 review passed",
+    "checks": [
+      "single recorded target",
+      "product",
+      "unlocked",
+      "explicit bootloader",
+      "active slot",
+      "active boot geometry",
+      "explicit allowed profile",
+      "image provenance and hash"
+    ],
+    "build_id": "informational from Android inspection; not enforced by fastboot helper"
   }
 }

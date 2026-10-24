@@ -1,6 +1,8 @@
 **Pixel 6 / oriole iOS 移植研究**
 
-当前阶段：Pixel 6 真机移植。已在已解锁的 oriole 上两次临时启动只读探测镜像，通过 USB 采到内存布局，手机自动回到 Android。iOS 16.7.16 实验根文件系统已在隔离 Linux 虚拟机中构建并通过离线检查。尚未在本机启动 XNU 或 iOS；尚未刷写分区。
+已通过真机 USB 日志验证内存、显示寄存器、只读 UFS/GPT，以及 XNU 加载器的段复制和启动参数构造。尚无真机 XNU/PID1 或 iOS 主屏执行证据。iOS 16.7.16 根文件系统已离线构建并检查，实验未刷写分区。
+
+Android 期间完成 OTA，当前为 CP3A.261005.002.A1、Bootloader slider-17.0-15681480、槽 b；该固件的基础 inventory 已重验，手机自动返回 Android；其他实验类型仍受门禁限制。旧固件结果不能自动继承。
 
 - [调研报告与分阶段开发方案](docs/PIXEL6-IOS-FEASIBILITY.md)
 - [源码版本与下载文件校验记录](docs/source-manifest.json)

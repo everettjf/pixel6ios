@@ -1,0 +1,120 @@
+From 9181290b9ffe8d65bdeb0a9770108737c5964633 Mon Sep 17 00:00:00 2001
+From: Everett <everettjf@live.com>
+Date: Sat, 24 Oct 2026 14:42:56 -0700
+Subject: [PATCH] Add a non-entry loader check to isolate the Oriole XNU
+ boundary
+
+---
+ device/google/oriole/docs/RAM-PROBE.md | 16 ++++++++++++++++
+ shim/build.sh                          |  5 ++++-
+ shim/loader.c                          |  7 +++++++
+ tools/test_oriole_ramprobe.py          | 18 ++++++++++++++----
+ 4 files changed, 41 insertions(+), 5 deletions(-)
+
+diff --git a/device/google/oriole/docs/RAM-PROBE.md b/device/google/oriole/docs/RAM-PROBE.md
+index 2f45e21..fc7a024 100644
+--- a/device/google/oriole/docs/RAM-PROBE.md
++++ b/device/google/oriole/docs/RAM-PROBE.md
+@@ -42,3 +42,19 @@ Run focused tests and check-all, independently review, commit on local wip,
+ then rebuild this exact profile after the gate (which overwrites shim/out).
+ Verify image provenance, exact packaged payload and unlocked serial-specific
+ oriole before temporary fastboot boot. Generic oriole --boot-xnu stays closed.
++
++## Transfer-boundary load check
++
++The first a181884 temporary boot was accepted by fastboot, but no native
++XNU execution evidence or automatic return was obtained. No screen report
++was available at the time of this note. Android subsequently reconnected;
++ro.boot.bootreason reported watchdog,apc,early. Whether the human pressed
++buttons is unknown. No native execution milestone is inferred from this.
++
++The opt-in --xnu-loadcheck profile uses the same fixed payload and loader
++guards, copies every segment, builds boot_args, logs JUMP, then intentionally
++returns before the CPU branch. The existing fallback USB gadget starts only
++after this return, replays the RAM log and resets. It does not test kernel
++execution. This avoids relying on best-effort USB stop before XNU: the
++current gadget stop API cannot positively prove controller quiescence.
++The rejected pre-jump USB draft was never booted.
+diff --git a/shim/build.sh b/shim/build.sh
+index 321fb12..1a06f87 100755
+--- a/shim/build.sh
++++ b/shim/build.sh
+@@ -34,10 +34,12 @@ inventory=0
+ inventory_display=0
+ inventory_ufs=0
+ ramprobe=0
++loadcheck=0
+ while [ "$#" -gt 0 ]; do
+ 	case "$1" in
+ 		--board) board="$2"; shift 2 ;;
+-		--xnu-ramprobe) ramprobe=1; boot_xnu=1; usb_gadget=1; shift ;;
++		--xnu-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
++		--xnu-ramprobe) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; boot_xnu=1; usb_gadget=1; shift ;;
+ 		--inventory) inventory=1; usb_gadget=1; shift ;;
+ 		--inventory-ufs) inventory=1; inventory_ufs=1; usb_gadget=1; shift ;;
+ 		--inventory-display) inventory=1; inventory_display=1; usb_gadget=1; shift ;;
+@@ -130,6 +132,7 @@ CFLAGS="-O2 -ffreestanding -nostdlib -fno-pic -march=armv8-a+crc -mgeneral-regs-
+ CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
+ [ "$inventory" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY"
+ [ "$ramprobe" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RAMPROBE"
++[ "$loadcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_LOADCHECK"
+ if [ "$usb_gadget" = 1 ]; then
+ 	# Stage-2 CDC-ACM log gadget (default OFF): bluejay only (needs try_write32).
+ 	[ "$gs101" = 1 ] || { echo "--usb-gadget needs a gs101 board" >&2; exit 2; }
+diff --git a/shim/loader.c b/shim/loader.c
+index eecf570..6e0d072 100644
+--- a/shim/loader.c
++++ b/shim/loader.c
+@@ -147,6 +147,13 @@ const char *loader_boot(uintptr_t dtb)
+ 
+ 	uintptr_t entry_pa = p->entry_va + pa_of_va_base;
+ 	con_hex("JUMP", entry_pa);
++#ifdef ORIOLE_LOADCHECK
++    /* Diagnostic run stops exactly at the transfer boundary. USB starts
++     * only AFTER returning to the shim, so it can replay the RAM log
++     * without creating a USB-to-XNU handoff. */
++    con_str("ORIOLE_LOADCHECK", "all copies complete; XNU entry intentionally skipped");
++    return "load check complete";
++#endif
+ 	con_str("XNU", "jumping (fbcon clears screen)");
+ 
+ 	/* Everything was written with the MMU and caches off; drop any stale I-cache lines too. */
+diff --git a/tools/test_oriole_ramprobe.py b/tools/test_oriole_ramprobe.py
+index 9abe502..ec3958e 100644
+--- a/tools/test_oriole_ramprobe.py
++++ b/tools/test_oriole_ramprobe.py
+@@ -73,6 +73,15 @@ int main(void) {
+                             str(c),'-o',str(exe)], check=True)
+             subprocess.run([str(exe)], check=True)
+ 
++    def test_profile_selections_are_exclusive(self):
++        for flags in (['--xnu-loadcheck','--xnu-ramprobe'],
++                      ['--xnu-ramprobe','--xnu-loadcheck']):
++            r=subprocess.run(['bash','shim/build.sh','--board','oriole']+flags,
++                cwd=ROOT,env=dict(os.environ,CROSS_CC='/nonexistent-ramprobe-compiler'),
++                capture_output=True,text=True,timeout=10)
++            self.assertEqual(r.returncode,2,r.stderr)
++            self.assertIn('select only one RAM probe profile',r.stderr)
++
+     def test_build_rejects_before_compiler(self):
+         env = dict(os.environ, CROSS_CC='/nonexistent-ramprobe-compiler')
+         for key in ('USB_WINDOW','USB_DMA_HI_BASE','UFS_DMA_HI_BASE','UFS_ATTEMPTS','REBOOT_BL','XNU_UFS'):
+@@ -83,10 +92,11 @@ int main(void) {
+                 ([],{'USB_DMA_HI_BASE':'0x880100000'}),([],{'REBOOT_BL':'1'}),
+                 ([],{'USB_WINDOW':'61'}),([],{'UFS_ATTEMPTS':'1'})]:
+             with self.subTest(options=options,extra=extra):
+-                r=subprocess.run(['bash','shim/build.sh','--board','oriole','--xnu-ramprobe']+options,
+-                    cwd=ROOT,env=dict(env,**extra),capture_output=True,text=True,timeout=10)
+-                self.assertEqual(r.returncode,2,r.stderr)
+-                self.assertNotIn('nonexistent-ramprobe-compiler',r.stderr)
++                for profile in ('--xnu-ramprobe','--xnu-loadcheck'):
++                    r=subprocess.run(['bash','shim/build.sh','--board','oriole',profile]+options,
++                        cwd=ROOT,env=dict(env,**extra),capture_output=True,text=True,timeout=10)
++                    self.assertEqual(r.returncode,2,r.stderr)
++                    self.assertNotIn('nonexistent-ramprobe-compiler',r.stderr)
+ 
+ 
+ if __name__=='__main__':
+-- 
+2.54.0 (Apple Git-157)
+
