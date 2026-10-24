@@ -1,0 +1,796 @@
+From 0c4ea1c08b5c8877c6fe666c17c270838782cf2f Mon Sep 17 00:00:00 2001
+From: Everett <everettjf@live.com>
+Date: Sat, 24 Oct 2026 16:30:07 -0700
+Subject: [PATCH] Add exact Oriole md0 kernel USB log experiment
+
+---
+ device/google/oriole/README.md                |  77 ++++++-----
+ shim/build.sh                                 |   8 +-
+ shim/loader.c                                 |   3 +
+ shim/ramprobe_guard.h                         |   7 +-
+ shim/shim.c                                   |   4 +
+ soc/google/gs101/docs/display-inventory.md    |  12 +-
+ tools/audit_oriole_resetcheck.py              |   2 +-
+ tools/imgmeta.py                              |   2 +-
+ tools/oriole-usb-init.S                       | 130 ++++++++++++++++++
+ tools/oriole_md0usb.py                        | 111 +++++++++++++++
+ tools/test_md0_usb_hook.py                    |  97 +++++++++++++
+ tools/test_oriole_md0usb.py                   |  53 +++++++
+ tools/test_oriole_ramprobe.py                 |  16 ++-
+ .../0102-sweet-md0-usb-after-network.patch    |  88 ++++++++++++
+ 14 files changed, 564 insertions(+), 46 deletions(-)
+ create mode 100644 tools/oriole-usb-init.S
+ create mode 100644 tools/oriole_md0usb.py
+ create mode 100644 tools/test_md0_usb_hook.py
+ create mode 100644 tools/test_oriole_md0usb.py
+ create mode 100644 xnu/patches/0102-sweet-md0-usb-after-network.patch
+
+diff --git a/device/google/oriole/README.md b/device/google/oriole/README.md
+index ea8c82e..fabd3f9 100644
+--- a/device/google/oriole/README.md
++++ b/device/google/oriole/README.md
+@@ -1,34 +1,43 @@
+-# Pixel 6 (oriole): inventory bring-up
+-
+-Status: OBSERVED ON HARDWARE 2026-10-24: headless inventory booted twice, USB log captured, returned automatically to Android. XNU has not run.
+-
+-The device is GS101 with an unlocked slider-17.0-15199431 bootloader and Android
+-17 CP2A.260705.006. Current vendor_boot was fetched read-only and its first DTB
+-declares abl@f8800000 with size 0x2000000 (32 MiB). No device identifiers or
+-firmware are committed.
+-
+-`--inventory` and opt-in `--inventory-display` collect read-only observations. These modes
+-use RAM/USB logging, no framebuffer/UART, no pstore, no storage, and no
+-secondary CPU, PMIC, touch, GPU, WLAN or DVFS experiments. USB must reuse the
+-live ABL event-buffer reservation and the existing overlap checks; a fixed
+-high-DMA override is rejected. Default USB window: 30 seconds, maximum: 60.
+-
+-The source-candidate framebuffer/touch fields support the existing host
+-fixtures and are not enabled by inventory. Four 2 GiB DRAM banks and a 16 MiB live ABL reservation were measured (hardware/inventory-2026-10-24.txt). Static vendor_boot declares 32 MiB, so the live checks are essential. RDMA0 and shadow now confirm the framebuffer source candidate at 0xfac00000,1080x2400. The first high2GiB bank is selected for the next single-core XNU probe.
+-
+-Reviewed independently with no remaining blocking source findings; negative
+-gate tests are in tools/test_oriole_inventory.py. The next opt-in --inventory-display reader samples RDMA configuration only, without writes or clock changes; see soc/google/gs101/docs/display-inventory.md. All96 RDMA reads succeeded; see hardware/display-2026-10-24.txt.
+-
+-
+-XNU remains gated off pending storage/DMA bring-up. No XNU image has booted.
+-
+-
+---inventory-ufs is the next, UNVERIFIED hardware stage. It uses a fixed,
+-live-map-validated128KiB scratch allocation at0x880100000 in the first high
+-bank. Existing GS101 cold-init writes only volatile controller/PHY state;
+-existing doorbell allowlist still rejects every media-writing command.
+-The legacy vendor/PHY survey is skipped. Capacity and CRC-validated GPT
+-metadata are read; userdata contents are not dumped. No arbitrary DMA,
+-reset-mode or peripheral overrides are accepted. A synchronous panic emits
+-the RAM log through the bounded gadget and resets, without pstore/pager.
+-See soc/google/gs101/docs/oriole-ufs-inventory.md. XNU remains disabled.
++# Pixel 6 (oriole): experimental bring-up
++
++**Observed on hardware, 2026-10-24:** inventory builds through a2687bc
++returned automatically to Android with USB logs. The current device is GS101,
++unlocked, Android 17 CP3A.261005.002.A1, slider-17.0-15681480, slot b.
++Earlier experiments started on CP2A.260705.006 / slider-17.0-15199431 / slot a;
++the exact OTA transition between those experiments is unknown.
++
++**Observed on hardware:** the fresh CP3A a2687bc basic inventory captured
++6099 bytes, live FDT at 0xb4000000, four 2 GiB DRAM banks and a 16 MiB
++live ABL reservation at 0xf8800000. Static vendor_boot DTBs declare 32 MiB,
++so live validation remains mandatory. Raw CP3A evidence is kept privately
++in the parent workspace (cp3a-inventory-run1.log and its boot/return records);
++no identifiers or firmware are committed.
++
++**Observed on hardware, earlier firmware attribution uncertain:** all 96
++RDMA/current-shadow reads succeeded, confirming the source candidate
++0xfac00000, 1080x2400, stride 4320. Read-only UFS cold-init reached HS-G4,
++read capacity and validated GPT CRCs with high-bank scratch at 0x880100000.
++No media writes occurred. See hardware/display-2026-10-24.txt and
++soc/google/gs101/docs/oriole-ufs-inventory.md. CP3A display/UFS revalidation
++is separate from the completed CP3A basic inventory.
++
++**Observed on hardware:** native RAM probe a181884 was accepted and Android
++returned, but no direct XNU/PID1 log or screen evidence was captured. It
++therefore does not establish that XNU executed. Loadcheck 9181290 copied
++11 segments and built boot arguments, intentionally skipping XNU entry.
++Resetcheck a2687bc read back the requested PMU mode, but returned to Android
++rather than fastboot; reliable bootloader-entry recovery is unproven.
++Native XNU execution and full iOS boot remain unresolved.
++
++**Read from source:** inventory modes reuse the live-validated ABL USB pool,
++reject arbitrary DMA overrides, keep bounded waits and do not write storage.
++Display inventory reads RDMA configuration without changing clocks or display
++registers. UFS inventory changes only volatile controller/PHY state, with
++media-writing commands rejected at the doorbell. See tools/test_oriole_inventory.py.
++
++**Read from source / unrun candidate:** the separate md0 USB profile uses
++one CPU, a RAM root and an exact opt-in USB node; UFS, touch and keys are
++absent. Patch 0102 registers the existing USB probe after networking through
++net_init_add. Its independent review, exact build gate and current-firmware
++hardware evidence are required before calling it usable. Local QEMU results
++omit the GS101 USB node and are not phone or USB evidence.
+diff --git a/shim/build.sh b/shim/build.sh
+index ad2db82..43936cb 100755
+--- a/shim/build.sh
++++ b/shim/build.sh
+@@ -36,9 +36,12 @@ inventory_ufs=0
+ ramprobe=0
+ loadcheck=0
+ resetcheck=0
++md0usb=0
+ while [ "$#" -gt 0 ]; do
+ 	case "$1" in
+ 		--board) board="$2"; shift 2 ;;
++		--xnu-md0usb-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; md0usb=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
++		--xnu-md0usb) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; md0usb=1; boot_xnu=1; usb_gadget=1; shift ;;
+ 		--xnu-resetcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; resetcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
+ 		--xnu-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
+ 		--xnu-ramprobe) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; boot_xnu=1; usb_gadget=1; shift ;;
+@@ -89,7 +92,9 @@ if [ "$ramprobe" = 1 ]; then
+     [ "${USB_WINDOW:-30}" -ge 1 ] && [ "${USB_WINDOW:-30}" -le 60 ] || exit 2
+     USB_WINDOW=${USB_WINDOW:-30}
+     [ -n "$payload" ] || { echo "RAM probe requires reviewed payload" >&2; exit 2; }
+-    "$PYTHON" ../tools/oriole_ramprobe.py --check "$payload" || exit 2
++    payload_checker=../tools/oriole_ramprobe.py
++    [ "$md0usb" = 0 ] || payload_checker=../tools/oriole_md0usb.py
++    "$PYTHON" "$payload_checker" --check "$payload" || exit 2
+ fi
+ if [ "$inventory_ufs" = 1 ]; then
+     [ "$board:$inventory_display" = oriole:0 ] && [ -z "${UFS_DMA_HI_BASE:-}${UFS_ATTEMPTS:-}${XNU_UFS:-}${REBOOT_BL:-}" ] || {
+@@ -134,6 +139,7 @@ CFLAGS="-O2 -ffreestanding -nostdlib -fno-pic -march=armv8-a+crc -mgeneral-regs-
+ CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
+ [ "$inventory" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY"
+ [ "$ramprobe" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RAMPROBE"
++[ "$md0usb" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_MD0USB"
+ [ "$loadcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_LOADCHECK"
+ [ "$resetcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RESETCHECK"
+ if [ "$usb_gadget" = 1 ]; then
+diff --git a/shim/loader.c b/shim/loader.c
+index 6e0d072..79c334b 100644
+--- a/shim/loader.c
++++ b/shim/loader.c
+@@ -81,6 +81,9 @@ const char *loader_boot(uintptr_t dtb)
+ 		return "bad payload header";
+ 
+ #ifdef ORIOLE_RAMPROBE
++#ifdef ORIOLE_MD0USB
++    con_str("ORIOLE_MD0_USB", "kernel USB after network init; no media path");
++#endif
+     /* Validate every range before the first copy. The build also binds the
+      * complete payload SHA256, including ADT and boot arguments. */
+     if (!ramprobe_payload_ok(p, rd_end - payload_addr))
+diff --git a/shim/ramprobe_guard.h b/shim/ramprobe_guard.h
+index bacc3a4..4b84e5e 100644
+--- a/shim/ramprobe_guard.h
++++ b/shim/ramprobe_guard.h
+@@ -10,7 +10,12 @@ static inline int rp_inside(uint64_t off, uint64_t len, uint64_t limit)
+ 
+ static inline int ramprobe_payload_ok(const struct payload *p, uint64_t available)
+ {
+-    const uint64_t size=16726576, vb=0xfffffe0006000000ULL;
++#ifdef ORIOLE_MD0USB
++    const uint64_t size=16727088;
++#else
++    const uint64_t size=16726576;
++#endif
++    const uint64_t vb=0xfffffe0006000000ULL;
+     if (available < size || p->version!=1 || p->nsegs!=11 ||
+         p->virt_base!=vb || p->phys_base!=0x880000000ULL ||
+         p->mem_size!=0x80000000ULL || p->entry_va!=0xfffffe0007493488ULL ||
+diff --git a/shim/shim.c b/shim/shim.c
+index 7630f91..6018f52 100644
+--- a/shim/shim.c
++++ b/shim/shim.c
+@@ -552,7 +552,11 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
+     con_set_video(FB_BASE, FB_W, FB_H, FB_STRIDE);
+     con_clear(0xff000000U);
+     decon_rearm_trigger();
++#ifdef ORIOLE_MD0USB
++    con_str("ORIOLE_RAM_PROBE", "RAM-only XNU, no media; kernel USB opt-in");
++#else
+     con_str("ORIOLE_RAM_PROBE", "RAM-only XNU, no media/USB driver");
++#endif
+     const char *why = loader_boot(dtb);
+     con_str("RAM probe refused/returned", why ? why : "?");
+     usb_gadget_start(dtb);
+diff --git a/soc/google/gs101/docs/display-inventory.md b/soc/google/gs101/docs/display-inventory.md
+index 1e1f817..2549e9b 100644
+--- a/soc/google/gs101/docs/display-inventory.md
++++ b/soc/google/gs101/docs/display-inventory.md
+@@ -2,15 +2,21 @@
+ 
+ READ FROM SOURCE: Google display module commit
+ [661047c0c1c4939aa81fcc822bb21dc5a484f913](https://android.googlesource.com/kernel/google-modules/display/+/661047c0c1c4939aa81fcc822bb21dc5a484f913/samsung/cal_9845/regs-dpp.h).
+-RDMA L0..L5 base is 0x1c0b0000, spacing 0x1000. The current fetched
++RDMA L0..L5 base is 0x1c0b0000, spacing 0x1000. The initially fetched
+ vendor_boot_a DTB agrees (drmdpp0..5 DMA reg). Shadow offset is 0x400.
+ Read offsets: ENABLE 0x00, IN_CTRL_0 0x08, SRC_SIZE 0x10,
+ SRC_OFFSET 0x14, IMG_SIZE 0x18, BASEADDR_Y8 0x40, SRC_STRIDE_0 0x50,
+ SRC_STRIDE_1 0x54. These are configuration registers, not interrupt-clear
+ or FIFO registers. soc.json is the source of all numeric read addresses.
+ 
+-UNVERIFIED on Oriole until a capture: configuration values and whether
+-all RDMA blocks remain readable after ABL. A synchronous fault skips the
++OBSERVED ON HARDWARE, 2026-10-24 (earlier firmware attribution uncertain):
++all96 reads succeeded; RDMA0 current/shadow report base0xfac00000,
++1080x2400, format0, offset0 and stride selectors0 (natural4320 bytes).
++See device/google/oriole/hardware/display-2026-10-24.txt. Current CP3A
++revalidation is still UNVERIFIED until a new complete capture and Android
++return; static DTB equality alone is insufficient.
++
++READ FROM SOURCE: a synchronous fault skips the
+ rest of that channel. There are six channels, two banks and eight offsets;
+ no waits, no writes, no clock/trigger/DSIM actions. Only opt-in
+ --inventory-display links this reader. Ordinary inventory is unchanged.
+diff --git a/tools/audit_oriole_resetcheck.py b/tools/audit_oriole_resetcheck.py
+index a6d12b7..22d8799 100644
+--- a/tools/audit_oriole_resetcheck.py
++++ b/tools/audit_oriole_resetcheck.py
+@@ -38,7 +38,7 @@ def source_check(shim,header,protocol):
+         (r'#ifdef ORIOLE_RESETCHECK\n#include "resetcheck.h".*?\n#endif',
+          'db4d2e1aa0623733a1f7923e179f378fa35ccb9dfd961d6b231999b30ddab486'),
+         (r'#ifdef ORIOLE_RAMPROBE\n    inventory_dtb = dtb;.*?\n#endif\n#ifdef INVENTORY',
+-         '8a5ae8d4c490feed3114d2f07d9cce4f7fed87547c32f79800d36949c33b9015')]:
++         '95809b867df71a0b2e2b527bc6c11be50ee22d21be036d5a90c35835ebe3bf90')]:
+         block=re.search(pattern,code,re.S)
+         if not block or hashlib.sha256(compact(block[0]).encode()).hexdigest()!=digest:
+             raise ValueError('resetcheck hooks/profile placement changed')
+diff --git a/tools/imgmeta.py b/tools/imgmeta.py
+index 547d874..45e6398 100755
+--- a/tools/imgmeta.py
++++ b/tools/imgmeta.py
+@@ -10,7 +10,7 @@ expected, the sources the image was built from have changed since (stale), or th
+ import argparse, hashlib, json, os, subprocess, sys, time
+ 
+ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+-SRC = ['shim', 'soc', 'device', 'xnu/patches', 'qrlog', 'xnu/qr', 'tools/mkadt.py', 'tools/mkpayload.py', 'tools/boards.py', 'tools/oriole_ramprobe.py', 'tools/oriole-ram-init.S', 'tools/audit_oriole_resetcheck.py']
++SRC = ['shim', 'soc', 'device', 'xnu/patches', 'qrlog', 'xnu/qr', 'tools/mkadt.py', 'tools/mkpayload.py', 'tools/boards.py', 'tools/oriole_ramprobe.py', 'tools/oriole-ram-init.S', 'tools/oriole_md0usb.py', 'tools/oriole-usb-init.S', 'tools/audit_oriole_resetcheck.py']
+ 
+ 
+ def sha(path):
+diff --git a/tools/oriole-usb-init.S b/tools/oriole-usb-init.S
+new file mode 100644
+index 0000000..afc836c
+--- /dev/null
++++ b/tools/oriole-usb-init.S
+@@ -0,0 +1,130 @@
++/*
++ * First userspace program for SWEET bring-up: mockfs serves the RAM disk
++ * itself as /sbin/launchd, so this static binary is PID 1. It proves that
++ * exec, the user/kernel boundary, devfs and the console all work, then
++ * requests reboot after120s (init never exits). Derived from ios-sweet
++ * commit11da58bd050672960c0a83b5bef2176047eea479 tools/sweet-init.S.
++ *
++ * tools/mkinit.py wraps the assembled __text into a static Mach-O, so this
++ * must stay position independent with no relocations and no writable data:
++ * every reference is adr (PC-relative), the PID digit lives on the stack.
++ *
++ * Raw XNU syscalls: number in x16, svc #0x80, carry set on error.
++ */
++#define SYS_write	4
++#define SYS_open	5
++#define SYS_getpid	20
++#define SYS_reboot	55
++#define SYS_select	93
++#define O_RDWR		2
++
++	.text
++	.globl	_start
++	.p2align 2
++_start:
++	/*
++	 * The kernel enters a static binary with sp at argc, aligned only to
++	 * what the argument/apple strings happened to need. Using a misaligned
++	 * sp as a base register raises an SP alignment fault (SIGBUS) on real
++	 * hardware (QEMU does not check), so align it like crt0/dyld do.
++	 */
++	mov	x9, sp
++	and	x9, x9, #~15
++	mov	sp, x9
++
++	adr	x0, path
++	mov	x1, #O_RDWR
++	mov	x2, #0
++	mov	x16, #SYS_open
++	svc	#0x80
++	b.cc	console_ok
++	mov	x0, #1		/* fallback fd: still exercise timed reboot */
++console_ok:
++	mov	x19, x0
++
++	adr	x1, hello
++	adr	x2, hello_tail
++	sub	x2, x2, x1
++	bl	write_console
++
++	mov	x16, #SYS_getpid
++	svc	#0x80
++	add	w0, w0, #'0'		/* PID 1 expected: one digit */
++	sub	sp, sp, #16
++	strb	w0, [sp]
++	mov	x1, sp
++	mov	x2, #1
++	bl	write_console
++	add	sp, sp, #16
++
++	adr	x1, hello_tail
++	adr	x2, alive
++	sub	x2, x2, x1
++	bl	write_console
++	mov	x21, #24		/* twenty-four 5s waits for USB capture, then reboot */
++tick:
++	/* select(0, NULL, NULL, NULL, &5s) as a portable sleep */
++	mov	x0, #0
++	mov	x1, #0
++	mov	x2, #0
++	mov	x3, #0
++	adr	x4, five_sec
++	mov	x16, #SYS_select
++	svc	#0x80
++
++	/* Repeat PID identity after host USB networking becomes available. */
++	adr	x1, hello
++	adr	x2, hello_tail
++	sub	x2, x2, x1
++	bl	write_console
++
++	mov	x16, #SYS_getpid
++	svc	#0x80
++	add	w0, w0, #'0'		/* PID 1 expected: one digit */
++	sub	sp, sp, #16
++	strb	w0, [sp]
++	mov	x1, sp
++	mov	x2, #1
++	bl	write_console
++	add	sp, sp, #16
++
++	adr	x1, hello_tail
++	adr	x2, alive
++	sub	x2, x2, x1
++	bl	write_console
++
++	adr	x1, alive
++	adr	x2, alive_end
++	sub	x2, x2, x1
++	bl	write_console
++	subs	x21, x21, #1
++	b.ne	tick
++	mov	x0, #0		/* RB_AUTOBOOT, no storage operation */
++	mov	x1, #0		/* reboot(0, NULL) */
++	mov	x16, #SYS_reboot
++	svc	#0x80
++	b	hang
++
++/* write(x19, x1, x2) */
++write_console:
++	mov	x0, x19
++	mov	x16, #SYS_write
++	svc	#0x80
++	ret
++
++hang:
++	b	hang
++
++	.p2align 3
++five_sec:
++	.quad	5			/* tv_sec */
++	.quad	0			/* tv_usec (int32 + padding) */
++path:
++	.asciz	"/dev/console"
++hello:
++	.ascii	"\n*** ORIOLE USB RAM userspace: init running as PID "
++hello_tail:
++	.ascii	" ***\n"
++alive:
++	.ascii	"ORIOLE USB RAM init: syscall sleep completed\n"
++alive_end:
+diff --git a/tools/oriole_md0usb.py b/tools/oriole_md0usb.py
+new file mode 100644
+index 0000000..fd3d18d
+--- /dev/null
++++ b/tools/oriole_md0usb.py
+@@ -0,0 +1,111 @@
++#!/usr/bin/env python3
++"""Prepare/check one exact Oriole md0+USB logging payload; not a generic XNU gate.
++
++This file alone does not enable a shim/host boot profile. Kernel, init, ADT and
++arguments all require exact hashes. Inputs and binaries remain local.
++"""
++import argparse
++import hashlib
++import importlib.util
++from pathlib import Path
++import struct
++import subprocess
++import sys
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0,str(ROOT))
++from tools import adt, mkadt, mkpayload
++
++KERNEL_SHA = '4724585fffd9e85144cb86b6c8e91a5131253a25cf341879c17368000007867b'
++SOURCE_SHA = 'c775da4d4d8cde124db64352a11207f3671f23d91aefd4bba7ca5fb7b9950454'
++INIT_SHA = 'baa6d09e9ef0a3ac68094399266b241c62277d4d134116d1c78600daf5c8b559'
++PAYLOAD_SHA = '5139a045c73e0a605a431216bfa131cd38442ce1e98b9617a16e611044a6761b'
++PAYLOAD_SIZE = 16727088
++ARGS = ('debug=0xc serial=3 cpus=1 keepsyms=1 -enable_kprintf_spam '
++        '-noprogress wdt=-1 wdt_test=no_user_checkin '
++        'sweetusb=2 sweetusbdma=0 sweetremote=0 rd=md0')
++
++
++def require_hash(data, expected):
++    if not expected or hashlib.sha256(data).hexdigest() != expected:
++        raise SystemExit('Oriole md0 USB: unreviewed input/artifact')
++
++
++def validate_args(args):
++    required = {'rd':'md0','sweetusb':'2','sweetusbdma':'0','cpus':'1','sweetremote':'0'}
++    seen = {}
++    for token in args.split():
++        key,sep,value = token.partition('=')
++        if key in required:
++            if not sep or key in seen:
++                raise SystemExit('Oriole md0 USB: missing/duplicate critical boot argument')
++            seen[key] = value
++    if seen != required:
++        raise SystemExit('Oriole md0 USB: unexpected critical boot argument')
++
++
++def check(blob):
++    if len(blob) != PAYLOAD_SIZE:
++        raise SystemExit('Oriole md0 USB: payload size mismatch')
++    require_hash(blob,PAYLOAD_SHA)
++    args = blob[0x48:0x48+608].split(b'\0')[0].decode('ascii')
++    validate_args(args)
++
++
++def build(kernel, out):
++    require_hash(kernel.read_bytes(),KERNEL_SHA)
++    source = ROOT/'tools/oriole-usb-init.S'
++    require_hash(source.read_bytes(),SOURCE_SHA)
++    helper = ROOT/'.upstream/tools/mkinit.py'
++    require_hash(helper.read_bytes(),'79b8585105d4ecfc6f47542563577d0c55c22e7eaa517cffb367cf24e7c4e8ac')
++    validate_args(ARGS)
++    out.mkdir(parents=True,exist_ok=True)
++    obj,init,tree = [out/n for n in ('init.o','init.macho','oriole.adt')]
++    subprocess.run(['xcrun','clang','-target','arm64-apple-ios16.0','-c',str(source),'-o',str(obj)],check=True)
++    spec=importlib.util.spec_from_file_location('mkinit',helper)
++    mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
++    ib=mod.build(obj.read_bytes())
++    require_hash(ib,INIT_SHA)
++    init.write_bytes(ib)
++    root=mkadt.build(seed=bytes(range(64)),board='oriole',no_ufs=True)
++    root.children=[n for n in root.children if n.name not in ('sweet-keys','sweet-touch')]
++    usb=next(n for n in root.children if n.name=='sweet-usb')
++    props={k:v for k,_,v in usb.props}
++    if (props.get('compatible') != b'google,gs101-dwusb3\0' or
++            props.get('reg') != struct.pack('<QQ',0x11110000,0x10000) or
++            props.get('dma-pool-range') != struct.pack('<QQ',0xf8800000,0x1000000)):
++        raise SystemExit('Oriole md0 USB: ADT differs from CP3A measurements')
++    usb.props += [('md0-log-board',0,b'oriole\0'),('init-after-network',0,struct.pack('<I',1))]
++    if any(n.name in ('sweet-ufs','sweet-touch','sweet-keys') for n in root.children):
++        raise SystemExit('Oriole md0 USB: unexpected hardware node')
++    tree.write_bytes(adt.serialize(root))
++    blob,info=mkpayload.build(kernel,tree,ARGS,init,board='oriole')
++    return blob,ib,info
++
++
++def main():
++    p=argparse.ArgumentParser(description=__doc__)
++    g=p.add_mutually_exclusive_group(required=True)
++    g.add_argument('--kernel',type=Path)
++    g.add_argument('--check',type=Path)
++    g.add_argument('--check-image',type=Path)
++    p.add_argument('--out',type=Path)
++    a=p.parse_args()
++    if a.check:
++        check(a.check.read_bytes())
++    elif a.check_image:
++        b=a.check_image.read_bytes()
++        if b[:8]!=b'ANDROID!' or struct.unpack_from('<I',b,40)[0]!=4:
++            raise SystemExit('Expected Android v4 image')
++        ks,rs=struct.unpack_from('<II',b,8);off=4096+((ks+4095)&~4095)
++        check(b[off:off+rs])
++    else:
++        if not a.out:p.error('--kernel requires --out')
++        blob,_,_=build(a.kernel,a.out)
++        check(blob)
++        (a.out/'oriole-md0usb-payload.bin').write_bytes(blob)
++    print('Oriole md0 USB payload: exact hash verified')
++
++
++if __name__=='__main__':
++    main()
+diff --git a/tools/test_md0_usb_hook.py b/tools/test_md0_usb_hook.py
+new file mode 100644
+index 0000000..b9b6489
+--- /dev/null
++++ b/tools/test_md0_usb_hook.py
+@@ -0,0 +1,97 @@
++#!/usr/bin/env python3
++"""Execute the actual patch-0102 callback gate with fake DT/boot args/network API."""
++from pathlib import Path
++import os
++import subprocess
++import tempfile
++import unittest
++
++ROOT = Path(__file__).resolve().parents[1]
++patch = (ROOT / 'xnu/patches/0102-sweet-md0-usb-after-network.patch').read_text()
++added = '\n'.join(line[1:] for line in patch.splitlines() if line.startswith('+') and not line.startswith('+++'))
++a = added.index('/* BEGIN SWEET_MD0_USB:')
++b = added.index('/* END SWEET_MD0_USB */') + len('/* END SWEET_MD0_USB */')
++block = added[a:b]
++prefix = r'''
++#include <assert.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++typedef void *DTEntry;
++#define kSuccess 0
++static int test, registered, usb_calls, property_reads, network_ready;
++static void (*callback)(void);
++static int PE_parse_boot_arg_str(const char *name, char *out, int size) {
++    assert(strcmp(name,"rd")==0);
++    if(test==1) return 0;
++    snprintf(out,size,"%s",test==2 ? "ufsroot0" : "md0"); return 1;
++}
++static int PE_parse_boot_argn(const char *name, void *out, int size) {
++    assert(size==sizeof(int));
++    if(!strcmp(name,"sweetusb")) {
++        if(test==3) return 0;
++        *(int*)out=test==4 ? 0 : test==5 ? 1 : test==6 ? 3 : 2;return 1;
++    }
++    assert(!strcmp(name,"sweetusbdma"));
++    if(test==7) *(int*)out=1;
++    if(test==8) *(int*)out=2;
++    return test==7 || test==8;
++}
++static int SecureDTLookupEntry(DTEntry parent, const char *path, DTEntry *out) {
++    assert(parent==NULL);
++    if(!strcmp(path,"/sweet-ufs")) return test==9 ? kSuccess : -1;
++    assert(!strcmp(path,"/sweet-usb"));*out=(void*)1;return test==10 ? -1 : kSuccess;
++}
++static int SecureDTGetProperty(DTEntry node,const char *name, const void **out,unsigned int *size) {
++    static uint32_t one=1,zero=0;
++    assert(node==(void*)1);property_reads++;
++    if(!strcmp(name,"compatible")) {
++        *out=test==11 ? NULL : test==12 ? "qcom,sm7150-dwusb3" : "google,gs101-dwusb3";
++        *size=test==13 ? 19 : sizeof("google,gs101-dwusb3"); return test==14 ? -1 : kSuccess;
++    }
++    if(!strcmp(name,"md0-log-board")) {
++        *out=test==15 ? "bluejay" : test==16 ? NULL : "oriole";
++        *size=test==17 ? 6 : sizeof("oriole");return test==18 ? -1 : kSuccess;
++    }
++    assert(!strcmp(name,"init-after-network"));
++    *out=test==19 ? NULL : test==20 ? &zero : &one;
++    *size=test==21 ? 8 : sizeof(one);return test==22 ? -1 : kSuccess;
++}
++static int net_init_add(void (*f)(void)) {
++    registered++; assert(!network_ready);callback=f;
++    return test==23 ? 37 : test==24 ? 12 : 0;
++}
++void sweet_usb_probe(void) {assert(network_ready);usb_calls++;}
++'''
++suffix = r'''
++int main(int argc,char **argv) {
++    assert(argc==2);test=atoi(argv[1]);
++    sweet_md0_usb_register();assert(usb_calls==0);
++    if(test>0 && test<23) {assert(registered==0);assert(callback==NULL);}
++    if(test>=23) {assert(registered==1);assert(usb_calls==0);return 0;}
++    if(test==0) {
++        assert(registered==1);assert(callback!=NULL);
++        network_ready=1;callback();callback();assert(usb_calls==1);
++    }
++    return 0;
++}
++'''
++class Md0UsbHookTests(unittest.TestCase):
++    def test_registration_is_once_before_reset_node_validation(self):
++        self.assertIn("+#include <net/init.h>", patch)
++        self.assertEqual(added.count("sweet_md0_usb_register();"), 1)
++        self.assertIn(" \tstarted = 1;\n+\tsweet_md0_usb_register();\n \tif (SecureDTLookupEntry(NULL, \"/sweet-reset\", &node)", patch)
++        self.assertIn('SecureDTLookupEntry(NULL, "/sweet-reset", &node)', patch)
++
++    def test_actual_hook_all_gates_and_network_ready_one_shot(self):
++        with tempfile.TemporaryDirectory(prefix='md0-usb-fixture-') as d:
++            source, exe = Path(d)/'test.c',Path(d)/'test'
++            source.write_text(prefix + block + suffix)
++            subprocess.run([os.environ.get('HOST_CC','cc'),'-std=c11','-Wall','-Wextra','-Werror',str(source),'-o',str(exe)],check=True)
++            for case in range(25):
++                subprocess.run([str(exe),str(case)],check=True,stdout=subprocess.DEVNULL)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tools/test_oriole_md0usb.py b/tools/test_oriole_md0usb.py
+new file mode 100644
+index 0000000..c47a4be
+--- /dev/null
++++ b/tools/test_oriole_md0usb.py
+@@ -0,0 +1,53 @@
++"""Exact-payload and boot-argument binding for the separate md0 USB experiment."""
++from pathlib import Path
++import struct
++import sys
++import tempfile
++import unittest
++
++ROOT=Path(__file__).resolve().parents[1]
++sys.path.insert(0,str(ROOT))
++from tools import adt, oriole_md0usb as profile
++
++
++class Md0UsbProfileTests(unittest.TestCase):
++    def test_exact_critical_arguments(self):
++        profile.validate_args(profile.ARGS)
++        for key,value in [('rd','md0'),('sweetusb','2'),('sweetusbdma','0'),('cpus','1'),('sweetremote','0')]:
++            for extra in (key+'='+value,key+'=other',key):
++                with self.subTest(extra=extra):
++                    with self.assertRaises(SystemExit):
++                        profile.validate_args(profile.ARGS+' '+extra)
++            with self.assertRaises(SystemExit):
++                profile.validate_args(profile.ARGS.replace(key+'='+value,''))
++        for old,new in [('rd=md0','rd=ufsroot0'),('sweetusbdma=0','sweetusbdma=1'),('sweetusb=2','sweetusb=1'),('cpus=1','cpus=8')]:
++            with self.assertRaises(SystemExit):
++                profile.validate_args(profile.ARGS.replace(old,new))
++
++    def test_unknown_kernel_rejected_before_build(self):
++        with tempfile.TemporaryDirectory() as d:
++            p=Path(d);kernel=p/'kernel';kernel.write_bytes(b'wrong input')
++            with self.assertRaises(SystemExit):
++                profile.build(kernel,p/'out')
++            self.assertFalse((p/'out').exists())
++
++    @unittest.skipUnless((ROOT.parents[1]/'artifacts/md0usb/rebuild1/oriole-md0usb-payload.bin').exists(),'local Apple build artifacts absent')
++    def test_current_payload_and_disabled_peripherals(self):
++        path=ROOT.parents[1]/'artifacts/md0usb/rebuild1/oriole-md0usb-payload.bin'
++        blob=path.read_bytes();profile.check(blob)
++        bad=bytearray(blob);bad[-1]^=1
++        with self.assertRaises(SystemExit):profile.check(bad)
++        with self.assertRaises(SystemExit):profile.check(blob[:-1])
++        off,size=struct.unpack_from('<QQ',blob,0x20)
++        tree,end=adt.parse(blob[off:off+size]);self.assertEqual(end,size)
++        nodes={n.name:n for n in tree.children}
++        self.assertFalse(set(nodes)&{'sweet-ufs','sweet-touch','sweet-keys'})
++        usb={k:v for k,_,v in nodes['sweet-usb'].props}
++        self.assertEqual(usb['compatible'],b'google,gs101-dwusb3\0')
++        self.assertEqual(usb['dma-pool-range'],struct.pack('<QQ',0xf8800000,0x1000000))
++        self.assertEqual(usb['md0-log-board'],b'oriole\0')
++        self.assertEqual(usb['init-after-network'],struct.pack('<I',1))
++
++
++if __name__=='__main__':
++    unittest.main()
+diff --git a/tools/test_oriole_ramprobe.py b/tools/test_oriole_ramprobe.py
+index 3d1fcc4..a923337 100644
+--- a/tools/test_oriole_ramprobe.py
++++ b/tools/test_oriole_ramprobe.py
+@@ -70,12 +70,18 @@ int main(void) {
+  return 0;
+ }
+ ''')
+-            subprocess.run(['cc','-O1','-Wall','-Wextra','-Werror','-I',str(ROOT/'shim'),
+-                            str(c),'-o',str(exe)], check=True)
+-            subprocess.run([str(exe)], check=True)
++            original = c.read_text()
++            for flags in ([], ['-DORIOLE_MD0USB']):
++                text = original
++                if flags:
++                    text = text.replace('16726576','16727088').replace('16726575','16727087')
++                c.write_text(text)
++                subprocess.run(['cc','-O1','-Wall','-Wextra','-Werror',*flags,'-I',str(ROOT/'shim'),
++                                str(c),'-o',str(exe)], check=True)
++                subprocess.run([str(exe)], check=True)
+ 
+     def test_profile_selections_are_exclusive(self):
+-        for flags in itertools.permutations(('--xnu-loadcheck','--xnu-ramprobe','--xnu-resetcheck'),2):
++        for flags in itertools.permutations(('--xnu-loadcheck','--xnu-ramprobe','--xnu-resetcheck','--xnu-md0usb','--xnu-md0usb-loadcheck'),2):
+             r=subprocess.run(['bash','shim/build.sh','--board','oriole']+list(flags),
+                 cwd=ROOT,env=dict(os.environ,CROSS_CC='/nonexistent-ramprobe-compiler'),
+                 capture_output=True,text=True,timeout=10)
+@@ -92,7 +98,7 @@ int main(void) {
+                 ([],{'USB_DMA_HI_BASE':'0x880100000'}),([],{'REBOOT_BL':'1'}),
+                 ([],{'USB_WINDOW':'61'}),([],{'UFS_ATTEMPTS':'1'})]:
+             with self.subTest(options=options,extra=extra):
+-                for profile in ('--xnu-ramprobe','--xnu-loadcheck','--xnu-resetcheck'):
++                for profile in ('--xnu-ramprobe','--xnu-loadcheck','--xnu-resetcheck','--xnu-md0usb','--xnu-md0usb-loadcheck'):
+                     r=subprocess.run(['bash','shim/build.sh','--board','oriole',profile]+options,
+                         cwd=ROOT,env=dict(env,**extra),capture_output=True,text=True,timeout=10)
+                     self.assertEqual(r.returncode,2,r.stderr)
+diff --git a/xnu/patches/0102-sweet-md0-usb-after-network.patch b/xnu/patches/0102-sweet-md0-usb-after-network.patch
+new file mode 100644
+index 0000000..c0dc2b1
+--- /dev/null
++++ b/xnu/patches/0102-sweet-md0-usb-after-network.patch
+@@ -0,0 +1,88 @@
++--- a/bsd/dev/sweet_restart.c
+++++ b/bsd/dev/sweet_restart.c
++@@ -23,6 +23,7 @@
++ #include <sys/socket.h>
++ #include <netinet/in.h>
++ #include <stdint.h>
+++#include <net/init.h>
++ 
++ extern kern_return_t kernel_thread_start(thread_continue_t, void *, thread_t *);
++ extern void thread_deallocate(thread_t);
++@@ -138,6 +139,69 @@
++ 	}
++ }
++ 
+++/* BEGIN SWEET_MD0_USB: source-isolated host fixture covers this entire block.
+++ * net_init_add(): xnu-8796.141.3 bsd/net/init.h:40-58, init.c:84-105;
+++ * bsd/kern/bsd_init.c:848-854 runs callbacks after the network stack is ready,
+++ * before setconf()/vfs_mountroot(). Do not start the USB network in IOKit start.
+++ * Existing sweet_usb_probe() is selected only after exact gs101 identification;
+++ * otherwise it can fall through to Qualcomm MMIO. All gates are opt-in.
+++ */
+++extern void sweet_usb_probe(void);
+++
+++static void
+++sweet_md0_usb_ready(void)
+++{
+++    static int called;
+++    if (called) {
+++        return;
+++    }
+++    called = 1;
+++    printf("SWEET MD0 USB: network-ready callback\n");
+++    sweet_usb_probe();
+++}
+++
+++static void
+++sweet_md0_usb_register(void)
+++{
+++    DTEntry node, unused;
+++    const char *compat = NULL, *board = NULL;
+++    const uint32_t *enable = NULL;
+++    unsigned int size = 0;
+++    int usb = 0, dma = 0;
+++    char rd[8] = {0};
+++
+++    if (!PE_parse_boot_arg_str("rd", rd, sizeof(rd)) || strcmp(rd, "md0") != 0 ||
+++        !PE_parse_boot_argn("sweetusb", &usb, sizeof(usb)) || usb != 2) {
+++        return;
+++    }
+++    PE_parse_boot_argn("sweetusbdma", &dma, sizeof(dma));
+++    if (dma != 0 || SecureDTLookupEntry(NULL, "/sweet-ufs", &unused) == kSuccess ||
+++        SecureDTLookupEntry(NULL, "/sweet-usb", &node) != kSuccess) {
+++        return;
+++    }
+++    if (SecureDTGetProperty(node, "compatible", (void const **)&compat, &size) != kSuccess ||
+++        compat == NULL || size != sizeof("google,gs101-dwusb3") ||
+++        strncmp(compat, "google,gs101-dwusb3", sizeof("google,gs101-dwusb3")) != 0) {
+++        return;
+++    }
+++    if (SecureDTGetProperty(node, "md0-log-board", (void const **)&board, &size) != kSuccess ||
+++        board == NULL || size != sizeof("oriole") ||
+++        strncmp(board, "oriole", sizeof("oriole")) != 0) {
+++        return;
+++    }
+++    if (SecureDTGetProperty(node, "init-after-network", (void const **)&enable, &size) != kSuccess ||
+++        enable == NULL || size != sizeof(*enable) || *enable != 1) {
+++        return;
+++    }
+++    int error = net_init_add(sweet_md0_usb_ready);
+++    if (error != 0) {
+++        printf("SWEET MD0 USB: callback registration refused %d\n", error);
+++        return;
+++    }
+++    printf("SWEET MD0 USB: callback registered\n");
+++}
+++/* END SWEET_MD0_USB */
+++
++ /* Called once from SweetPlatformExpert::start(). Silent no-op on boards without /sweet-reset. */
++ void
++ sweet_restart_start(void)
++@@ -153,6 +217,7 @@
++ 		return;
++ 	}
++ 	started = 1;
+++	sweet_md0_usb_register();
++ 	if (SecureDTLookupEntry(NULL, "/sweet-reset", &node) != kSuccess ||
++ 	    SecureDTGetProperty(node, "reg", (void const **)&reg, &size) != kSuccess || size < 8) {
++ 		printf("SWEET RESTART: no /sweet-reset node\n");
+-- 
+2.54.0 (Apple Git-157)
+

@@ -40,7 +40,7 @@
   "local_work": {
     "checkout": "research/pixelios-kernel",
     "branch": "wip/oriole-bringup",
-    "commit": "a2687bc",
+    "commit": "8fe7690",
     "publication": "local only, unpushed",
     "patch_sha256": {
       "patches/0001-Add-bounded-headless-inventory-mode-for-Pixel-6-orio.patch": "85b1bf20d0b68a3157c094f6093505273ff9f9955c2c3f05b1cb03fdc181d9ce",
@@ -50,7 +50,9 @@
       "patches/0005-Add-guarded-read-only-high-DMA-UFS-inventory-for-Ori.patch": "accd4a3b63f604042711a3826dd4f7da11915a288afce771d013d10a8440168c",
       "patches/0006-Gate-an-exact-RAM-only-XNU-probe-on-measured-Oriole-.patch": "2b40c88d74d30c5ae2625c1a6075d9a24d2305a82d579d8ba7af68bdec6259a8",
       "patches/0007-Add-a-non-entry-loader-check-to-isolate-the-Oriole-X.patch": "20c33db39d0d212d3bcb320cf4e1870b71b05dc4fd0a158d29c76ff2ee6e271d",
-      "patches/0008-Measure-Oriole-bootloader-reset-with-bounded-USB-and.patch": "c6c645350bd0a30f538fd272096881f3f9607a99b69d7b80425fb79ef5922609"
+      "patches/0008-Measure-Oriole-bootloader-reset-with-bounded-USB-and.patch": "c6c645350bd0a30f538fd272096881f3f9607a99b69d7b80425fb79ef5922609",
+      "patches/0009-Add-exact-Oriole-md0-kernel-USB-log-experiment.patch": "a9547b1633f8530b185171127fb7575a6979ab7513ee55dceb94849c678d1df1",
+      "patches/0010-Record-native-Oriole-XNU-USB-execution-and-host-lock-gate.patch": "dbf3f3fc953c6622d16afce219133153209839ee36f05a602aa26fb21e37bd05"
     },
     "gates_passed": [
       "89404f4",
@@ -58,10 +60,12 @@
       "5332b32",
       "a181884",
       "9181290",
-      "a2687bc"
+      "a2687bc",
+      "0c4ea1c"
     ],
     "gates_pending": [],
-    "hardware_status": "4 inventory boots succeeded; RAM-only native boot attempted but XNU execution unverified; no-entry loader check completed and returned Android. Resetcheck not yet run."
+    "hardware_status": "Native XNU configured CDC-ECM USB observed on CP3A. PID1/fulliOS unverified. Hostlock blocked newNIC. All currentstage boots returnedAndroid. No mediawrites.",
+    "documentation_only_head": "8fe7690 changes boardREADME only; runtime/full gate/hardware evidence remain bound to0c4ea1c; fresh rebuild required after legitimatehostunlock."
   },
   "ios_inputs": {
     "product": "iPhone10,3/D22AP",
@@ -80,7 +84,7 @@
     "bootloader": "slider-17.0-15681480",
     "slot": "b",
     "vendor_boot_sha256": "450dbe70f90627ac7cef2ea3e878e2bb30f05061adf9a025427c5b3326625b55",
-    "revalidation_profile": "inventory only",
+    "revalidation_profile": "inventory + read-only inventory-display",
     "prior_experiment_firmware_attribution": "Not all earlier boots captured firmware/slot; no exact OTA transition claim.",
     "inventory_result": {
       "log_bytes": 6099,
@@ -112,11 +116,29 @@
       "usb_pool": "00000000F8D1B000",
       "android_return_verified": true,
       "android_boot_completed": "1"
+    },
+    "display_result": {
+      "read_count": 96,
+      "rdma0_and_shadow_match": true,
+      "framebuffer": "0xfac00000",
+      "width": 1080,
+      "height": 2400,
+      "format": 0,
+      "offset": 0,
+      "stride_selectors": [
+        0,
+        0
+      ],
+      "natural_stride_bytes": 4320,
+      "report_complete": true,
+      "log_bytes": 9993,
+      "log_sha256": "37bc41764f6c7e32515e4108c8b15b10c4e97034e0988a801c9c471ddaee66c5",
+      "android_return_verified": true
     }
   },
   "host_firmware_guard": {
     "path": "tools/boot_inventory.py",
-    "sha256": "24c7a00914244e318a3808b70d9bbeedd70067f4ab3281275d447b2131e17803",
+    "sha256": "fd20978cc8490003235cbefeeb5711c99fd49d23518e4fb379a5aa39753e4c2a",
     "tests": "7 unit tests passed; independent GPT5.6 review passed",
     "checks": [
       "single recorded target",
@@ -129,5 +151,163 @@
       "image provenance and hash"
     ],
     "build_id": "informational from Android inspection; not enforced by fastboot helper"
+  },
+  "native_logging_development": {
+    "status": "Native XNU execution observed through configured CDC-ECM USB+AppleUserECM binding; PID1/fulliOS unverified. Host configd refuses new NIC while console locked; legitimate Mac unlock needed before retry.",
+    "patch": "xnu/patches/0102-sweet-md0-usb-after-network.patch",
+    "host_cases": 25,
+    "integration_placement_tests": true,
+    "xnu_source_commit": "1b191cb58250d0705d8a51287127505aa4bc0789",
+    "libdispatch_commit": "cdb61e93e803d0093635f356753a9a30c09836db",
+    "availability_commit": "f3b52ca75ee842a8ac593bd7b03f9f4768c15755",
+    "cctools_port_commit": "904de2a71d4da6a9b30d2efaf912a10ddc7d9ddb",
+    "baseline_qemu": "Final712 kernel: PID1 +3waits +MACHReboot, expected missing-QEMU-reset panic; earlier v10/nonPIE results withdrawn",
+    "phone_boot_this_stage": true,
+    "host_relink_mutation_tests": 17,
+    "input_policy": "docs/native-link-inputs.json",
+    "baseline_kernel_sha256": "71211bb98b1ee87be818d749aff12a377b05ef46412f1af13d88ee023351e151",
+    "modified_kernel_sha256": "4724585fffd9e85144cb86b6c8e91a5131253a25cf341879c17368000007867b",
+    "llvm_runtime_commit": "7cbf1a2591520c2491aa35339f227775f4d3adf6",
+    "profile_raw_version": 8,
+    "modified_qemu": "Final472 kernel: PID1 +3waits +MACHReboot, expected missing-QEMU-reset panic; USB node omitted in QEMU",
+    "candidate_payload_sha256": "5139a045c73e0a605a431216bfa131cd38442ce1e98b9617a16e611044a6761b",
+    "candidate_payload_size": 16727088,
+    "loadcheck_result": {
+      "payload_sha256": "5139a045c73e0a605a431216bfa131cd38442ce1e98b9617a16e611044a6761b",
+      "image_sha256": "1156abfaf1f5e3fbc9b2397e802f2535fed71513ff4a804f128ab929eefc060a",
+      "log_bytes": 661,
+      "log_sha256": "43d4e8a2c8d67dc96ce0a8e26a67e926cb11e10da144182221572823da4ade3d",
+      "segments": 11,
+      "entry_pa": "0x881493488",
+      "all_copies_complete": true,
+      "entry_intentionally_skipped": true,
+      "md0_profile_marker": true,
+      "usb_fallback": true,
+      "android_return_verified": true
+    },
+    "native_result": {
+      "source_commit": "0c4ea1c",
+      "firmware": "CP3A.261005.002.A1",
+      "slot": "b",
+      "image_sha256": "51b0eb3236d931bb68a610b7d0d313af67315087a2a2df6b00fec7e369fa6ef9",
+      "kernel_sha256": "4724585fffd9e85144cb86b6c8e91a5131253a25cf341879c17368000007867b",
+      "payload_sha256": "5139a045c73e0a605a431216bfa131cd38442ce1e98b9617a16e611044a6761b",
+      "native_usb_ecm_observed": true,
+      "configured": 1,
+      "host_driver": "AppleUserECM + AppleUserECMData",
+      "interface_state": 0,
+      "bsd_interface_observed": false,
+      "udp_bytes": 0,
+      "pid1_observed": false,
+      "gui_observed": false,
+      "android_return_verified": true,
+      "host_blocker": "configd: Console locked, network interface[new] ignored",
+      "limitations": "Native descriptor+ECM/configuration proves XNU execution through network-ready USB callback, not PID1/fulliOS.120sUSB duration and reboot reason do not prove userspace or timed reboot.",
+      "usb_observation_events": [
+        {
+          "utc": "2026-10-24T23:43:20.891020+00:00",
+          "devices": [],
+          "new_interfaces": []
+        },
+        {
+          "utc": "2026-10-24T23:45:06.261646+00:00",
+          "devices": [
+            {
+              "USB Product Name": "Sweet iOS _USB Ethernet_",
+              "USB Vendor Name": "ios-sweet",
+              "idVendor": 4617,
+              "idProduct": 1,
+              "bDeviceClass": 2,
+              "bDeviceSubClass": 0,
+              "bDeviceProtocol": 0
+            }
+          ],
+          "new_interfaces": []
+        },
+        {
+          "utc": "2026-10-24T23:47:06.069992+00:00",
+          "devices": [],
+          "new_interfaces": []
+        }
+      ],
+      "usb_classes": [
+        {
+          "IORegistryEntryName": "Sweet iOS (USB Ethernet)",
+          "IOObjectClass": "IOUSBHostDevice",
+          "kUSBCurrentConfiguration": 1
+        },
+        {
+          "IORegistryEntryName": "AppleUSBCDCCompositeDevice",
+          "IOObjectClass": "AppleUSBCDCCompositeDevice"
+        },
+        {
+          "IORegistryEntryName": "ChatGPT",
+          "IOObjectClass": "AppleUSBHostDeviceUserClient"
+        },
+        {
+          "IORegistryEntryName": "Google Chrome",
+          "IOObjectClass": "AppleUSBHostDeviceUserClient"
+        },
+        {
+          "IORegistryEntryName": "IOUSBHostInterface",
+          "IOObjectClass": "IOUSBHostInterface",
+          "bInterfaceClass": 2,
+          "bInterfaceSubClass": 6,
+          "bInterfaceProtocol": 0
+        },
+        {
+          "IORegistryEntryName": "AppleUserECM",
+          "IOObjectClass": "IOUserNetworkEthernet",
+          "bInterfaceClass": 2,
+          "bInterfaceSubClass": 6,
+          "bInterfaceProtocol": "*"
+        },
+        {
+          "IORegistryEntryName": "IOSkywalkLegacyEthernet",
+          "IOObjectClass": "IOSkywalkLegacyEthernet"
+        },
+        {
+          "IORegistryEntryName": "IOSkywalkLegacyEthernetInterface",
+          "IOObjectClass": "IOSkywalkLegacyEthernetInterface",
+          "IOInterfaceState": 0
+        },
+        {
+          "IORegistryEntryName": "IONetworkStack",
+          "IOObjectClass": "IONetworkStack"
+        },
+        {
+          "IORegistryEntryName": "IONetworkStackUserClient",
+          "IOObjectClass": "IONetworkStackUserClient"
+        },
+        {
+          "IORegistryEntryName": "IOUSBHostInterface",
+          "IOObjectClass": "IOUSBHostInterface",
+          "bInterfaceClass": 10,
+          "bInterfaceSubClass": 0,
+          "bInterfaceProtocol": 0
+        },
+        {
+          "IORegistryEntryName": "AppleUserECMData",
+          "IOObjectClass": "IOUserService",
+          "bInterfaceClass": 10,
+          "bInterfaceSubClass": 0,
+          "bInterfaceProtocol": 0
+        }
+      ],
+      "evidence_sha256": {
+        "private/native-usb1/device-tree.plist": "7849563d9243ff0270aa732460619df82b0f55544ce968640719d2cb2cc84d4a",
+        "private/native-usb1/events.json": "792d362fc928f865e741352e0e05e0034b90f5b5110048668391342d5fce605f",
+        "private/native-usb1/host-network.log": "fa572f2f60e0eac6bca14c373642095a6b5eb2a0309c108fe8474d44db10bb0e",
+        "private/md0usb-native-return1.json": "ad3300a95e499b6d32e53a53e2fcb18d4ffaafef58be0afe03a87ef4a9fbcd4f"
+      }
+    }
+  },
+  "host_adb_workaround": {
+    "version": "35.0.2-12147458",
+    "zip_sha256": "1820078db90bf21628d257ff052528af1c61bb48f754b3555648f5652fa35d78",
+    "path": "artifacts/platform-tools35/platform-tools/adb",
+    "port": 5038,
+    "ADB_LIBUSB": "0",
+    "reason": "Observed37.0.1 daemon crashes in libunwind on Darwin27.35.0.2 restored serial-specific Android queries. Original fastboot unchanged."
   }
 }

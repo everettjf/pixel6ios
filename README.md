@@ -1,8 +1,8 @@
 **Pixel 6 / oriole iOS 移植研究**
 
-已通过真机 USB 日志验证内存、显示寄存器、只读 UFS/GPT，以及 XNU 加载器的段复制和启动参数构造。尚无真机 XNU/PID1 或 iOS 主屏执行证据。iOS 16.7.16 根文件系统已离线构建并检查，实验未刷写分区。
+已通过真机 USB 日志验证内存、显示寄存器、只读 UFS/GPT，以及 XNU 加载器的段复制和启动参数构造。新增真机证据已确认 XNU 执行到了 USB Ethernet 初始化与枚举阶段；PID1 和 iOS 主屏尚未验证。iOS 16.7.16 根文件系统已离线构建并检查，实验未刷写分区。
 
-Android 期间完成 OTA，当前为 CP3A.261005.002.A1、Bootloader slider-17.0-15681480、槽 b；该固件的基础 inventory 已重验，手机自动返回 Android；其他实验类型仍受门禁限制。旧固件结果不能自动继承。
+Android 期间完成 OTA，当前为 CP3A.261005.002.A1、Bootloader slider-17.0-15681480、槽 b；该固件的基础/显示 inventory、新载荷复制检查及原生 RAM+USB 启动实验均已完成并返回 Android。当前日志接收受 Mac 锁屏拒绝注册新网卡所阻，需要用户解锁 Mac 后重试。旧固件结果不能自动继承。
 
 - [调研报告与分阶段开发方案](docs/PIXEL6-IOS-FEASIBILITY.md)
 - [源码版本与下载文件校验记录](docs/source-manifest.json)

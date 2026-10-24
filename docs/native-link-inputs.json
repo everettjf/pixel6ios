@@ -1,0 +1,76 @@
+{
+  "status": "offline review candidate; does not authorize hardware boot",
+  "files": {
+    "artifacts/native-kernel/firehose_buffer.o": "d9a9420ce4f37e22eaf8862d1ca2ee98cfd6735e2d189b8dce5f9df6a880be9e",
+    "artifacts/native-kernel/profile16/chkstk_darwin.S.o": "b7fc5ad36c518de95448b4d3a386a9b79c6583757e358a47a8c6c8284fb29a52",
+    "artifacts/native-kernel/profile16/libkernel-profile16.a": "0ecc83eaa61ab835a5469e86130c15991ad57eb18ea0108ecf1e4cb714bb61ab",
+    "artifacts/native-kernel/profile16/nonlto.o": "d990dca88d8841ceb63718fd76dc659cd3a7d0c6a087687e9a3360bc76258b71",
+    "artifacts/native-kernel/restart-md0-source.c": "ca9b083ac1f5d0983ffedc27d8b9b127c5e2e1b3e4cbfab761ffe2330f3d063e",
+    "artifacts/native-kernel/restart-md0.o": "bfdfbd944cdb72ec83554eeadcb08f28a5099b44aafad8925174dfe32d709346",
+    "artifacts/xnu-reference/kernel.development.sweet": "8e4d38ea655930ef1da4998ab236962caabb9c8af1efaed6a96e243039af2292",
+    "artifacts/xnu-reference/kernel.development.sweet.link/kernel.development.sweet.a": "b2727483286c777c50a9a1d083f3f661c8d4489b48ed38bd5f48d5771ec49aea",
+    "artifacts/xnu-reference/kernel.development.sweet.link/kernel.development.sweet.alias.exp": "df3523d53ebfcf134a7b5a0144c68d9ec298960dc25378da8fcefe31b0deb6c8",
+    "artifacts/xnu-reference/kernel.development.sweet.link/kernel.development.sweet.linkarguments": "10922930ab356079db8fdb6ed326546c40206d076cad3fbe942db7e78044e8f0",
+    "research/apple-libdispatch/os/firehose_buffer_private.h": "b1da2269d930974d1fb122d90446534553829dc2a3b090b3d0ea0813fd95dd45",
+    "research/apple-libdispatch/os/firehose_server_private.h": "1b9335f82b0393235d30630ed2d6603f638e4d0418d3ea20be8d266fe7e4273c",
+    "research/apple-libdispatch/src/firehose/firehose_buffer.c": "0ee56b3f2222ec9e94dfa5bd82a2238d800341721d8a281806350b161ca0d34a",
+    "research/apple-libdispatch/src/firehose/firehose_buffer_internal.h": "bd1cfc65f04a4dccda16e0eb82d127ff7e61ad34cc848b7517e049cc2d221ad5",
+    "research/apple-libdispatch/src/firehose/firehose_inline_internal.h": "5f91eae2e2613a49527747cfd898dcc7e82e73eae603d3a82c282841639eb32e",
+    "research/apple-libdispatch/src/firehose/firehose_internal.h": "39c47d10cf6a4f951bb3d4cfc763ada07f92e47384ee254c67f1b9519ddc8b12",
+    "research/apple-libdispatch/src/firehose/firehose_server_internal.h": "c57303da13f1ce691af69590846a35ad1a7d4cb28b8752d111b2c547aee360ce",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfiling.c": "cac772d9a2ba444dce4e0f77acc6e6e80cd59619225c4b9813c5776c87b25ca8",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfiling.h": "bd4e0b88edbcd9070636351b61497c6ee8fc3c391ce16e0bd25809d451276e0d",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingBuffer.c": "63c8e05376d2d17266fb3bb9e92f5ae1c787d0e36be90630a074f1efc3ddf544",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingFile.c": "dca42d620072e0ee8ee87822bce1e449586abfd7cf48e03875f9634efa9fdb95",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingInternal.c": "bc9fd759ec4a14f5fe359a10266b62bb8d9a997217f7232d2c43054c733973ea",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingInternal.h": "02bc13b799ffff5a09680d4e04f429f31ec9373bc47f5753571c34cec12c8ccf",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingMerge.c": "b4055ce4dfa8ff5c0f8609a5ce24666ca74da6b772c30d6f4e862344edfd4055",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingMergeFile.c": "ccd4aa78d4498cb627cd1688caeeb1e198d8e5344483ebdfc8aa3f1044fa8163",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingNameVar.c": "7f94805fe61285411f843db3b3c69d64e6d1f2bff10b4552d2254afd8a8a5f73",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingPlatformDarwin.c": "f6aee9c4f32d1043401356ca78d209b1f6f6e6db1a977a054413b7fe200f83d8",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingPlatformFuchsia.c": "ecfedf3fd829881682f58345c6f1834c6bdea78f718a7fb8a22d54b20c9b9eae",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingPlatformLinux.c": "7ac8d4968583192e846343e7aed24f0082e9b2baaef7a52c3a15bb9d0a1b893c",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingPlatformOther.c": "de6e1a0e430d8f8ef9aa0fd049335b69a3a71cc6053497a41ce77e10832cb0fd",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingPlatformWindows.c": "4fdc6f20ec0785d8068ff86555aac2d4e4ae07799e0a63d1b01c2f81556e3adc",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingPort.h": "2162ce6a7e25dcba922320f8f0cb17b5f8f9618ee25de712e8ae703cf71a72e7",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingUtil.c": "23dc15708111c1bd5085bad55af162d8feaec1c976f677575aca9733a66d0287",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingUtil.h": "9869b2cad95be5ede86cc523fe473ea83d17b07970b1d766f4e81aa618615a1a",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingValue.c": "e3caf8027f995b19cb569c7e68d9caaf53b2476cc5d989629c5aa95501c47e2f",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingVersionVar.c": "f13fe99b4a6cc607599569a4273013c69af24e68249203bf9d46f44930dbc525",
+    "research/llvm16-profile/compiler-rt/lib/profile/InstrProfilingWriter.c": "b55363e7b1b93f17e3e6c8949a14d2d4a4a9d9b0dccf1dd3157eaebe69dfba43",
+    "research/llvm16-profile/compiler-rt/lib/profile/WindowsMMap.h": "60dfbda16cba03e73ff15b3e56c4dbaa88a99b2cb4dfd24572d3eec044755604",
+    "research/pixelios-kernel/xnu/patches/0083-sweet-restart.patch": "51af89b5fbffdc59c0bdd674006399be1382268f49e37ba446a398dbfbcb1829",
+    "research/pixelios-kernel/xnu/patches/0100-sweet-remote-reset.patch": "8241cafec048341dfc643fd1ecfdf9e18d7ecc92767f3e3a921724c8b313ecd8",
+    "research/pixelios-kernel/xnu/patches/0102-sweet-md0-usb-after-network.patch": "75d9734f5b6cc8ea195f1d29260063ff15d8f6203f51665c40bdb6858264b1cf",
+    "research/xnu-8796-reference/libsa/nonlto.c": "59663d53583fa12d68d2d9af717cb2dae66e654d152d25130d3dbef9313b1089",
+    "tools/build-kernel-profile-runtime.py": "1259f35d4fa891bf74bbd9e80c7dfd7c5962cf88cd5b9035abeda688a225ccd3",
+    "tools/build-reference-support.py": "41675c3d4deae9fccc0c7ef2ae6ea709f6964d72cb53c7b52de359c7974e3435"
+  },
+  "tools": {
+    "clang": {
+      "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+      "sha256": "06e3d64f541c65a93acd176690bdaae13a3d7db092c8b98b392d4c6d0d03f176"
+    },
+    "strip": {
+      "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip",
+      "sha256": "bff38406e8b2f9d39290044f3179e837c3094c7beef6f34e67d34d521d53af6c"
+    },
+    "ld64": {
+      "path": "/Users/xnu/sec/pixel6ios/artifacts/cctools/bin/aarch64-apple-darwin-ld",
+      "sha256": "07b8bb09ba694e310e8d884b86dd9513e48c8e7051c83eaeae85e1a56e10e5ae"
+    },
+    "ar": {
+      "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar",
+      "sha256": "37ce0999654a9a265bd5ba6cd737d995f18d4c96f63ca117178b47d26d38fb1d"
+    }
+  },
+  "git_commits": {
+    "research/xnu-8796-reference": "1b191cb58250d0705d8a51287127505aa4bc0789",
+    "research/apple-libdispatch": "cdb61e93e803d0093635f356753a9a30c09836db",
+    "research/cctools-port": "904de2a71d4da6a9b30d2efaf912a10ddc7d9ddb",
+    "research/llvm16-profile": "7cbf1a2591520c2491aa35339f227775f4d3adf6"
+  },
+  "header_trees": {
+    "artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/Versions/A": "c367378a0b25570ed5d9381336478bc0291c58979d544f60d1a5c2ab05b5be61"
+  }
+}

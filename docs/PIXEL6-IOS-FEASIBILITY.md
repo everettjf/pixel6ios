@@ -4,7 +4,7 @@
 
 **建议：立项做分阶段移植验证，首个产品目标限定为“原生启动 iOS 16、触摸操作主屏和少量系统应用”。选择 iPhone X 的 iOS 16.7.16（20H392）用户态，配合现有项目的 XNU 8796.141.3 补丁栈。当前证据支持尝试，尚不能承诺这台 Pixel 6 能启动到 GUI，更不能承诺日常使用。**
 
-证据分四类：**本机实测**（ADB、fastboot 与裸机 USB 日志）、**上游报告**（维护者在 Pixel 6a 上的结果，本轮未独立复现）、**源码事实**（固定版本的代码/设备树）、**工程判断**（据此提出的开发路线）。四类不能互相替代。初始调研之后，已四次通过 `fastboot boot` 启动本地审查过的 oriole 只读探测镜像，收到 USB 日志并自动回到 Android。实验未执行分区刷写；加载器已在真机完成 XNU 段复制与启动参数构造，但尚未获得本机 XNU/iOS 执行证据。期间 Android 自行完成 OTA，当前版本与最初采集不同。开发过程与实测记录见 [ACTIVE-WORK.md](ACTIVE-WORK.md)。
+证据分四类：**本机实测**（ADB、fastboot 与裸机 USB 日志）、**上游报告**（维护者在 Pixel 6a 上的结果，本轮未独立复现）、**源码事实**（固定版本的代码/设备树）、**工程判断**（据此提出的开发路线）。四类不能互相替代。初始调研之后，已四次通过 `fastboot boot` 启动本地审查过的 oriole 只读探测镜像，收到 USB 日志并自动回到 Android。实验未执行分区刷写；加载器已在真机完成 XNU 段复制与启动参数构造，新实验已通过内核专有 USB Ethernet 枚举确认本机 XNU 执行，但尚未验证 PID1 或完整 iOS 用户态。期间 Android 自行完成 OTA，当前版本与最初采集不同。开发过程与实测记录见 [ACTIVE-WORK.md](ACTIVE-WORK.md)。
 
 **1. 已连接设备的实际条件**
 
@@ -176,12 +176,14 @@ flowchart LR
 - 新增离线结果：iPhone X iOS 16.7.16 用户态的 16 GiB HFSX 根镜像在隔离 Linux VM 中构建完成，fsck 和 12 项离线检查通过；不代表 XNU 已能挂载或启动 GUI。
 - 新增存储实测（5332b32）：UFS high-DMA 0x880100000，userdata LBA0x22f1e6..0x1dc03fa，块长4096，容量0x1b91215000，与 fastboot 匹配；最终 doorbell/runstop 均0。没有媒体写入。
 - 显示寄存器已测得 framebuffer 地址与几何参数；加载器日志证明清屏/绘制与 DECON 写入后能继续执行，实际屏幕可见内容尚未观察。
-- 最小 RAM-only XNU 载荷已在 QEMU 启动 PID1，并完成三次等待系统调用；随后因 QEMU 没有板级 reset 实现而在重启路径 panic。真机 XNU 与完整 iOS 仍未验证，不能把模拟器结果视为本机成功。
+- 最小 RAM-only XNU 载荷已在 QEMU 启动 PID1，并完成三次等待系统调用；随后因 QEMU 没有板级 reset 实现而在重启路径 panic。该模拟器结果本身不证明真机执行；后续独立的原生 USB 枚举证据见下，PID1 与完整 iOS 仍未验证。
 - 第一次真机 RAM-only XNU 尝试（a181884）：21项完整检查与独立复核通过，fastboot 接受临时镜像；未取得加载器 USB 故障日志，之后 Android 已重新上线，报告 watchdog,apc,early。该 bootreason 不能区分正常复位 fallback 与异常，也不能证明 XNU/PID1 已成功。
 - 新增加载器实测（9181290）：11段复制、启动参数构造与跳转地址计算完成，主动返回后 USB 收到592字节日志，手机回到 Android；这不包含 XNU 执行。耗时与约一分钟 MMU-off 显示/复制、30秒USB窗口及Android启动一致，watchdog原因可能来自正常复位fallback。
 - 新增复位实验（a2687bc）：USB 日志直接证明模式 SMC 返回 0、SYSIP 读回 0xfc；SWRESET 后手机仍进入 Android，未进入 fastboot。完整返回 Bootloader 路径未验证，不能拿这个结果作为 XNU 成功标记。
-- 新版 CP3A 再验证：仅开放基础 inventory，fastboot 接受镜像；USB 收到完整报告，内存与日志路径再次可用；随后确认 Android 启动完成（sys.boot_completed=1）。显示/UFS/XNU 尚未在这个新基线上重验。
-- 下一步：建立 XNU 入口后的直接观测（优先早期 framebuffer 标记/入口日志，取得可用的屏幕观察或独立日志通道）；不能以沉默或重启耗时推断成功。之后才接入完整用户态。匹配原厂恢复材料仍需补齐。**当前 RAM-only 验证不需要清 userdata，也不需要降级或重新解锁。**
+- 新版 CP3A 再验证：基础 inventory、96 项只读显示寄存器、11 段新载荷复制检查均取得完整 USB 报告并返回 Android。当前固件的 UFS 尚待重新验证。
+- 新增原生 XNU 证据（0c4ea1c）：内核4724585f… / 载荷5139a045… / 启动镜像51b0eb32… 临时启动后，主机识别到仅由内核提供的 Sweet iOS USB Ethernet，配置1、CDC-ECM class2/subclass6，并绑定 AppleUserECM 与数据接口驱动。这证明 XNU 已执行到 network-ready 回调和 USB 初始化；不证明 PID1、图形界面或完整 iOS。手机已回到 CP3A/slotb Android。
+- 日志通道阻点已由主机运行日志定位：configd 明确记录 Console locked, network interface[new] ignored。Mac 锁屏阻止新网卡注册；需用户自行解锁 Mac，再重试接收 UDP5140 上重复的 PID1 标记。没有修改主机安全策略。原生 USB 持续时间和 bootreason 均不能代替 PID1 证据。
+- 下一步：用户解锁 Mac 后，复用精确原生 RAM+USB 载荷，配置新 USB 调试网卡并捕获 PID1 日志；随后重验 CP3A UFS、审核完整根文件系统启动配置，再接入完整用户态。匹配原厂恢复材料仍需补齐。**当前 RAM-only 验证不需要清 userdata，也不需要降级或重新解锁。**
 
 本轮可重复的只读采集命令（在仓库根目录执行）：
 

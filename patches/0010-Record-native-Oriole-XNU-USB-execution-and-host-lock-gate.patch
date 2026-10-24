@@ -1,0 +1,52 @@
+From 8fe7690f77c06767f0a1b503a2aae39140695974 Mon Sep 17 00:00:00 2001
+From: Everett <everettjf@live.com>
+Date: Sat, 24 Oct 2026 16:52:05 -0700
+Subject: [PATCH] Record native Oriole XNU USB execution and host lock gate
+
+---
+ device/google/oriole/README.md | 23 ++++++++++++++++++-----
+ 1 file changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/device/google/oriole/README.md b/device/google/oriole/README.md
+index fabd3f9..81aabf4 100644
+--- a/device/google/oriole/README.md
++++ b/device/google/oriole/README.md
+@@ -27,7 +27,8 @@ therefore does not establish that XNU executed. Loadcheck 9181290 copied
+ 11 segments and built boot arguments, intentionally skipping XNU entry.
+ Resetcheck a2687bc read back the requested PMU mode, but returned to Android
+ rather than fastboot; reliable bootloader-entry recovery is unproven.
+-Native XNU execution and full iOS boot remain unresolved.
++A later native experiment at0c4ea1c (below) establishes XNU USB execution;
++PID1 and full iOS boot remain unresolved.
+ 
+ **Read from source:** inventory modes reuse the live-validated ABL USB pool,
+ reject arbitrary DMA overrides, keep bounded waits and do not write storage.
+@@ -35,9 +36,21 @@ Display inventory reads RDMA configuration without changing clocks or display
+ registers. UFS inventory changes only volatile controller/PHY state, with
+ media-writing commands rejected at the doorbell. See tools/test_oriole_inventory.py.
+ 
+-**Read from source / unrun candidate:** the separate md0 USB profile uses
++**Read from source / observed native USB, 2026-10-24:** the separate md0 USB profile uses
+ one CPU, a RAM root and an exact opt-in USB node; UFS, touch and keys are
+ absent. Patch 0102 registers the existing USB probe after networking through
+-net_init_add. Its independent review, exact build gate and current-firmware
+-hardware evidence are required before calling it usable. Local QEMU results
+-omit the GS101 USB node and are not phone or USB evidence.
++net_init_add. Independent review and the full21step gate passed0c4ea1c. Native image
++51b0eb32… (kernel4724585f…, payload5139a045…) exposed Sweet iOS USB
++Ethernet, accepted configuration1 and data alt1, and matched AppleUserECM
++and AppleUserECMData on macOS. This proves native XNU reached the
++network-ready callback and USB setup, not root mounting or PID1. Android
++returned on the same CP3A/slotb. Before that experiment, CP3A display
++revalidation repeated all96 reads and the newpayload loadcheck copied
++11segments; both returned Android. Raw evidence stays in the private parent
++workspace; the sanitized manifest and ACTIVE-WORK.md record its hashes.
++
++**Observed on host:** configd explicitly refused the new Ethernet interface
++because the Mac console was locked. No BSD interface or UDP logs were
++obtained. Repeat the same RAM profile after the user legitimately unlocks
++the Mac; do not infer PID1 from the roughly120s USB duration or bootreason.
++Local QEMU results omit the GS101 USB node and are not phone USB evidence.
+-- 
+2.54.0 (Apple Git-157)
+
