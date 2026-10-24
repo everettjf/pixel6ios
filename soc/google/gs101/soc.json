@@ -17,6 +17,10 @@
   "usb_base": "0x11110000",
   "usb_size": "0x10000",
   "uart_base": "0x10a00000",
+  "display_inventory": {
+    "rdma_base": "0x1c0b0000", "rdma_stride": "0x1000", "rdma_count": 6,
+    "shadow_offset": "0x400", "reg_offsets": [0, 8, 16, 20, 24, 64, 80, 84]
+  },
   "wlan": {
     "pmu_pcie1_iso": "0x17463EC4",
     "pmu_pcie0_iso": "0x17463EC0",

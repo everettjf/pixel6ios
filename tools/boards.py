@@ -382,6 +382,12 @@ def c_header(board: str) -> str:
     for name in sorted({os.path.basename(os.path.dirname(p)).upper()
                         for p in glob.glob(os.path.join(ROOT, "soc", "*", "*", "soc.json"))}):
         lines.append(f"#define SOC_{name} {1 if name == this_soc else 0}")
+    for key, value in sorted(values.get("display_inventory", {}).items()):
+        if isinstance(value, list):
+            value = ", ".join(f"{_num(v):#x}u" for v in value)
+        else:
+            value = f"{_num(value):#x}UL"
+        lines.append(f"#define DISPLAY_INV_{key.upper()} {value}")
     for key, addr in sorted(values.get("wlan", {}).items()):
         lines.append(f"#define WLAN_{key.upper()} {int(addr, 0):#x}UL")
     if "gpu" in values:

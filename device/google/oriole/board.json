@@ -3,7 +3,24 @@
   "codename": "oriole",
   "soc": "google/gs101",
   "status": "inventory-only; XNU memory unmeasured",
-  "dram_banks": [],
+  "dram_banks": [
+    [
+      "0x80000000",
+      "0x80000000"
+    ],
+    [
+      "0x880000000",
+      "0x80000000"
+    ],
+    [
+      "0x900000000",
+      "0x80000000"
+    ],
+    [
+      "0x980000000",
+      "0x80000000"
+    ]
+  ],
   "fb_base": "0xfac00000",
   "fb_size": "0x9e3400",
   "fb_width": 1080,
@@ -12,13 +29,13 @@
   "uart_base": "0x0",
   "usb_dma_range": [
     "0xf8800000",
-    "0x2000000"
+    "0x1000000"
   ],
   "notes": {
-    "dram_banks": "Unknown sizes. Deliberately empty; no xnu_ram is supplied. Only --inventory may build this board until live FDT is captured.",
+    "dram_banks": "OBSERVED ON HARDWARE 2026-10-24, 89404f4, hardware/inventory-2026-10-24.txt; four 2 GiB banks. XNU RAM remains unset until display measurement.",
     "framebuffer": "SOURCE CANDIDATE from Linux gs101-oriole.dts; inventory never writes the framebuffer or DECON.",
     "uart_base": "Disabled intentionally in the first inventory image; not a physical UART address.",
-    "usb_dma_range": "READ FROM CURRENT DEVICE FIRMWARE: vendor_boot_a fetched via fastboot on 2026-10-24, slider-17.0-15199431 / CP2A.260705.006. First GS101 DTB reserved-memory/abl@f8800000 is base 0xf8800000, size 0x2000000. The inventory gadget independently chooses its actual pool from LIVE FDT and GEVNTADR; never assumes this constant alone.",
+    "usb_dma_range": "OBSERVED ON HARDWARE 2026-10-24: live FDT abl@f8800000 is 16 MiB, unlike static vendor_boot DTB 32 MiB. USB pool 0xf8d1b000. Runtime still independently validates live FDT/GEVNTADR and overlap checks.",
     "userdata_mib": "NOT CONFIGURED. Fastboot reports byte size 0x1b91215000; GPT LBA bounds not yet measured. Inventory does not access storage.",
     "touch": "SOURCE-CANDIDATE only: Google raviole gs101-oriole-touch.dtsi and gs101 common FTS/SPI tree specify FTM5 ID 36 48, 1079x2399, SPI11/gpp23/gpp26/gpa9. Fields are present for existing host fixtures; --inventory neither links nor calls touch/ACPM code. No touch writes have been enabled or tested on this phone."
   },

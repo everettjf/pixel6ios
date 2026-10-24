@@ -539,6 +539,10 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 	fdt_probe_report(dtb);
 #ifdef USB_GADGET
 	usb_gadget_start(dtb);
+#ifdef INVENTORY_DISPLAY
+	extern void gs101_display_inventory(void);
+	gs101_display_inventory();
+#endif
 	con_str("INVENTORY", "report complete");
 	usb_gadget_finish();
 #endif

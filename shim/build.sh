@@ -31,10 +31,12 @@ touch_rails=0
 touch_dvfs=0
 dvfs_khz=
 inventory=0
+inventory_display=0
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--board) board="$2"; shift 2 ;;
 		--inventory) inventory=1; usb_gadget=1; shift ;;
+		--inventory-display) inventory=1; inventory_display=1; usb_gadget=1; shift ;;
 		--avb) avb=1; shift ;;
 		--pstore-fast) pstore_fast=1; shift ;;
 		--usb-gadget) usb_gadget=1; shift ;;
@@ -254,6 +256,7 @@ if [ "$qrlog" = 1 ]; then
 	# Log as looping QR codes on the final screens (tools/qr-log.py reads them). Not with --pstore-fast (no pager).
 	CFLAGS="$CFLAGS -DQRLOG -I../qrlog -I../qrlog/stubs"
 fi
+[ "$inventory_display" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_DISPLAY"
 mkdir -p out
 "$PYTHON" ../tools/boards.py "$board" out/board_config.h
 [ "$gs101" = 1 ] && "$PYTHON" ../tools/boards.py "$board" out/wlan_seq.h --wlan-seq
@@ -265,6 +268,11 @@ socshim=../$("$PYTHON" ../tools/boards.py "$board" --get soc_dir)/shim
 for f in ufsdiag ufsinit; do
 	"$CC" $CFLAGS -I"$socshim" -I. -c "$socshim/$f.c" -o "out/$f.o"
 done
+display_objs=""
+if [ "$inventory_display" = 1 ]; then
+    "$CC" $CFLAGS -I. -c "$socshim/displayinventory.c" -o out/displayinventory.o
+    display_objs=out/displayinventory.o
+fi
 # Gate honesty: usbproto.c and usbgadget.c are
 # cross-compiled with the shim CFLAGS on EVERY build so the object
 # audits in tools/test-bluejay-boot.py always see them; they are only
@@ -381,10 +389,10 @@ fi
 if [ "$touch_rails" = 1 ] || [ "$touch_dvfs" = 1 ] || [ "$gpu_clk" = 1 ] || [ "$gpu_rails" = 1 ] || [ "$wlan_rails" = 1 ]; then
 	usb_objs="$usb_objs out/acpm.o"
 fi
-abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $qr_objs | grep -c ABS64 || true)
+abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $qr_objs $display_objs | grep -c ABS64 || true)
 [ "$abs" = 0 ] || { echo "error: $abs absolute relocations in C objects" >&2; exit 1; }
 "$CC" $CFLAGS -static -T shim.ld -Wl,--build-id=none -Wl,--no-warn-rwx-segments -Wl,-N \
-	out/start.o out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbpool.o $usb_objs $qr_objs -o out/shim.elf
+	out/start.o out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbpool.o $usb_objs $qr_objs $display_objs -o out/shim.elf
 "$OBJCOPY" -O binary out/shim.elf out/Image
 size_hex=$("$NM" out/shim.elf | awk '$3=="_end"{print $1}')
 size=$((16#$size_hex))
