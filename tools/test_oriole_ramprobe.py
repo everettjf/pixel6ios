@@ -70,12 +70,18 @@ int main(void) {
  return 0;
 }
 ''')
-            subprocess.run(['cc','-O1','-Wall','-Wextra','-Werror','-I',str(ROOT/'shim'),
-                            str(c),'-o',str(exe)], check=True)
-            subprocess.run([str(exe)], check=True)
+            original = c.read_text()
+            for flags in ([], ['-DORIOLE_MD0USB']):
+                text = original
+                if flags:
+                    text = text.replace('16726576','16727088').replace('16726575','16727087')
+                c.write_text(text)
+                subprocess.run(['cc','-O1','-Wall','-Wextra','-Werror',*flags,'-I',str(ROOT/'shim'),
+                                str(c),'-o',str(exe)], check=True)
+                subprocess.run([str(exe)], check=True)
 
     def test_profile_selections_are_exclusive(self):
-        for flags in itertools.permutations(('--xnu-loadcheck','--xnu-ramprobe','--xnu-resetcheck'),2):
+        for flags in itertools.permutations(('--xnu-loadcheck','--xnu-ramprobe','--xnu-resetcheck','--xnu-md0usb','--xnu-md0usb-loadcheck'),2):
             r=subprocess.run(['bash','shim/build.sh','--board','oriole']+list(flags),
                 cwd=ROOT,env=dict(os.environ,CROSS_CC='/nonexistent-ramprobe-compiler'),
                 capture_output=True,text=True,timeout=10)
@@ -92,7 +98,7 @@ int main(void) {
                 ([],{'USB_DMA_HI_BASE':'0x880100000'}),([],{'REBOOT_BL':'1'}),
                 ([],{'USB_WINDOW':'61'}),([],{'UFS_ATTEMPTS':'1'})]:
             with self.subTest(options=options,extra=extra):
-                for profile in ('--xnu-ramprobe','--xnu-loadcheck','--xnu-resetcheck'):
+                for profile in ('--xnu-ramprobe','--xnu-loadcheck','--xnu-resetcheck','--xnu-md0usb','--xnu-md0usb-loadcheck'):
                     r=subprocess.run(['bash','shim/build.sh','--board','oriole',profile]+options,
                         cwd=ROOT,env=dict(env,**extra),capture_output=True,text=True,timeout=10)
                     self.assertEqual(r.returncode,2,r.stderr)

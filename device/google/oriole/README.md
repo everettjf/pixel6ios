@@ -1,34 +1,43 @@
-# Pixel 6 (oriole): inventory bring-up
+# Pixel 6 (oriole): experimental bring-up
 
-Status: OBSERVED ON HARDWARE 2026-10-24: headless inventory booted twice, USB log captured, returned automatically to Android. XNU has not run.
+**Observed on hardware, 2026-10-24:** inventory builds through a2687bc
+returned automatically to Android with USB logs. The current device is GS101,
+unlocked, Android 17 CP3A.261005.002.A1, slider-17.0-15681480, slot b.
+Earlier experiments started on CP2A.260705.006 / slider-17.0-15199431 / slot a;
+the exact OTA transition between those experiments is unknown.
 
-The device is GS101 with an unlocked slider-17.0-15199431 bootloader and Android
-17 CP2A.260705.006. Current vendor_boot was fetched read-only and its first DTB
-declares abl@f8800000 with size 0x2000000 (32 MiB). No device identifiers or
-firmware are committed.
+**Observed on hardware:** the fresh CP3A a2687bc basic inventory captured
+6099 bytes, live FDT at 0xb4000000, four 2 GiB DRAM banks and a 16 MiB
+live ABL reservation at 0xf8800000. Static vendor_boot DTBs declare 32 MiB,
+so live validation remains mandatory. Raw CP3A evidence is kept privately
+in the parent workspace (cp3a-inventory-run1.log and its boot/return records);
+no identifiers or firmware are committed.
 
-`--inventory` and opt-in `--inventory-display` collect read-only observations. These modes
-use RAM/USB logging, no framebuffer/UART, no pstore, no storage, and no
-secondary CPU, PMIC, touch, GPU, WLAN or DVFS experiments. USB must reuse the
-live ABL event-buffer reservation and the existing overlap checks; a fixed
-high-DMA override is rejected. Default USB window: 30 seconds, maximum: 60.
+**Observed on hardware, earlier firmware attribution uncertain:** all 96
+RDMA/current-shadow reads succeeded, confirming the source candidate
+0xfac00000, 1080x2400, stride 4320. Read-only UFS cold-init reached HS-G4,
+read capacity and validated GPT CRCs with high-bank scratch at 0x880100000.
+No media writes occurred. See hardware/display-2026-10-24.txt and
+soc/google/gs101/docs/oriole-ufs-inventory.md. CP3A display/UFS revalidation
+is separate from the completed CP3A basic inventory.
 
-The source-candidate framebuffer/touch fields support the existing host
-fixtures and are not enabled by inventory. Four 2 GiB DRAM banks and a 16 MiB live ABL reservation were measured (hardware/inventory-2026-10-24.txt). Static vendor_boot declares 32 MiB, so the live checks are essential. RDMA0 and shadow now confirm the framebuffer source candidate at 0xfac00000,1080x2400. The first high2GiB bank is selected for the next single-core XNU probe.
+**Observed on hardware:** native RAM probe a181884 was accepted and Android
+returned, but no direct XNU/PID1 log or screen evidence was captured. It
+therefore does not establish that XNU executed. Loadcheck 9181290 copied
+11 segments and built boot arguments, intentionally skipping XNU entry.
+Resetcheck a2687bc read back the requested PMU mode, but returned to Android
+rather than fastboot; reliable bootloader-entry recovery is unproven.
+Native XNU execution and full iOS boot remain unresolved.
 
-Reviewed independently with no remaining blocking source findings; negative
-gate tests are in tools/test_oriole_inventory.py. The next opt-in --inventory-display reader samples RDMA configuration only, without writes or clock changes; see soc/google/gs101/docs/display-inventory.md. All96 RDMA reads succeeded; see hardware/display-2026-10-24.txt.
+**Read from source:** inventory modes reuse the live-validated ABL USB pool,
+reject arbitrary DMA overrides, keep bounded waits and do not write storage.
+Display inventory reads RDMA configuration without changing clocks or display
+registers. UFS inventory changes only volatile controller/PHY state, with
+media-writing commands rejected at the doorbell. See tools/test_oriole_inventory.py.
 
-
-XNU remains gated off pending storage/DMA bring-up. No XNU image has booted.
-
-
---inventory-ufs is the next, UNVERIFIED hardware stage. It uses a fixed,
-live-map-validated128KiB scratch allocation at0x880100000 in the first high
-bank. Existing GS101 cold-init writes only volatile controller/PHY state;
-existing doorbell allowlist still rejects every media-writing command.
-The legacy vendor/PHY survey is skipped. Capacity and CRC-validated GPT
-metadata are read; userdata contents are not dumped. No arbitrary DMA,
-reset-mode or peripheral overrides are accepted. A synchronous panic emits
-the RAM log through the bounded gadget and resets, without pstore/pager.
-See soc/google/gs101/docs/oriole-ufs-inventory.md. XNU remains disabled.
+**Read from source / unrun candidate:** the separate md0 USB profile uses
+one CPU, a RAM root and an exact opt-in USB node; UFS, touch and keys are
+absent. Patch 0102 registers the existing USB probe after networking through
+net_init_add. Its independent review, exact build gate and current-firmware
+hardware evidence are required before calling it usable. Local QEMU results
+omit the GS101 USB node and are not phone or USB evidence.

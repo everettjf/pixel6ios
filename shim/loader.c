@@ -81,6 +81,9 @@ const char *loader_boot(uintptr_t dtb)
 		return "bad payload header";
 
 #ifdef ORIOLE_RAMPROBE
+#ifdef ORIOLE_MD0USB
+    con_str("ORIOLE_MD0_USB", "kernel USB after network init; no media path");
+#endif
     /* Validate every range before the first copy. The build also binds the
      * complete payload SHA256, including ADT and boot arguments. */
     if (!ramprobe_payload_ok(p, rd_end - payload_addr))

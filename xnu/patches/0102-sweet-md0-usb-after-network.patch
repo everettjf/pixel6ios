@@ -1,0 +1,88 @@
+--- a/bsd/dev/sweet_restart.c
++++ b/bsd/dev/sweet_restart.c
+@@ -23,6 +23,7 @@
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <stdint.h>
++#include <net/init.h>
+ 
+ extern kern_return_t kernel_thread_start(thread_continue_t, void *, thread_t *);
+ extern void thread_deallocate(thread_t);
+@@ -138,6 +139,69 @@
+ 	}
+ }
+ 
++/* BEGIN SWEET_MD0_USB: source-isolated host fixture covers this entire block.
++ * net_init_add(): xnu-8796.141.3 bsd/net/init.h:40-58, init.c:84-105;
++ * bsd/kern/bsd_init.c:848-854 runs callbacks after the network stack is ready,
++ * before setconf()/vfs_mountroot(). Do not start the USB network in IOKit start.
++ * Existing sweet_usb_probe() is selected only after exact gs101 identification;
++ * otherwise it can fall through to Qualcomm MMIO. All gates are opt-in.
++ */
++extern void sweet_usb_probe(void);
++
++static void
++sweet_md0_usb_ready(void)
++{
++    static int called;
++    if (called) {
++        return;
++    }
++    called = 1;
++    printf("SWEET MD0 USB: network-ready callback\n");
++    sweet_usb_probe();
++}
++
++static void
++sweet_md0_usb_register(void)
++{
++    DTEntry node, unused;
++    const char *compat = NULL, *board = NULL;
++    const uint32_t *enable = NULL;
++    unsigned int size = 0;
++    int usb = 0, dma = 0;
++    char rd[8] = {0};
++
++    if (!PE_parse_boot_arg_str("rd", rd, sizeof(rd)) || strcmp(rd, "md0") != 0 ||
++        !PE_parse_boot_argn("sweetusb", &usb, sizeof(usb)) || usb != 2) {
++        return;
++    }
++    PE_parse_boot_argn("sweetusbdma", &dma, sizeof(dma));
++    if (dma != 0 || SecureDTLookupEntry(NULL, "/sweet-ufs", &unused) == kSuccess ||
++        SecureDTLookupEntry(NULL, "/sweet-usb", &node) != kSuccess) {
++        return;
++    }
++    if (SecureDTGetProperty(node, "compatible", (void const **)&compat, &size) != kSuccess ||
++        compat == NULL || size != sizeof("google,gs101-dwusb3") ||
++        strncmp(compat, "google,gs101-dwusb3", sizeof("google,gs101-dwusb3")) != 0) {
++        return;
++    }
++    if (SecureDTGetProperty(node, "md0-log-board", (void const **)&board, &size) != kSuccess ||
++        board == NULL || size != sizeof("oriole") ||
++        strncmp(board, "oriole", sizeof("oriole")) != 0) {
++        return;
++    }
++    if (SecureDTGetProperty(node, "init-after-network", (void const **)&enable, &size) != kSuccess ||
++        enable == NULL || size != sizeof(*enable) || *enable != 1) {
++        return;
++    }
++    int error = net_init_add(sweet_md0_usb_ready);
++    if (error != 0) {
++        printf("SWEET MD0 USB: callback registration refused %d\n", error);
++        return;
++    }
++    printf("SWEET MD0 USB: callback registered\n");
++}
++/* END SWEET_MD0_USB */
++
+ /* Called once from SweetPlatformExpert::start(). Silent no-op on boards without /sweet-reset. */
+ void
+ sweet_restart_start(void)
+@@ -153,6 +217,7 @@
+ 		return;
+ 	}
+ 	started = 1;
++	sweet_md0_usb_register();
+ 	if (SecureDTLookupEntry(NULL, "/sweet-reset", &node) != kSuccess ||
+ 	    SecureDTGetProperty(node, "reg", (void const **)&reg, &size) != kSuccess || size < 8) {
+ 		printf("SWEET RESTART: no /sweet-reset node\n");

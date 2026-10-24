@@ -552,7 +552,11 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
     con_set_video(FB_BASE, FB_W, FB_H, FB_STRIDE);
     con_clear(0xff000000U);
     decon_rearm_trigger();
+#ifdef ORIOLE_MD0USB
+    con_str("ORIOLE_RAM_PROBE", "RAM-only XNU, no media; kernel USB opt-in");
+#else
     con_str("ORIOLE_RAM_PROBE", "RAM-only XNU, no media/USB driver");
+#endif
     const char *why = loader_boot(dtb);
     con_str("RAM probe refused/returned", why ? why : "?");
     usb_gadget_start(dtb);

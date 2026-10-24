@@ -10,7 +10,12 @@ static inline int rp_inside(uint64_t off, uint64_t len, uint64_t limit)
 
 static inline int ramprobe_payload_ok(const struct payload *p, uint64_t available)
 {
-    const uint64_t size=16726576, vb=0xfffffe0006000000ULL;
+#ifdef ORIOLE_MD0USB
+    const uint64_t size=16727088;
+#else
+    const uint64_t size=16726576;
+#endif
+    const uint64_t vb=0xfffffe0006000000ULL;
     if (available < size || p->version!=1 || p->nsegs!=11 ||
         p->virt_base!=vb || p->phys_base!=0x880000000ULL ||
         p->mem_size!=0x80000000ULL || p->entry_va!=0xfffffe0007493488ULL ||

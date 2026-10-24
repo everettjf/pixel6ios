@@ -36,9 +36,12 @@ inventory_ufs=0
 ramprobe=0
 loadcheck=0
 resetcheck=0
+md0usb=0
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--board) board="$2"; shift 2 ;;
+		--xnu-md0usb-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; md0usb=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
+		--xnu-md0usb) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; md0usb=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-resetcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; resetcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ramprobe) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; boot_xnu=1; usb_gadget=1; shift ;;
@@ -89,7 +92,9 @@ if [ "$ramprobe" = 1 ]; then
     [ "${USB_WINDOW:-30}" -ge 1 ] && [ "${USB_WINDOW:-30}" -le 60 ] || exit 2
     USB_WINDOW=${USB_WINDOW:-30}
     [ -n "$payload" ] || { echo "RAM probe requires reviewed payload" >&2; exit 2; }
-    "$PYTHON" ../tools/oriole_ramprobe.py --check "$payload" || exit 2
+    payload_checker=../tools/oriole_ramprobe.py
+    [ "$md0usb" = 0 ] || payload_checker=../tools/oriole_md0usb.py
+    "$PYTHON" "$payload_checker" --check "$payload" || exit 2
 fi
 if [ "$inventory_ufs" = 1 ]; then
     [ "$board:$inventory_display" = oriole:0 ] && [ -z "${UFS_DMA_HI_BASE:-}${UFS_ATTEMPTS:-}${XNU_UFS:-}${REBOOT_BL:-}" ] || {
@@ -134,6 +139,7 @@ CFLAGS="-O2 -ffreestanding -nostdlib -fno-pic -march=armv8-a+crc -mgeneral-regs-
 CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
 [ "$inventory" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY"
 [ "$ramprobe" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RAMPROBE"
+[ "$md0usb" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_MD0USB"
 [ "$loadcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_LOADCHECK"
 [ "$resetcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RESETCHECK"
 if [ "$usb_gadget" = 1 ]; then
