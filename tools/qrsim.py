@@ -6,7 +6,7 @@ through a model of the ESP32-CAM (scale, rotation, tilt, defocus blur, noise, lo
   tools/qrsim.py deliver [--p P] [--burst B] ...                                          frames needed / time to deliver N bytes (schedule model)
   tools/qrsim.py --selftest                                                                  one tiny end-to-end check
 Needs opencv + numpy (PYTHONPATH=~/pixelios-artifacts/pylib) and gcc."""
-import argparse, ctypes, os, random, subprocess, sys, tempfile, threading, time
+import argparse, ctypes, os, platform, random, subprocess, sys, tempfile, threading, time
 
 LOCK = threading.Lock()      # the C encoder keeps static QR buffers
 
@@ -34,7 +34,7 @@ def build_lib(tx_size=None):
     os.makedirs(d, exist_ok=True)
     srcs = [os.path.join(ROOT, "qrlog", f) for f in ("qrstream.c", "qrz.c", "qrlog.c", "qrcodegen.c", "qrstream.h", "qrz.h", "qrz_tables.h")]
     stamp = int(max(os.path.getmtime(s) for s in srcs))
-    so = os.path.join(d, "libqrstream-%d-%s-%d.so" % (stamp, tx_size or 0, os.getuid()))
+    so = os.path.join(d, "libqrstream-%s-%d-%s-%d.so" % (platform.machine(), stamp, tx_size or 0, os.getuid()))
     if not os.path.exists(so):
         subprocess.check_call(["gcc", "-O2", "-shared", "-fPIC", "-I", os.path.join(ROOT, "qrlog"), "-o", so + ".tmp"]
                               + (["-DQS_TX_SIZE=%d" % tx_size] if tx_size else []) + [s for s in srcs if s.endswith(".c")])
