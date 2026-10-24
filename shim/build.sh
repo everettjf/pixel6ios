@@ -32,10 +32,12 @@ touch_dvfs=0
 dvfs_khz=
 inventory=0
 inventory_display=0
+inventory_ufs=0
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--board) board="$2"; shift 2 ;;
 		--inventory) inventory=1; usb_gadget=1; shift ;;
+		--inventory-ufs) inventory=1; inventory_ufs=1; usb_gadget=1; shift ;;
 		--inventory-display) inventory=1; inventory_display=1; usb_gadget=1; shift ;;
 		--avb) avb=1; shift ;;
 		--pstore-fast) pstore_fast=1; shift ;;
@@ -72,6 +74,11 @@ soc=$("$PYTHON" ../tools/boards.py "$board" --get soc 2>/dev/null) || { echo "un
 gs101=0; [ "$soc" = google/gs101 ] && gs101=1
 if [ "$board" = oriole ] && [ "$inventory" != 1 ]; then
 	echo "oriole is inventory-only until its live memory map is measured" >&2; exit 2
+fi
+if [ "$inventory_ufs" = 1 ]; then
+    [ "$board:$inventory_display" = oriole:0 ] && [ -z "${UFS_DMA_HI_BASE:-}${UFS_ATTEMPTS:-}${XNU_UFS:-}${REBOOT_BL:-}" ] || {
+        echo "--inventory-ufs requires oriole and forbids overrides/display/reset experiments" >&2; exit 2;
+    }
 fi
 if [ "$inventory" = 1 ]; then
 	[ "$gs101" = 1 ] || { echo "--inventory needs gs101" >&2; exit 2; }
@@ -256,6 +263,7 @@ if [ "$qrlog" = 1 ]; then
 	# Log as looping QR codes on the final screens (tools/qr-log.py reads them). Not with --pstore-fast (no pager).
 	CFLAGS="$CFLAGS -DQRLOG -I../qrlog -I../qrlog/stubs"
 fi
+[ "$inventory_ufs" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_UFS"
 [ "$inventory_display" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_DISPLAY"
 mkdir -p out
 "$PYTHON" ../tools/boards.py "$board" out/board_config.h

@@ -15,6 +15,10 @@
 #include "ufs.h"
 #include "ufsdiag.h"
 #include "ufsinit.h"
+#ifdef INVENTORY_UFS
+#include "ufsinventory_guard.h"
+#include "ufsinventory_gpt.h"
+#endif
 
 #ifndef UFS_BASE
 #define UFS_BASE	0x01d84000UL
@@ -521,6 +525,14 @@ static int ufs_takeover_list(const struct ufs_dma *dma, const char *label)
 		con_str(label, "UTRL base not accepted");
 		return 0;
 	}
+#ifdef INVENTORY_UFS
+    uint64_t ready_start=ticks();
+    while (!(ufs_rd(REG_HCS)&HCS_UTRLRDY)) {
+        if (ticks()-ready_start>counter_freq()/10) {
+            con_str(label,"UTRLRDY timeout after list start"); return 0;
+        }
+    }
+#endif
 	uint32_t stale = ufs_rd(REG_UTRLDBR);
 	if (stale) {
 		ufs_wr(REG_UTRLCLR, stale);	/* BROKEN_REQ_LIST_CLR: write 1 */
@@ -807,32 +819,140 @@ static void report_placement(const char *what, uint64_t addr, uint64_t size,
 	con_str(what, flg);
 }
 
+#ifdef INVENTORY_UFS
+static volatile unsigned inventory_controller_owned;
+int try_read32(uintptr_t address,uint32_t *value);
+int try_write32(uintptr_t address,uint32_t value);
+/* Same existing HCI registers/gs101 write-one clear semantics as
+ * ufs_slot_clear and ufs_takeover_list. No CDB or media command here. */
+int ufs_inventory_stop(void)
+{
+    if (!inventory_controller_owned) return 1;
+    uint32_t dbr=0,rsr=1; int cleared=0,stopped=0;
+    if (!try_read32(UFS_BASE+REG_UTRLDBR,&dbr)) return 0;
+    if (dbr && !try_write32(UFS_BASE+REG_UTRLCLR,dbr)) return 0;
+    for (uint64_t start=ticks(); ticks()-start<counter_freq();) {
+        if (!try_read32(UFS_BASE+REG_UTRLDBR,&dbr)) break;
+        if (!dbr) { cleared=1; break; }
+    }
+    /* Stop even when the doorbell could not be cleared. */
+    if (try_write32(UFS_BASE+REG_UTRLRSR,0)) {
+        for (uint64_t start=ticks(); ticks()-start<counter_freq();) {
+            if (!try_read32(UFS_BASE+REG_UTRLRSR,&rsr)) break;
+            if (!(rsr&1)) { stopped=1; break; }
+        }
+    }
+    __asm__ volatile("dsb sy" ::: "memory");
+    if (!try_read32(UFS_BASE+REG_UTRLDBR,&dbr) || dbr) cleared=0;
+    con_hex2("UFS INVENTORY stopped","dbr=",dbr,"rsr=",rsr);
+    if (cleared && stopped) { inventory_controller_owned=0; return 1; }
+    con_str("UFS INVENTORY","quiesce failed: reset immediately");
+    return 0;
+}
+static int inventory_window_ok(uintptr_t dtb)
+{
+    struct fdt_memmap mm;
+    if (!fdt_collect_memmap(dtb, &mm)) return 0;
+    extern char _head[], _end[], _stack_top[];
+    uint64_t lo=0, hi=0;
+    int haslo=fdt_chosen_u64(dtb,"linux,initrd-start",&lo);
+    int hashi=fdt_chosen_u64(dtb,"linux,initrd-end",&hi);
+    if (haslo!=hashi || (haslo && hi<lo)) return 0;
+    struct ufsi_avoid avoid[4];
+    avoid[0]=(struct ufsi_avoid){(uintptr_t)_head,(uintptr_t)_end-(uintptr_t)_head};
+    avoid[1]=(struct ufsi_avoid){(uintptr_t)_stack_top-0x8000,0x8000};
+    avoid[2]=(struct ufsi_avoid){dtb,be32((const uint8_t *)dtb+4)};
+    avoid[3]=(struct ufsi_avoid){lo,hi-lo};
+    /* The USB pool is inside a live ABL reservation, hence excluded by
+     * the complete reserved-range check even if its address changes. */
+    return ufsi_range_free(&mm,UFS_INVENTORY_BASE,UFS_INVENTORY_SIZE,avoid,4);
+}
+static void inventory_gpt(struct ufs_attempt *a)
+{
+    con_hex("UFS INVENTORY UTRL",(uintptr_t)a->dma.utrl);
+    con_hex("UFS INVENTORY UCD",(uintptr_t)a->dma.ucd);
+    con_hex("UFS INVENTORY data",(uintptr_t)a->dma.data);
+    con_hex("UFS INVENTORY entries",(uintptr_t)a->dma.entries);
+    uint32_t ocs,st,rt,rc=4;
+    const uint8_t cap10[10]={0x25};
+    for(unsigned tries=0; tries<3 && rc==4; tries++)
+        rc=upiu_submit(&a->dma,UPIU_COMMAND,0,cap10,sizeof cap10,SCSI_DIR_READ,
+            a->dma.data,8,a->dword_gran,&ocs,&st,&rt);
+    con_hex("UFS INVENTORY capacity rc",rc);
+    if(rc || be32(a->dma.data+4)!=BLOCK) return;
+    uint32_t capacity=be32(a->dma.data);
+    con_hex2("UFS INVENTORY capacity","last=",capacity,"block=",BLOCK);
+    if(read_blocks_dma(&a->dma,a->dword_gran,0,1,1,a->dma.data)) return;
+    struct ufsi_gpt g;
+    if(!ufsi_gpt_header(a->dma.data,capacity,&g)) {
+        con_str("UFS INVENTORY","GPT header refused"); return;
+    }
+    for(unsigned b=0;b<g.blocks;b++)
+        if(read_blocks_dma(&a->dma,a->dword_gran,0,(uint32_t)g.table+b,1,
+            a->dma.entries+b*BLOCK)) return;
+    uint64_t first=0,last=0;
+    if(!ufsi_gpt_userdata(a->dma.entries,&g,&first,&last) ||
+       (last-first+1)*BLOCK!=UFS_INVENTORY_USERDATA_BYTES) {
+        con_str("UFS INVENTORY","GPT entries/CRC/userdata size refused"); return;
+    }
+    con_hex2("UFS INVENTORY userdata","first=",(uint32_t)first,"last=",(uint32_t)last);
+    con_hex("UFS INVENTORY userdata bytes",(last-first+1)*BLOCK);
+    con_str("UFS INVENTORY","header/entry CRCs and capacity ranges PASS; no media writes");
+}
+#endif
+
 void test_ufs_bluejay(uintptr_t dtb)
 {
 	con_str("UFS", "GS101 read-only probe v2");
-	con_str("UFS note", "timeout dumps IS/UTRD/UPIU");
-	uint32_t cap = ufs_rd(REG_CAP), hcs = ufs_rd(REG_HCS), hce = ufs_rd(REG_HCE);
+    con_str("UFS note", "timeout dumps IS/UTRD/UPIU");
+#ifdef INVENTORY_UFS
+    /* Refuse before ANY cold-init writer or DMA doorbell. */
+    if (!inventory_window_ok(dtb)) {
+        con_str("UFS INVENTORY", "live DMA placement refused"); return;
+    }
+    con_hex("UFS INVENTORY high DMA", UFS_INVENTORY_BASE);
+    inventory_controller_owned=1;
+    if (ufs_cold_init()) {
+        con_str("UFS INVENTORY", "cold init failed"); return;
+    }
+#endif
+    uint32_t cap = ufs_rd(REG_CAP), hcs = ufs_rd(REG_HCS), hce = ufs_rd(REG_HCE);
 	con_hex2("UFS", "hce=", hce, "hcs=", hcs);
 	con_hex2("UFS", "cap=", cap, "ver=", ufs_rd(REG_VER));
 	con_hex2("UFS", "is=", ufs_rd(REG_IS), "ie=", ufs_rd(REG_IE));
 	con_hex2("UFS", "utrlba=", ufs_rd(REG_UTRLBA), "hi=", ufs_rd(REG_UTRLBAU));
 	con_hex2("UFS", "rsr=", ufs_rd(REG_UTRLRSR), "dbr=", ufs_rd(REG_UTRLDBR));
 	/* Read-only survey first (docs/research/07): what did ABL's shutdown leave? */
-	ufs_vendor_diag();
+#ifndef INVENTORY_UFS
+    ufs_vendor_diag();
+#else
+    /* Avoid the legacy survey's potentially gated PHY reads and DME_GET. */
+    if (!(cap & (1u<<24))) {
+        con_str("UFS INVENTORY","64-bit DMA unsupported"); return;
+    }
+#endif
 #if !UFS_ATTEMPTS
 	/* -DUFS_ATTEMPTS=0 reduces the probe to the read-only survey. */
 	return;
 #endif
-	if (!(hce & 1) || !(hcs & HCS_DP) || !(hcs & HCS_UTRLRDY)) {
+    /* GS101 UTRLRDY follows UTRLRSR (XNU patch0080). The takeover
+     * starts the list later; cold init promises only HCE and link-up. */
+    if (!(hce & 1) || !(hcs & HCS_DP)
+#ifndef INVENTORY_UFS
+        || !(hcs & HCS_UTRLRDY)
+#endif
+    ) {
 		con_str("UFS", "device absent or UTRL not ready");
 		return;
 	}
+#ifndef INVENTORY_UFS
 	/* ABL shut the device link down: cold re-init (shim/ufsinit.c) before touching the list. */
 	if (ufs_cold_init()) {
-		con_str("UFS", "cold init failed");
-		return;
-	}
-	/* Same takeover guard as v1: a doorbell left set by ABL would make
+        con_str("UFS", "cold init failed");
+        return;
+    }
+#endif
+    /* Same takeover guard as v1: a doorbell left set by ABL would make
 	 * the host fetch our zeroed slot 0 as soon as the list restarts. */
 	if (ufs_rd(REG_UTRLDBR)) {
 		con_str("UFS", "requests outstanding: stop");
@@ -868,14 +988,33 @@ void test_ufs_bluejay(uintptr_t dtb)
 	own_dma.data = (uint8_t *)(uintptr_t)(UFS_DMA_HI_BASE + 0x4000);
 	own_dma.entries = (uint8_t *)(uintptr_t)(UFS_DMA_HI_BASE + 0x10000);
 #endif
+#ifdef INVENTORY_UFS
+    _Static_assert(sizeof utrl<=0x1000 && sizeof ucd<=0x3000 &&
+        sizeof data<=0xc000 && sizeof entries<=0x10000, "inventory DMA layout");
+    _Static_assert(UFS_INVENTORY_SIZE>=0x20000, "inventory DMA extent");
+    own_dma.utrl=(struct utrd *)(uintptr_t)UFS_INVENTORY_BASE;
+    own_dma.ucd=(struct ucd *)(uintptr_t)(UFS_INVENTORY_BASE+0x1000);
+    own_dma.data=(uint8_t *)(uintptr_t)(UFS_INVENTORY_BASE+0x4000);
+    own_dma.entries=(uint8_t *)(uintptr_t)(UFS_INVENTORY_BASE+0x10000);
+#endif
+#ifdef INVENTORY_UFS
+    con_hex("UFS INVENTORY UTRL",(uintptr_t)own_dma.utrl);
+    con_hex("UFS INVENTORY UCD",(uintptr_t)own_dma.ucd);
+    con_hex("UFS INVENTORY data",(uintptr_t)own_dma.data);
+    con_hex("UFS INVENTORY entries",(uintptr_t)own_dma.entries);
+#endif
 	struct ufs_attempt attempts[1];
 	unsigned n = 0;
 	/* The only layout that works on hardware: our own buffers, byte-granular PRDT. */
 	ufs_attempt_init(&attempts[n++], "A1", "A1 byte-gran own/v1", &own_dma, 0);
 	for (unsigned i = 0; i < n; i++) {
 		if (ufs_run_attempt(&attempts[i])) {
-			ufs_full_sequence(&attempts[i]);
-			return;
+#ifdef INVENTORY_UFS
+            inventory_gpt(&attempts[i]);
+#else
+            ufs_full_sequence(&attempts[i]);
+#endif
+            return;
 		}
 	}
 	con_str("UFS", "no attempt completed; see dumps");

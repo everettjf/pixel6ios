@@ -87,6 +87,10 @@ static const uint64_t board_mpidrs[NR_CPUS] = {
 };
 #endif
 
+#ifdef INVENTORY
+static volatile uintptr_t inventory_dtb;
+static volatile unsigned inventory_panicking;
+#endif
 static const char *stage;	/* set at runtime: no absolute pointers in data */
 volatile uint64_t probe_entry_el;
 static volatile uint32_t probe_guard, probe_fault;
@@ -522,6 +526,7 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 	stage = "bluejay probe";
 	struct wdt_state wdt_cl0 = {0}, wdt_cl1 = {0};
 #ifdef INVENTORY
+    inventory_dtb = dtb;
 	/* Oriole first boot: use only the shim's RAM log and the existing,
 	 * live-FDT-validated USB pool. No framebuffer, pstore, UFS, secondary
 	 * CPUs, display trigger, touch, PMIC, DVFS, GPU or WLAN experiments.
@@ -530,7 +535,11 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 	con_set_video(0, 0, 0, 0);
 	disable_bluejay_watchdog(WDT_CL0_BASE, &wdt_cl0);
 	disable_bluejay_watchdog(WDT_CL1_BASE, &wdt_cl1);
-	con_str("INVENTORY", "oriole: headless, no storage access");
+#ifdef INVENTORY_UFS
+    con_str("INVENTORY", "oriole: headless, media-read-only UFS/GPT");
+#else
+    con_str("INVENTORY", "oriole: headless, no storage access");
+#endif
 	con_hex("ENTRY EL", probe_entry_el);
 	con_hex("LIVE FDT", dtb);
 	report_bluejay_watchdog("WDT CL0", &wdt_cl0);
@@ -538,7 +547,12 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 	report_cpu(0);
 	fdt_probe_report(dtb);
 #ifdef USB_GADGET
-	usb_gadget_start(dtb);
+    usb_gadget_start(dtb);
+#ifdef INVENTORY_UFS
+    stage = "Oriole high-DMA UFS inventory";
+    test_ufs_bluejay(dtb);
+    if (!ufs_inventory_stop()) bluejay_reset_chain();
+#endif
 #ifdef INVENTORY_DISPLAY
 	extern void gs101_display_inventory(void);
 	gs101_display_inventory();
@@ -1028,8 +1042,30 @@ void exc_handler(uint64_t slot, uint64_t *regs)
 		}
 	}
 #endif
-	con_clear(BLUE);
-	switch (slot & 3) {
+#ifdef INVENTORY
+    if (inventory_panicking) {
+        /* A fault in USB/logging must not re-enter that same hook from
+         * the reset chain's console calls. If even a reset SMC faults,
+         * use only the existing, guarded WDT fallback (no more SMCs). */
+        con_service_hook = 0;
+        usbg_on = 0;
+        con_set_video(0, 0, 0, 0);
+        if (inventory_panicking > 1) {
+            if (WDT_CL0_BASE) {
+                try_write32(WDT_CL0_BASE + 4, 1);
+                try_write32(WDT_CL0_BASE + 8, 1);
+                try_write32(WDT_CL0_BASE, (3U << 3) | (1U << 5) | 1U);
+            }
+            for (;;) __asm__ volatile("wfi");
+        }
+        inventory_panicking = 2;
+        bluejay_reset_chain();
+    }
+    inventory_panicking = 1;
+    con_set_video(0, 0, 0, 0);
+#endif
+    con_clear(BLUE);
+    switch (slot & 3) {
 	case 0: con_str("PANIC", "SYNC"); break;
 	case 1: con_str("PANIC", "IRQ"); break;
 	case 2: con_str("PANIC", "FIQ"); break;
@@ -1048,8 +1084,17 @@ void exc_handler(uint64_t slot, uint64_t *regs)
 	 * the pstore copy survives even if the rest never runs. The panic
 	 * entry guards against recursion: a fault inside the save must not
 	 * re-enter it on this CPU. */
-	pstore_panic_save();
-	reset(40);
+#ifdef INVENTORY
+#ifdef INVENTORY_UFS
+    if (!ufs_inventory_stop()) bluejay_reset_chain();
+#endif
+    if (!usbg_on) usb_gadget_start(inventory_dtb);
+    usb_gadget_finish();
+    bluejay_reset_chain();
+#else
+    pstore_panic_save();
+    reset(40);
+#endif
 }
 
 /* ---- SMP ---- */

@@ -14,3 +14,8 @@ int ufs_userdata_found(uint64_t *first, uint64_t *last);
 uint32_t ufs_read_userdata(uint64_t lba, uint32_t nblocks, void *buf);
 extern uint8_t ufs_udump_stage[UFS_UDUMP_STAGE_LEN];
 #endif
+
+#ifdef INVENTORY_UFS
+/* Bounded read-list cleanup; returns0 to request immediate reset. */
+int ufs_inventory_stop(void);
+#endif

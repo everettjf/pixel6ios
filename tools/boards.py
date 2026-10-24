@@ -371,6 +371,11 @@ def c_header(board: str) -> str:
     for macro, key in names.items():
         value = 8 if key == "cpu_count" else values[key]
         lines.append(f"#define {macro} {value}" if key == "cpu_count" else f"#define {macro} {value:#x}UL")
+    if "ufs_inventory_window" in values:
+        base, size = values["ufs_inventory_window"]
+        lines.extend([f"#define UFS_INVENTORY_BASE {base:#x}UL",
+                      f"#define UFS_INVENTORY_SIZE {size:#x}UL",
+                      f"#define UFS_INVENTORY_USERDATA_BYTES {values['ufs_inventory_userdata_bytes']:#x}UL"])
     for i, mpidr in enumerate(values["cpu_mpidrs"]):
         lines.append(f"#define BOARD_MPIDR_{i} {mpidr:#x}UL")
     watchdogs = values["watchdog_bases"] + (0, 0)

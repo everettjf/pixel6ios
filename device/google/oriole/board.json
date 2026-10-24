@@ -2,7 +2,7 @@
   "name": "Pixel 6",
   "codename": "oriole",
   "soc": "google/gs101",
-  "status": "inventory-only; XNU memory unmeasured",
+  "status": "inventory; XNU still gated",
   "dram_banks": [
     [
       "0x80000000",
@@ -32,12 +32,15 @@
     "0x1000000"
   ],
   "notes": {
-    "dram_banks": "OBSERVED ON HARDWARE 2026-10-24, 89404f4, hardware/inventory-2026-10-24.txt; four 2 GiB banks. XNU RAM remains unset until display measurement.",
-    "framebuffer": "SOURCE CANDIDATE from Linux gs101-oriole.dts; inventory never writes the framebuffer or DECON.",
+    "dram_banks": "OBSERVED ON HARDWARE 2026-10-24, 89404f4, hardware/inventory-2026-10-24.txt; four 2 GiB banks. First high bank selected for XNU probe.",
+    "framebuffer": "OBSERVED ON HARDWARE 2026-10-24: RDMA0 and shadow Y8=0xfac00000, SRC_SIZE/IMG_SIZE=0x09600438 (1080x2400), SRC_OFFSET=0, format0 (BGRA8888 in Google header), explicit stride selectors0 (natural1080*4). Matches Linux oriole simplefb source candidate. Display output still unverified until first write.",
     "uart_base": "Disabled intentionally in the first inventory image; not a physical UART address.",
     "usb_dma_range": "OBSERVED ON HARDWARE 2026-10-24: live FDT abl@f8800000 is 16 MiB, unlike static vendor_boot DTB 32 MiB. USB pool 0xf8d1b000. Runtime still independently validates live FDT/GEVNTADR and overlap checks.",
     "userdata_mib": "NOT CONFIGURED. Fastboot reports byte size 0x1b91215000; GPT LBA bounds not yet measured. Inventory does not access storage.",
-    "touch": "SOURCE-CANDIDATE only: Google raviole gs101-oriole-touch.dtsi and gs101 common FTS/SPI tree specify FTM5 ID 36 48, 1079x2399, SPI11/gpp23/gpp26/gpa9. Fields are present for existing host fixtures; --inventory neither links nor calls touch/ACPM code. No touch writes have been enabled or tested on this phone."
+    "touch": "SOURCE-CANDIDATE only: Google raviole gs101-oriole-touch.dtsi and gs101 common FTS/SPI tree specify FTM5 ID 36 48, 1079x2399, SPI11/gpp23/gpp26/gpa9. Fields are present for existing host fixtures; --inventory neither links nor calls touch/ACPM code. No touch writes have been enabled or tested on this phone.",
+    "xnu_ram": "OBSERVED DRAM range in inventory-2026-10-24.txt; first high 2 GiB bank only. Captured reservations are below4GiB. Conservative single-bank subset; 32MiB aligned. Other4GiB high RAM unused for first probe.",
+    "ufs_inventory_window": "SOFTWARE ALLOCATION inside the measured first high2GiB bank, for isolated UFS DMA proof only. Reset before any XNU load; never assumed free without live map/overlap checks. Layout: UTRL+0, UCD+0x1000, 8KiB data+0x4000,16KiB GPT entries+0x10000. No arbitrary DMA override.",
+    "ufs_inventory_userdata_bytes": "OBSERVED via serial-specific fastboot getvar partition-size:userdata on2026-10-24. Require CRC-validated GPT size to match before reporting usable bounds."
   },
   "touch_chip_id": [
     "0x36",
@@ -77,5 +80,14 @@
   "touch_pin_mux": [
     "gpp26",
     1
-  ]
+  ],
+  "xnu_ram": [
+    "0x880000000",
+    "0x80000000"
+  ],
+  "ufs_inventory_window": [
+    "0x880100000",
+    "0x20000"
+  ],
+  "ufs_inventory_userdata_bytes": "0x1b91215000"
 }
