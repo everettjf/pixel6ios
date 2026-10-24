@@ -1,5 +1,6 @@
 """Loader range failures and fail-closed build profile (no Apple inputs needed)."""
 import os
+import itertools
 from pathlib import Path
 import subprocess
 import tempfile
@@ -74,9 +75,8 @@ int main(void) {
             subprocess.run([str(exe)], check=True)
 
     def test_profile_selections_are_exclusive(self):
-        for flags in (['--xnu-loadcheck','--xnu-ramprobe'],
-                      ['--xnu-ramprobe','--xnu-loadcheck']):
-            r=subprocess.run(['bash','shim/build.sh','--board','oriole']+flags,
+        for flags in itertools.permutations(('--xnu-loadcheck','--xnu-ramprobe','--xnu-resetcheck'),2):
+            r=subprocess.run(['bash','shim/build.sh','--board','oriole']+list(flags),
                 cwd=ROOT,env=dict(os.environ,CROSS_CC='/nonexistent-ramprobe-compiler'),
                 capture_output=True,text=True,timeout=10)
             self.assertEqual(r.returncode,2,r.stderr)
@@ -92,7 +92,7 @@ int main(void) {
                 ([],{'USB_DMA_HI_BASE':'0x880100000'}),([],{'REBOOT_BL':'1'}),
                 ([],{'USB_WINDOW':'61'}),([],{'UFS_ATTEMPTS':'1'})]:
             with self.subTest(options=options,extra=extra):
-                for profile in ('--xnu-ramprobe','--xnu-loadcheck'):
+                for profile in ('--xnu-ramprobe','--xnu-loadcheck','--xnu-resetcheck'):
                     r=subprocess.run(['bash','shim/build.sh','--board','oriole',profile]+options,
                         cwd=ROOT,env=dict(env,**extra),capture_output=True,text=True,timeout=10)
                     self.assertEqual(r.returncode,2,r.stderr)

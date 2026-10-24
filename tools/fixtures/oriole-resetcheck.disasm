@@ -1,0 +1,164 @@
+
+shim/out/resetcheck.o:     file format elf64-littleaarch64
+
+
+Disassembly of section .text:
+
+0000000000000000 <oriole_resetcheck>:
+   0:	a9bd7bfd 	stp	x29, x30, [sp, #-48]!
+   4:	90000001 	adrp	x1, 0 <oriole_resetcheck>
+			4: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8
+   8:	91000021 	add	x1, x1, #0x0
+			8: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8
+   c:	910003fd 	mov	x29, sp
+  10:	a90153f3 	stp	x19, x20, [sp, #16]
+  14:	aa0003f3 	mov	x19, x0
+  18:	90000000 	adrp	x0, 0 <oriole_resetcheck>
+			18: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x30
+  1c:	91000000 	add	x0, x0, #0x0
+			1c: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x30
+  20:	94000000 	bl	0 <con_str>
+			20: R_AARCH64_CALL26	con_str
+  24:	14000005 	b	38 <oriole_resetcheck+0x38>
+  28:	94000000 	bl	0 <resetcheck_ready>
+			28: R_AARCH64_CALL26	resetcheck_ready
+  2c:	350000e0 	cbnz	w0, 48 <oriole_resetcheck+0x48>
+  30:	52800020 	mov	w0, #0x1                   	// #1
+  34:	94000000 	bl	0 <resetcheck_wait_ms>
+			34: R_AARCH64_CALL26	resetcheck_wait_ms
+  38:	94000000 	bl	0 <resetcheck_ticks>
+			38: R_AARCH64_CALL26	resetcheck_ticks
+  3c:	cb000260 	sub	x0, x19, x0
+  40:	f100001f 	cmp	x0, #0x0
+  44:	54ffff2c 	b.gt	28 <oriole_resetcheck+0x28>
+  48:	94000000 	bl	0 <resetcheck_ready>
+			48: R_AARCH64_CALL26	resetcheck_ready
+  4c:	340009e0 	cbz	w0, 188 <oriole_resetcheck+0x188>
+  50:	d2810200 	mov	x0, #0x810                 	// #2064
+  54:	9100a3e1 	add	x1, sp, #0x28
+  58:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
+  5c:	29057fff 	stp	wzr, wzr, [sp, #40]
+  60:	94000000 	bl	0 <resetcheck_read>
+			60: R_AARCH64_CALL26	resetcheck_read
+  64:	34000560 	cbz	w0, 110 <oriole_resetcheck+0x110>
+  68:	b9402be1 	ldr	w1, [sp, #40]
+  6c:	90000000 	adrp	x0, 0 <oriole_resetcheck>
+			6c: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x90
+  70:	91000000 	add	x0, x0, #0x0
+			70: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x90
+  74:	94000000 	bl	0 <con_hex>
+			74: R_AARCH64_CALL26	con_hex
+  78:	d2810200 	mov	x0, #0x810                 	// #2064
+  7c:	52801f81 	mov	w1, #0xfc                  	// #252
+  80:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
+  84:	94000000 	bl	0 <resetcheck_write>
+			84: R_AARCH64_CALL26	resetcheck_write
+  88:	aa0003f4 	mov	x20, x0
+  8c:	d2810200 	mov	x0, #0x810                 	// #2064
+  90:	9100b3e1 	add	x1, sp, #0x2c
+  94:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
+  98:	94000000 	bl	0 <resetcheck_read>
+			98: R_AARCH64_CALL26	resetcheck_read
+  9c:	2a0003f3 	mov	w19, w0
+  a0:	aa1403e1 	mov	x1, x20
+  a4:	90000000 	adrp	x0, 0 <oriole_resetcheck>
+			a4: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0xa8
+  a8:	91000000 	add	x0, x0, #0x0
+			a8: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0xa8
+  ac:	94000000 	bl	0 <con_hex>
+			ac: R_AARCH64_CALL26	con_hex
+  b0:	93407e61 	sxtw	x1, w19
+  b4:	90000000 	adrp	x0, 0 <oriole_resetcheck>
+			b4: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0xc0
+  b8:	91000000 	add	x0, x0, #0x0
+			b8: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0xc0
+  bc:	94000000 	bl	0 <con_hex>
+			bc: R_AARCH64_CALL26	con_hex
+  c0:	b9402fe1 	ldr	w1, [sp, #44]
+  c4:	90000000 	adrp	x0, 0 <oriole_resetcheck>
+			c4: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0xe0
+  c8:	91000000 	add	x0, x0, #0x0
+			c8: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0xe0
+  cc:	94000000 	bl	0 <con_hex>
+			cc: R_AARCH64_CALL26	con_hex
+  d0:	f100029f 	cmp	x20, #0x0
+  d4:	7a400a64 	ccmp	w19, #0x0, #0x4, eq	// eq = none
+  d8:	54000080 	b.eq	e8 <oriole_resetcheck+0xe8>  // b.none
+  dc:	b9402fe0 	ldr	w0, [sp, #44]
+  e0:	7103f01f 	cmp	w0, #0xfc
+  e4:	54000260 	b.eq	130 <oriole_resetcheck+0x130>  // b.none
+  e8:	90000001 	adrp	x1, 0 <oriole_resetcheck>
+			e8: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x120
+  ec:	91000021 	add	x1, x1, #0x0
+			ec: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x120
+  f0:	90000000 	adrp	x0, 0 <oriole_resetcheck>
+			f0: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x60
+  f4:	91000000 	add	x0, x0, #0x0
+			f4: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x60
+  f8:	94000000 	bl	0 <con_str>
+			f8: R_AARCH64_CALL26	con_str
+  fc:	5283e800 	mov	w0, #0x1f40                	// #8000
+ 100:	94000000 	bl	0 <resetcheck_wait_ms>
+			100: R_AARCH64_CALL26	resetcheck_wait_ms
+ 104:	a94153f3 	ldp	x19, x20, [sp, #16]
+ 108:	a8c37bfd 	ldp	x29, x30, [sp], #48
+ 10c:	d65f03c0 	ret
+ 110:	90000001 	adrp	x1, 0 <oriole_resetcheck>
+			110: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x70
+ 114:	90000000 	adrp	x0, 0 <oriole_resetcheck>
+			114: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x60
+ 118:	91000021 	add	x1, x1, #0x0
+			118: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x70
+ 11c:	91000000 	add	x0, x0, #0x0
+			11c: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x60
+ 120:	94000000 	bl	0 <con_str>
+			120: R_AARCH64_CALL26	con_str
+ 124:	a94153f3 	ldp	x19, x20, [sp, #16]
+ 128:	a8c37bfd 	ldp	x29, x30, [sp], #48
+ 12c:	d65f03c0 	ret
+ 130:	90000001 	adrp	x1, 0 <oriole_resetcheck>
+			130: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0xf8
+ 134:	91000021 	add	x1, x1, #0x0
+			134: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0xf8
+ 138:	90000000 	adrp	x0, 0 <oriole_resetcheck>
+			138: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x60
+ 13c:	91000000 	add	x0, x0, #0x0
+			13c: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x60
+ 140:	94000000 	bl	0 <con_str>
+			140: R_AARCH64_CALL26	con_str
+ 144:	5283e800 	mov	w0, #0x1f40                	// #8000
+ 148:	94000000 	bl	0 <resetcheck_wait_ms>
+			148: R_AARCH64_CALL26	resetcheck_wait_ms
+ 14c:	94000000 	bl	0 <resetcheck_ready>
+			14c: R_AARCH64_CALL26	resetcheck_ready
+ 150:	34fffea0 	cbz	w0, 124 <oriole_resetcheck+0x124>
+ 154:	52800041 	mov	w1, #0x2                   	// #2
+ 158:	d2874000 	mov	x0, #0x3a00                	// #14848
+ 15c:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
+ 160:	94000000 	bl	0 <resetcheck_write>
+			160: R_AARCH64_CALL26	resetcheck_write
+ 164:	aa0003e1 	mov	x1, x0
+ 168:	90000000 	adrp	x0, 0 <oriole_resetcheck>
+			168: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x140
+ 16c:	91000000 	add	x0, x0, #0x0
+			16c: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x140
+ 170:	94000000 	bl	0 <con_hex>
+			170: R_AARCH64_CALL26	con_hex
+ 174:	5283e800 	mov	w0, #0x1f40                	// #8000
+ 178:	94000000 	bl	0 <resetcheck_wait_ms>
+			178: R_AARCH64_CALL26	resetcheck_wait_ms
+ 17c:	a94153f3 	ldp	x19, x20, [sp, #16]
+ 180:	a8c37bfd 	ldp	x29, x30, [sp], #48
+ 184:	d65f03c0 	ret
+ 188:	a94153f3 	ldp	x19, x20, [sp, #16]
+ 18c:	90000001 	adrp	x1, 0 <oriole_resetcheck>
+			18c: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x48
+ 190:	a8c37bfd 	ldp	x29, x30, [sp], #48
+ 194:	91000021 	add	x1, x1, #0x0
+			194: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x48
+ 198:	90000000 	adrp	x0, 0 <oriole_resetcheck>
+			198: R_AARCH64_ADR_PREL_PG_HI21	.rodata.str1.8+0x60
+ 19c:	91000000 	add	x0, x0, #0x0
+			19c: R_AARCH64_ADD_ABS_LO12_NC	.rodata.str1.8+0x60
+ 1a0:	14000000 	b	0 <con_str>
+			1a0: R_AARCH64_JUMP26	con_str

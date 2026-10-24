@@ -1,0 +1,19 @@
+OBSERVED ON HARDWARE2026-10-24,9181290; imageSHA256fb1d3d0b52f82f65e43bb3391f2674ee738d8c18b4739541ebe76904490856f3
+NOTE:con_hex2fieldsarelower32bits;fullJUMPis64bit. NativeXNUentrywasintentionallyskipped.
+DECON TRIG before=00003070 after=00003061
+ORIOLE_RAM_PROBE RAM-only XNU, no media/USB driver
+INITRD lo=86000000 hi=88DEB511
+PHYS base=80000000 size=80000000
+VIRT FFFFFE0006000000
+ENTRY FFFFFE0007493488
+SEGS n=0000000B end=82730000
+BOOTARG pa=82734000 top=82738000
+JUMP 0000000881493488
+ORIOLE_LOADCHECK all copies complete; XNU entry intentionally skipped
+RAM probe refused/returned load check complete
+SECTION USB gadget (live log)
+USB gadget pool 00000000F8D1B000
+USB gadget: running
+USB gadget run tools/usb-log.py capture on the PC
+USB EVT reset
+USB EVT conndone speed=0

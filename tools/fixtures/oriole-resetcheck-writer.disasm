@@ -1,0 +1,26 @@
+
+shim/out/shim.elf:     file format elf64-littleaarch64
+
+
+Disassembly of section .text:
+
+0000000000002104 <resetcheck_write>:
+    2104:	2a0103e3 	mov	w3, w1
+    2108:	aa0003e2 	mov	x2, x0
+    210c:	7103f07f 	cmp	w3, #0xfc
+    2110:	d2810200 	mov	x0, #0x810                 	// #2064
+    2114:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
+    2118:	fa400040 	ccmp	x2, x0, #0x0, eq	// eq = none
+    211c:	540000e0 	b.eq	2138 <resetcheck_write+0x34>  // b.none
+    2120:	d2874000 	mov	x0, #0x3a00                	// #14848
+    2124:	f2a2e8c0 	movk	x0, #0x1746, lsl #16
+    2128:	eb00005f 	cmp	x2, x0
+    212c:	7a420860 	ccmp	w3, #0x2, #0x0, eq	// eq = none
+    2130:	92800000 	mov	x0, #0xffffffffffffffff    	// #-1
+    2134:	540000c1 	b.ne	214c <resetcheck_write+0x48>  // b.any
+    2138:	d280a080 	mov	x0, #0x504                 	// #1284
+    213c:	aa0203e1 	mov	x1, x2
+    2140:	f2b04000 	movk	x0, #0x8200, lsl #16
+    2144:	d2800022 	mov	x2, #0x1                   	// #1
+    2148:	d4000003 	smc	#0x0
+    214c:	d65f03c0 	ret

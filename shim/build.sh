@@ -35,9 +35,11 @@ inventory_display=0
 inventory_ufs=0
 ramprobe=0
 loadcheck=0
+resetcheck=0
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--board) board="$2"; shift 2 ;;
+		--xnu-resetcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; resetcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ramprobe) [ "$ramprobe" = 0 ] || { echo "select only one RAM probe profile" >&2; exit 2; }; ramprobe=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--inventory) inventory=1; usb_gadget=1; shift ;;
@@ -133,6 +135,7 @@ CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
 [ "$inventory" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY"
 [ "$ramprobe" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RAMPROBE"
 [ "$loadcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_LOADCHECK"
+[ "$resetcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RESETCHECK"
 if [ "$usb_gadget" = 1 ]; then
 	# Stage-2 CDC-ACM log gadget (default OFF): bluejay only (needs try_write32).
 	[ "$gs101" = 1 ] || { echo "--usb-gadget needs a gs101 board" >&2; exit 2; }
@@ -295,6 +298,11 @@ socshim=../$("$PYTHON" ../tools/boards.py "$board" --get soc_dir)/shim
 for f in ufsdiag ufsinit; do
 	"$CC" $CFLAGS -I"$socshim" -I. -c "$socshim/$f.c" -o "out/$f.o"
 done
+reset_objs=""
+if [ "$resetcheck" = 1 ]; then
+    "$CC" $CFLAGS -I. -c resetcheck.c -o out/resetcheck.o
+    reset_objs=out/resetcheck.o
+fi
 display_objs=""
 if [ "$inventory_display" = 1 ]; then
     "$CC" $CFLAGS -I. -c "$socshim/displayinventory.c" -o out/displayinventory.o
@@ -416,10 +424,11 @@ fi
 if [ "$touch_rails" = 1 ] || [ "$touch_dvfs" = 1 ] || [ "$gpu_clk" = 1 ] || [ "$gpu_rails" = 1 ] || [ "$wlan_rails" = 1 ]; then
 	usb_objs="$usb_objs out/acpm.o"
 fi
-abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $qr_objs $display_objs | grep -c ABS64 || true)
+abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $qr_objs $display_objs $reset_objs | grep -c ABS64 || true)
 [ "$abs" = 0 ] || { echo "error: $abs absolute relocations in C objects" >&2; exit 1; }
 "$CC" $CFLAGS -static -T shim.ld -Wl,--build-id=none -Wl,--no-warn-rwx-segments -Wl,-N \
-	out/start.o out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbpool.o $usb_objs $qr_objs $display_objs -o out/shim.elf
+	out/start.o out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbpool.o $usb_objs $qr_objs $display_objs $reset_objs -o out/shim.elf
+"$PYTHON" ../tools/audit_oriole_resetcheck.py --enabled "$resetcheck" --object out/shim.o --elf out/shim.elf --objdump "${CROSS_OBJDUMP:-${prefix}objdump}"
 "$OBJCOPY" -O binary out/shim.elf out/Image
 size_hex=$("$NM" out/shim.elf | awk '$3=="_end"{print $1}')
 size=$((16#$size_hex))

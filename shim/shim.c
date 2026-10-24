@@ -521,6 +521,23 @@ static void udump_dump(void)
 #endif
 #endif
 
+#ifdef ORIOLE_RESETCHECK
+#include "resetcheck.h"
+int resetcheck_ready(void) { return usbg_on && usbgadget_ready(); }
+uint64_t resetcheck_ticks(void) { return now(); }
+void resetcheck_wait_ms(unsigned ms) { delay_ms(ms); }
+int resetcheck_read(uintptr_t pa, uint32_t *v)
+{
+    return pa==RC_SYSIP && try_read32(pa,v);
+}
+uint64_t resetcheck_write(uintptr_t pa, uint32_t v)
+{
+    /* Exact two existing REBOOT_BL command/value pairs only. */
+    if (!((pa==RC_SYSIP && v==0xfc) || (pa==RC_SWRESET && v==2))) return ~0ULL;
+    return smc(0x82000504UL,pa,1,v);
+}
+#endif
+
 static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 {
 	stage = "bluejay probe";
@@ -539,6 +556,10 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
     const char *why = loader_boot(dtb);
     con_str("RAM probe refused/returned", why ? why : "?");
     usb_gadget_start(dtb);
+#ifdef ORIOLE_RESETCHECK
+    stage = "Oriole observed EL3 reset check";
+    oriole_resetcheck(usbg_end);
+#endif
     usb_gadget_finish();
     bluejay_reset_chain();
 #endif

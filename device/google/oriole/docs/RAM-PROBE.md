@@ -58,3 +58,44 @@ after this return, replays the RAM log and resets. It does not test kernel
 execution. This avoids relying on best-effort USB stop before XNU: the
 current gadget stop API cannot positively prove controller quiescence.
 The rejected pre-jump USB draft was never booted.
+
+Observed on hardware2026-10-24,9181290: the loader check completed all11
+segment copies, boot_args and JUMP0x881493488; the intentional-return marker
+and592bytes were received over USB, and Android returned. See
+hardware/loadcheck-2026-10-24.txt. The approximately61s pre-USB path plus
+30s USB window and18s to Android kernel startup explains the elapsed time.
+The reset chain intentionally uses a CL0 WDT if both PSCI reset calls return;
+watchdog classification therefore does not prove an independent timer.
+No headless/display-removal change was made. NativeXNU remains unverified.
+
+## Observed reset protocol candidate (not yet run)
+
+--xnu-resetcheck implies the same fixed payload and no-entry loadcheck.
+After validated fallback USB is configured with DTR, it reads SYSIP_DAT0,
+issues the existing REBOOT_BL SMC write0xfc, records full return/readback,
+and requires return0 plus successful0xfc readback. It drains the log for8s
+with USB serviced and requires USB still ready before SWRESET_SYSTEM=2.
+If reset returns, it logs/drains again and uses ordinary USBfinish/reset.
+No USB controller is handed to XNU. The two volatile command/value pairs
+are allowlisted again in the shim wrapper; no flash/misc write is involved.
+Other RAM profile selections and all existing prohibited mixes are refused.
+
+The addresses match the current vendor_boot pixel-reboot node (source
+image SHA256f06ab190accef4f96e7504adbc7076612a07fcfe08694190f5c1a786b3c41db0):
+PMU17460000, reboot-cmd-offset810, swreset-system-offset3a00/trigger2.
+Prior bluejay acceptance is a reference observation, not proof onOriole.
+The actual C protocol is host-tested with no host, read failures, bad
+readback, bad SMC return, disconnect during drain and accepted exact writes.
+
+Resetcheck build audit: source hook/profile placement, protocol source,
+GCC16.2 protocol opcode stream, external relocation call order, stack-only
+stores, undefined symbols, and the exact19-opcode writer (object+ELF) are
+pinned. Every non-reset profile must omit all resetcheck symbols. Compiler
+variation fails closed and requires independent review; the audit is not
+a generic compiler portability promise. Mutation tests exercise the source
+and compiled guards. Official Google reboot source corroborates the mode
+and SMC sequence:
+https://android.googlesource.com/kernel/google-modules/power/reset/+/refs/heads/android-gs-raviole-android14-release/exynos-gs101-reboot.c
+The Android driver also performs ACPM coordination, which this isolated
+experiment deliberately does not add; success on current firmware remains
+a measured outcome rather than an assumption.
