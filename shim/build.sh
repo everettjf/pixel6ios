@@ -38,9 +38,11 @@ loadcheck=0
 resetcheck=0
 md0usb=0
 ufsroot=0
+preparecheck=0
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--board) board="$2"; shift 2 ;;
+		--xnu-ufsroot-preparecheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; preparecheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
@@ -145,6 +147,7 @@ CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
 [ "$ramprobe" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RAMPROBE"
 [ "$md0usb" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_MD0USB"
 [ "$ufsroot" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT"
+[ "$preparecheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFS_PREPARECHECK"
 [ "$loadcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_LOADCHECK"
 [ "$resetcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_RESETCHECK"
 if [ "$usb_gadget" = 1 ]; then

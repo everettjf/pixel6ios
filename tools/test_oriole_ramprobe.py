@@ -88,7 +88,7 @@ int main(void) {
                 subprocess.run([str(exe)], check=True)
 
     def test_profile_selections_are_exclusive(self):
-        for flags in itertools.permutations(('--xnu-loadcheck','--xnu-ramprobe','--xnu-resetcheck','--xnu-md0usb','--xnu-md0usb-loadcheck','--xnu-ufsroot','--xnu-ufsroot-loadcheck'),2):
+        for flags in itertools.permutations(('--xnu-loadcheck','--xnu-ramprobe','--xnu-resetcheck','--xnu-md0usb','--xnu-md0usb-loadcheck','--xnu-ufsroot','--xnu-ufsroot-loadcheck','--xnu-ufsroot-preparecheck'),2):
             r=subprocess.run(['bash','shim/build.sh','--board','oriole']+list(flags),
                 cwd=ROOT,env=dict(os.environ,CROSS_CC='/nonexistent-ramprobe-compiler'),
                 capture_output=True,text=True,timeout=10)
@@ -105,7 +105,7 @@ int main(void) {
                 ([],{'USB_DMA_HI_BASE':'0x880100000'}),([],{'REBOOT_BL':'1'}),
                 ([],{'USB_WINDOW':'61'}),([],{'UFS_ATTEMPTS':'1'})]:
             with self.subTest(options=options,extra=extra):
-                for profile in ('--xnu-ramprobe','--xnu-loadcheck','--xnu-resetcheck','--xnu-md0usb','--xnu-md0usb-loadcheck','--xnu-ufsroot','--xnu-ufsroot-loadcheck'):
+                for profile in ('--xnu-ramprobe','--xnu-loadcheck','--xnu-resetcheck','--xnu-md0usb','--xnu-md0usb-loadcheck','--xnu-ufsroot','--xnu-ufsroot-loadcheck','--xnu-ufsroot-preparecheck'):
                     r=subprocess.run(['bash','shim/build.sh','--board','oriole',profile]+options,
                         cwd=ROOT,env=dict(env,**extra),capture_output=True,text=True,timeout=10)
                     self.assertEqual(r.returncode,2,r.stderr)
