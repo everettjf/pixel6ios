@@ -538,6 +538,30 @@ uint64_t resetcheck_write(uintptr_t pa, uint32_t v)
 }
 #endif
 
+#ifdef ORIOLE_UFSROOT
+#include "ufsroot_prepare.h"
+static volatile unsigned ufsroot_active; /* exception-handler-visible ownership */
+int ufsroot_hw_read(uintptr_t pa,uint32_t *value)
+{
+    if (!(pa==UR_CAP || pa==UR_VER || pa==UR_HCS || pa==UR_HCE || pa==UR_DBR || pa==UR_RSR)) return 0;
+    return try_read32(pa,value);
+}
+int ufsroot_hw_write(uintptr_t pa,uint32_t value)
+{
+    /* Only stop-list=0; no request-list base, doorbell, UTRLCLR or media CDB. */
+    if (pa!=UR_RSR || value!=0) return 0;
+    return try_write32(pa,value);
+}
+void ufsroot_wait_ms(unsigned ms) { delay_ms(ms); }
+int ufsroot_cold_init(void) { return ufs_cold_init(); }
+int oriole_ufsroot_prepare(void)
+{
+    if (!urs_prepare(&ufsroot_active)) return 0;
+    con_str("ORIOLE_UFS_ROOT","cold-init PASS; HCE1 DP1 64AS VER300 DBR0 RSR0; no shim DMA");
+    return 1;
+}
+#endif
+
 static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 {
 	stage = "bluejay probe";
@@ -552,13 +576,18 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
     con_set_video(FB_BASE, FB_W, FB_H, FB_STRIDE);
     con_clear(0xff000000U);
     decon_rearm_trigger();
-#ifdef ORIOLE_MD0USB
+#ifdef ORIOLE_UFSROOT
+    con_str("ORIOLE_UFS_ROOT","read-only storage-root diagnostic; no persistent log");
+#elif defined(ORIOLE_MD0USB)
     con_str("ORIOLE_RAM_PROBE", "RAM-only XNU, no media; kernel USB opt-in");
 #else
     con_str("ORIOLE_RAM_PROBE", "RAM-only XNU, no media/USB driver");
 #endif
     const char *why = loader_boot(dtb);
     con_str("RAM probe refused/returned", why ? why : "?");
+#ifdef ORIOLE_UFSROOT
+    if (!urs_stop(&ufsroot_active)) bluejay_reset_chain();
+#endif
     usb_gadget_start(dtb);
 #ifdef ORIOLE_RESETCHECK
     stage = "Oriole observed EL3 reset check";
@@ -1129,6 +1158,9 @@ void exc_handler(uint64_t slot, uint64_t *regs)
 #if defined(INVENTORY) || defined(ORIOLE_RAMPROBE)
 #ifdef INVENTORY_UFS
     if (!ufs_inventory_stop()) bluejay_reset_chain();
+#endif
+#ifdef ORIOLE_UFSROOT
+    if (!urs_stop(&ufsroot_active)) bluejay_reset_chain();
 #endif
     if (!usbg_on) usb_gadget_start(inventory_dtb);
     usb_gadget_finish();

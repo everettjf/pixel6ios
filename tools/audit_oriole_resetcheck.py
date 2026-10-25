@@ -38,7 +38,7 @@ def source_check(shim,header,protocol):
         (r'#ifdef ORIOLE_RESETCHECK\n#include "resetcheck.h".*?\n#endif',
          'db4d2e1aa0623733a1f7923e179f378fa35ccb9dfd961d6b231999b30ddab486'),
         (r'#ifdef ORIOLE_RAMPROBE\n    inventory_dtb = dtb;.*?\n#endif\n#ifdef INVENTORY',
-         '95809b867df71a0b2e2b527bc6c11be50ee22d21be036d5a90c35835ebe3bf90')]:
+         '1a1507d0d9b930a500e9f3bce8543331bbe68c6ea5b752f6f4afed1e350b035e')]:
         block=re.search(pattern,code,re.S)
         if not block or hashlib.sha256(compact(block[0]).encode()).hexdigest()!=digest:
             raise ValueError('resetcheck hooks/profile placement changed')

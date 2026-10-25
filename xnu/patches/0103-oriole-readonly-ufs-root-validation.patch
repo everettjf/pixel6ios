@@ -1,0 +1,328 @@
+diff --git a/bsd/dev/oriole_ufs_guard.h b/bsd/dev/oriole_ufs_guard.h
+new file mode 100644
+index 0000000..028b988
+--- /dev/null
++++ b/bsd/dev/oriole_ufs_guard.h
+@@ -0,0 +1,85 @@
++#pragma once
++#include <stdint.h>
++/* UEFI2.10 section5.3: GPT header/partition layout and IEEE CRC32.
++ * This experiment deliberately supports only 4KiB sectors and <=128 entries. */
++struct ufsi_gpt { uint64_t table, first, last; uint32_t count, crc, bytes, blocks; };
++static inline uint32_t ufsi_le32(const uint8_t *p)
++{ return (uint32_t)p[0] | (uint32_t)p[1]<<8 | (uint32_t)p[2]<<16 | (uint32_t)p[3]<<24; }
++static inline uint64_t ufsi_le64(const uint8_t *p)
++{ return ufsi_le32(p) | (uint64_t)ufsi_le32(p+4)<<32; }
++static inline uint32_t ufsi_crc(const uint8_t *p, unsigned n, int header)
++{
++    uint32_t crc=~0u;
++    for (unsigned i=0; i<n; i++) {
++        crc ^= header && i>=16 && i<20 ? 0 : p[i];
++        for (unsigned k=0; k<8; k++) crc=crc>>1 ^ (0xedb88320u & -(crc&1));
++    }
++    return ~crc;
++}
++static inline int ufsi_gpt_header(const uint8_t *p, uint32_t capacity_last, struct ufsi_gpt *g)
++{
++    const char sig[]="EFI PART";
++    for (unsigned i=0;i<8;i++) if(p[i]!=(uint8_t)sig[i]) return 0;
++    uint32_t hs=ufsi_le32(p+12);
++    if(ufsi_le32(p+8)!=0x10000 || hs<92 || hs>4096 || ufsi_le32(p+20) ||
++       ufsi_crc(p,hs,1)!=ufsi_le32(p+16) || ufsi_le64(p+24)!=1 ||
++       ufsi_le64(p+32)!=capacity_last) return 0;
++    g->first=ufsi_le64(p+40); g->last=ufsi_le64(p+48);
++    g->table=ufsi_le64(p+72); g->count=ufsi_le32(p+80); g->crc=ufsi_le32(p+88);
++    if(!g->count || g->count>128 || ufsi_le32(p+84)!=128 ||
++       g->first<2 || g->first>g->last || g->last>=capacity_last) return 0;
++    g->bytes=g->count*128; g->blocks=(g->bytes+4095)/4096;
++    return g->table>=2 && g->table<g->first && g->blocks<=g->first-g->table &&
++        g->blocks<=capacity_last-g->last-1;
++}
++static inline int ufsi_gpt_userdata(const uint8_t *p, const struct ufsi_gpt *g,
++    uint64_t *first, uint64_t *last)
++{
++    if(ufsi_crc(p,g->bytes,0)!=g->crc) return 0;
++    unsigned matches=0;
++    for(unsigned i=0;i<g->count;i++) {
++        const uint8_t *e=p+i*128; unsigned used=0;
++        for(unsigned j=0;j<16;j++) used|=e[j];
++        if(!used) continue;
++        uint64_t a=ufsi_le64(e+32), b=ufsi_le64(e+40);
++        if(a<g->first || a>b || b>g->last) return 0;
++        for(unsigned j=0;j<i;j++) {
++            const uint8_t *q=p+j*128; unsigned prior=0;
++            for(unsigned k=0;k<16;k++) prior|=q[k];
++            if(prior && a<=ufsi_le64(q+40) && ufsi_le64(q+32)<=b) return 0;
++        }
++        const char name[]="userdata"; unsigned match=1;
++        for(unsigned j=0;j<9;j++)
++            if(e[56+2*j]!=(uint8_t)name[j] || e[57+2*j]) match=0;
++        if(match) { *first=a; *last=b; matches++; }
++    }
++    return matches==1;
++}
++
++/* OBSERVED ON HARDWARE2026-10-24, CP3A inventory-UFS. These constants
++ * bind this first Oriole storage-root candidate to the measured 128GB unit.
++ * No guessed addresses: board.json + CRC-checked capacity/GPT capture. */
++#define ORIOLE_UFS_REG_BASE 0x14700000ULL
++#define ORIOLE_UFS_REG_SIZE 0x200ULL
++#define ORIOLE_RAM_BASE 0x880000000ULL
++#define ORIOLE_RAM_SIZE 0x80000000ULL
++#define ORIOLE_USERDATA_FIRST 0x22f1e6ULL
++#define ORIOLE_USERDATA_LAST 0x1dc03faULL
++#define ORIOLE_USERDATA_BYTES 0x1b91215000ULL
++#define ORIOLE_CAPACITY_LAST 0x1dc03ffU
++static inline int oriole_ufs_dma_ok(uint64_t base, uint64_t size)
++{
++    return size && base >= ORIOLE_RAM_BASE &&
++        base - ORIOLE_RAM_BASE < ORIOLE_RAM_SIZE &&
++        size <= ORIOLE_RAM_SIZE - (base - ORIOLE_RAM_BASE);
++}
++static inline uint32_t oriole_ufs_be32(const uint8_t *p)
++{ return (uint32_t)p[0]<<24 | (uint32_t)p[1]<<16 | (uint32_t)p[2]<<8 | p[3]; }
++
++static inline int oriole_ufs_userdata(const uint8_t *p, const struct ufsi_gpt *g,
++    uint64_t *first, uint64_t *last)
++{
++    return ufsi_gpt_userdata(p, g, first, last) &&
++        *first == ORIOLE_USERDATA_FIRST && *last == ORIOLE_USERDATA_LAST &&
++        (*last - *first + 1) * 4096 == ORIOLE_USERDATA_BYTES;
++}
+diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
+index 8516f23..4941b7c 100644
+--- a/bsd/dev/sweet_ufs.c
++++ b/bsd/dev/sweet_ufs.c
+@@ -39,6 +39,7 @@
+ #include <pexpert/device_tree.h>
+ #include <libkern/libkern.h>
+ #include <machine/atomic.h>
++#include "oriole_ufs_guard.h"
+ 
+ extern ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
+ /* osfmk/arm/machine_routines.h, not exported to the BSD layer */
+@@ -107,6 +108,8 @@ static struct {
+ 	uint64_t dma_pa;
+ 	uint8_t lun;
+ 	uint8_t tag;
++	bool own_list;                          /* Oriole: only our programmed UTRL */
++	bool oriole;                            /* exact opt-in ADT board marker */
+ 	bool gs101;                             /* Pixel 6a: ADT compatible google,gs101-ufs */
+ 	uint64_t first_block, nblocks;          /* partition, in 4 KiB device blocks */
+ 	uint32_t secsize;                       /* logical sector size for the BSD layer */
+@@ -152,6 +155,10 @@ dma_clean(uint32_t off, uint32_t len)
+ static int
+ ufs_scsi(const uint8_t *cdb, unsigned cdb_len, uint32_t len, bool write)
+ {
++    /* First Oriole profile has no media-write opcode, even through a caller
++     * other than ufs_write_blocks. Existing other-board behavior is retained. */
++    if (su.oriole && (write || !cdb_len ||
++        (cdb[0] != 0x00 && cdb[0] != 0x25 && cdb[0] != 0x28))) return EPERM;
+ 	/* gs101: HCI_UTRL_NEXUS_TYPE is 0xFFFFFFFE, slot 0 is device management only: SCSI uses slot 1 */
+ 	const unsigned slot = su.gs101 ? 1 : 0;
+ 	const uint32_t slot_bit = 1u << slot;
+@@ -282,7 +289,7 @@ ufs_scsi(const uint8_t *cdb, unsigned cdb_len, uint32_t len, bool write)
+ static int
+ ufs_read_blocks(uint64_t lba, uint32_t count)
+ {
+-	if (lba > UINT32_MAX || count > BOUNCE_SIZE / UFS_BLOCK) {
++	if (!count || lba > UINT32_MAX || count > BOUNCE_SIZE / UFS_BLOCK || count - 1 > UINT32_MAX - lba) {
+ 		return EINVAL;
+ 	}
+ 	uint8_t cdb[10] = {
+@@ -300,7 +307,7 @@ ufs_read_blocks(uint64_t lba, uint32_t count)
+ static int
+ ufs_write_blocks(uint64_t lba, uint32_t count)
+ {
+-	if (!su.writable || !su.nblocks || count == 0 || count > BOUNCE_SIZE / UFS_BLOCK ||
++	if (su.oriole || !su.writable || !su.nblocks || count == 0 || count > BOUNCE_SIZE / UFS_BLOCK ||
+ 	    lba < su.first_block || lba - su.first_block >= su.nblocks ||
+ 	    count > su.nblocks - (lba - su.first_block) || lba + count - 1 > UINT32_MAX) {
+ 		printf("SWEET UFS: refusing write of %u blocks at 0x%llx\n", count, lba);
+@@ -321,9 +328,37 @@ ufs_sync_cache(void)
+ 	return ufs_scsi(cdb, sizeof(cdb), 0, false);
+ }
+ 
++/* Oriole: same CRC/range/overlap validator as the hardware-run inventory.
++ * Bounce buffer is 1MiB; at most16KiB of entries, no kernel-stack table. */
++static int
++ufs_find_oriole_userdata(const char *want)
++{
++    const uint8_t *b = (const uint8_t *)(su.dma + DMA_BOUNCE);
++    const uint8_t capacity[10] = { 0x25 }; /* SCSI READ CAPACITY(10) */
++    if (strcmp(want, "userdata") != 0) return EINVAL;
++    int error = ufs_scsi(capacity, sizeof(capacity), 8, false);
++    if (error) return error;
++    uint32_t last = oriole_ufs_be32(b), block = oriole_ufs_be32(b + 4);
++    printf("ORIOLE UFS: capacity last 0x%x block %u\n", last, block);
++    if (last != ORIOLE_CAPACITY_LAST || block != UFS_BLOCK) return ENXIO;
++    error = ufs_read_blocks(1, 1);
++    if (error) return error;
++    struct ufsi_gpt g;
++    if (!ufsi_gpt_header(b, last, &g)) return ENXIO;
++    error = ufs_read_blocks(g.table, g.blocks);
++    if (error) return error;
++    uint64_t first = 0, end = 0;
++    if (!oriole_ufs_userdata(b, &g, &first, &end)) return ENXIO;
++    su.first_block = first;
++    su.nblocks = end - first + 1;
++    printf("ORIOLE UFS: unique userdata CRC/ranges PASS 0x%llx..0x%llx, read-only\n", first, end);
++    return 0;
++}
++
+ static int
+ ufs_find_partition(const char *want)
+ {
++	if (su.oriole) return ufs_find_oriole_userdata(want);
+ 	const uint8_t *b = (const uint8_t *)(su.dma + DMA_BOUNCE);
+ 	int error = ufs_read_blocks(1, 1);
+ 	if (error) {
+@@ -397,6 +432,15 @@ ufs_take_over_host(void)
+ 	ufs_wr(REG_IE, 0);                      /* polled operation */
+ 	ufs_wr(REG_IS, ufs_rd(REG_IS));
+ 	ufs_wr(REG_UTRLRSR, 0);
++    if (su.oriole) {
++        unsigned i;
++        for (i = 0; i < 10000 && (ufs_rd(REG_UTRLRSR) & 1); i++) delay(10);
++        if (ufs_rd(REG_UTRLRSR) & 1) return ETIMEDOUT;
++        /* A foreign request may have appeared while the list was stopping.
++         * Do not claim ownership or replace its base until DBR is still zero. */
++        if (ufs_rd(REG_UTRLDBR)) return EBUSY;
++        su.own_list = true;
++    }
+ 	uint64_t list = su.dma_pa + DMA_UTRL;
+ 	ufs_wr(REG_UTRLBA, (uint32_t)list);
+ 	ufs_wr(REG_UTRLBAU, (uint32_t)(list >> 32));
+@@ -407,9 +451,31 @@ ufs_take_over_host(void)
+ 		printf("SWEET UFS: host did not take our request list\n");
+ 		return EIO;
+ 	}
++    if (su.oriole) {
++        unsigned i;
++        for (i = 0; i < 10000 && !(ufs_rd(REG_HCS) & HCS_UTRLRDY); i++) delay(10);
++        if (!(ufs_rd(REG_HCS) & HCS_UTRLRDY)) return ETIMEDOUT;
++    }
+ 	return 0;
+ }
+ 
++/* Failure cannot leave a live owned DMA list before root selection retries.
++ * Same GS101 slot-mask clear +100ms bounded stop as shim inventory. */
++static void
++ufs_oriole_stop(void)
++{
++    if (!su.oriole || !su.own_list) return;
++    uint32_t dbr = ufs_rd(REG_UTRLDBR);
++    if (dbr & ~2u) panic("ORIOLE UFS: foreign doorbell on failure");
++    if (dbr) ufs_wr(REG_UTRLCLR, 2);
++    for (unsigned i = 0; i < 10000 && ufs_rd(REG_UTRLDBR); i++) delay(10);
++    if (ufs_rd(REG_UTRLDBR)) panic("ORIOLE UFS: DMA clear failed");
++    ufs_wr(REG_UTRLRSR, 0);
++    for (unsigned i = 0; i < 10000 && (ufs_rd(REG_UTRLRSR) & 1); i++) delay(10);
++    if ((ufs_rd(REG_UTRLRSR) & 1) || ufs_rd(REG_UTRLDBR)) panic("ORIOLE UFS: DMA stop failed");
++    su.own_list = false;
++}
++
+ static int
+ sweet_ufs_open(__unused dev_t dev, int flags, __unused int devtype, __unused struct proc *p)
+ {
+@@ -633,23 +699,48 @@ sweet_ufs_init(void)
+ 		printf("SWEET UFS: no /sweet-ufs node in the device tree\n");
+ 		return ENXIO;
+ 	}
+-	{
+-		char const *compat = NULL;
+-		unsigned int csize = 0;
+-		if (SecureDTGetProperty(node, "compatible", (void const **)&compat, &csize) == kSuccess &&
+-		    compat && csize >= 15 && strncmp(compat, "google,gs101-ufs", 15) == 0) {
+-			su.gs101 = true;
+-		}
+-	}
++    {
++        const char *compat = NULL, *board = NULL;
++        unsigned csize = 0, bsize = 0;
++        if (SecureDTGetProperty(node, "compatible", (void const **)&compat, &csize) != kSuccess || !compat)
++            return ENXIO;
++        if (csize == sizeof("google,gs101-ufs") &&
++            memcmp(compat, "google,gs101-ufs", sizeof("google,gs101-ufs")) == 0) {
++            if (size != 2 * sizeof(uintptr_t) || reg[0] != ORIOLE_UFS_REG_BASE || reg[1] != ORIOLE_UFS_REG_SIZE)
++                return ENXIO;
++            su.gs101 = true;
++        } else if (csize != sizeof("qcom,ufshc") ||
++                   memcmp(compat, "qcom,ufshc", sizeof("qcom,ufshc")) != 0) {
++            return ENXIO;
++        }
++        if (SecureDTGetProperty(node, "oriole-root-board", (void const **)&board, &bsize) == kSuccess) {
++            if (!su.gs101 || !board || bsize != sizeof("oriole") ||
++                memcmp(board, "oriole", sizeof("oriole")) != 0) return ENXIO;
++            su.oriole = true;
++        }
++    }
+ 	PE_parse_boot_argn("ufsroot", want, sizeof(want));
+ 	uint32_t rw = 0;
+ 	PE_parse_boot_argn("ufsrw", &rw, sizeof(rw));
+ 	uint32_t cache = 0, wait = 0;
+ 	PE_parse_boot_argn("ufscache", &cache, sizeof(cache));
+ 	PE_parse_boot_argn("ufswait", &wait, sizeof(wait));
++    if (su.oriole) {
++        uint32_t rootrw = 0, log = 1;
++        char root[16] = {0};
++        if (!PE_parse_boot_arg_str("rd", root, sizeof(root)) || strcmp(root, "ufsroot0") != 0 ||
++            strcmp(want, "userdata") != 0 || rw != 0 || cache != 0 || wait != 0 ||
++            !PE_parse_boot_argn("rootrw", &rootrw, sizeof(rootrw)) || rootrw != 0 ||
++            !PE_parse_boot_argn("sweetlog", &log, sizeof(log)) || log != 0) return EPERM;
++    }
+ 	su.cache = (cache == 1);
+ 	su.wait = (wait == 1);
+ 
++    static bool oriole_attempted;
++    if (su.oriole) {
++        if (oriole_attempted) return ENXIO;
++        oriole_attempted = true;
++    }
+ 	su.regs = ml_io_map(reg[0], reg[1]);
+ 	if (kmem_alloc_contig(kernel_map, &su.dma, DMA_SIZE, PAGE_MASK, 0, 0,
+ 	    KMA_DATA | KMA_ZERO | KMA_PERMANENT, VM_KERN_MEMORY_IOKIT) != KERN_SUCCESS) {
+@@ -661,6 +752,14 @@ sweet_ufs_init(void)
+ 		return ENOMEM;
+ 	}
+ 	su.dma_pa = ptoa_64(pn);
++    if (su.oriole) {
++        if (!oriole_ufs_dma_ok(su.dma_pa, DMA_SIZE) || (su.dma_pa & PAGE_MASK)) return ENXIO;
++        for (uint32_t off = 0; off < DMA_SIZE; off += PAGE_SIZE) {
++            ppnum_t page = pmap_find_phys(kernel_pmap, (addr64_t)(su.dma + off));
++            if (!page || ptoa_64(page) != su.dma_pa + off) return ENXIO;
++        }
++        printf("ORIOLE UFS: contiguous DMA 0x%llx +0x%x within measured bank\n", su.dma_pa, DMA_SIZE);
++    }
+ 	su.lun = 0;
+ 	su.secsize = DEV_BSIZE;
+ 
+@@ -675,6 +774,7 @@ sweet_ufs_init(void)
+ 	if (!error) {
+ 		error = ufs_find_partition(want);
+ 	}
++    if (error && su.oriole) ufs_oriole_stop();
+ 	lck_mtx_unlock(&sweet_ufs_lock);
+ 	if (error) {
+ 		return error;
+@@ -682,17 +782,19 @@ sweet_ufs_init(void)
+ 
+ 	su.bmajor = bdevsw_add(-1, &sweet_ufs_bdevsw);
+ 	if (su.bmajor < 0) {
++        if (su.oriole) ufs_oriole_stop();
+ 		return ENXIO;
+ 	}
+ 	su.cmajor = cdevsw_add_with_bdev(-1, &sweet_ufs_cdevsw, su.bmajor);
+ 	if (su.cmajor < 0) {
++        if (su.oriole) ufs_oriole_stop();
+ 		return ENXIO;
+ 	}
+ 	su.bdev = makedev(su.bmajor, 0);
+ 	devfs_make_node(su.bdev, DEVFS_BLOCK, UID_ROOT, GID_OPERATOR, 0640, "ufsroot0");
+ 	devfs_make_node(makedev(su.cmajor, 0), DEVFS_CHAR, UID_ROOT, GID_OPERATOR, 0640, "rufsroot0");
+ 	/* Only now, with the partition bounds known, can writes be allowed. */
+-	su.writable = (rw != 0);
++	su.writable = !su.oriole && (rw != 0);
+ 	su.ready = true;
+ 	printf("SWEET UFS: \"%s\" on LUN %u: first block 0x%llx, %llu MiB, %s, DMA at 0x%llx\n",
+ 	    want, su.lun, su.first_block, su.nblocks * UFS_BLOCK >> 20,
