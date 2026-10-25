@@ -1,8 +1,8 @@
 **Pixel 6 / oriole iOS 移植研究**
 
-已通过真机 USB 日志验证内存、显示寄存器、只读 UFS/GPT，以及 XNU 加载器的段复制和启动参数构造。真机屏幕照片和 USB 日志已确认 XNU 启动 RAM 用户进程 PID1，完成睡眠系统调用并正常返回 Android；完整 iOS 主屏尚未验证。iOS 16.7.16 根文件系统已离线构建并检查，实验未刷写分区。
+已通过真机 USB 日志验证内存、显示寄存器、只读 UFS/GPT，以及 XNU 加载器的段复制和启动参数构造。真机屏幕照片和 USB 日志已确认 XNU 启动 RAM 用户进程 PID1，完成睡眠系统调用；完整 iOS 主屏尚未验证。
 
-Android 期间完成 OTA，当前为 CP3A.261005.002.A1、Bootloader slider-17.0-15681480、槽 b；该固件的基础/显示 inventory、新载荷复制检查及原生 RAM+USB 启动实验均已完成并返回 Android。Mac 解锁后日志通道已打通，当前固件的只读 UFS/GPT 复测也已通过。专用根启动路径已在真机进入 XNU，但首个 UFS `TEST UNIT READY` 命令超时并触发找不到根设备的 panic；手机已强制重启并确认回到相同 Android 固件与槽位。完整 iOS 尚未启动。旧固件结果不能自动继承。
+Pixel 6 当前固件为 CP3A.261005.002.A1、Bootloader slider-17.0-15681480、槽 b。经用户分别确认，两版 iOS 16.7.16 HFSX 根镜像先后刷入 `userdata`；其余分区未刷写。第一版真机启动已由 USB 日志证明 XNU 找到 `ufsroot0`，但只读 UFS 拒绝 HFS 日志写入，根目录未挂载。第二版移除 HFS 日志标志，离线校验通过并已刷入；首次临时启动期间电脑未收到 USB 日志，真机启动阶段尚待屏幕或其他日志确认。完整 iOS 尚未启动。详见[真机诊断记录](docs/UFS-TIMEOUT-DIAG.md)。
 
 - [调研报告与分阶段开发方案](docs/PIXEL6-IOS-FEASIBILITY.md)
 - [源码版本与下载文件校验记录](docs/source-manifest.json)
