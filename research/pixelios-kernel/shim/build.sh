@@ -39,6 +39,7 @@ loadcheck=0
 resetcheck=0
 md0usb=0
 ufsroot=0
+ufsroot_platform=0
 preparecheck=0
 coldinit=0
 while [ "$#" -gt 0 ]; do
@@ -49,6 +50,7 @@ while [ "$#" -gt 0 ]; do
 		--xnu-ufsroot-coldinit) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; boot_xnu=1; usb_gadget=1; shift ;;
+		--xnu-ufsroot-platform) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_platform=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-resetcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; resetcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
@@ -105,6 +107,7 @@ if [ "$ramprobe" = 1 ]; then
     payload_checker=../tools/oriole_ramprobe.py
     [ "$md0usb" = 0 ] || payload_checker=../tools/oriole_md0usb.py
     [ "$ufsroot" = 0 ] || payload_checker=../tools/oriole_ufsroot.py
+    [ "$ufsroot_platform" = 0 ] || payload_checker=../tools/oriole_ufsroot_platform.py
     "$PYTHON" "$payload_checker" --check "$payload" || exit 2
 fi
 if [ "$inventory_ufs" = 1 ]; then
