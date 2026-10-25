@@ -71,17 +71,24 @@ int main(void) {
 }
 ''')
             original = c.read_text()
-            for flags in ([], ['-DORIOLE_MD0USB'], ['-DORIOLE_UFSROOT']):
+            for flags in ([], ['-DORIOLE_MD0USB'], ['-DORIOLE_UFSROOT'],
+                          ['-DORIOLE_UFSROOT', '-DORIOLE_UFSROOT_COW']):
                 text = original
                 if flags == ['-DORIOLE_MD0USB']:
                     text = text.replace('16726576','16727088').replace('16726575','16727087')
-                if flags == ['-DORIOLE_UFSROOT']:
+                if '-DORIOLE_UFSROOT' in flags:
                     text = (text.replace('"ramprobe_guard.h"','"ufsroot_guard.h"')
                             .replace('ramprobe_payload_ok','ufsroot_payload_ok')
                             .replace('11*sizeof','10*sizeof').replace('p->nsegs=11','p->nsegs=10')
                             .replace('i<11','i<10').replace('p->nsegs=12','p->nsegs=11')
                             .replace('0xfffffe0008730000ULL','0xfffffe0008728000ULL')
                             .replace('16726576','16713568').replace('16726575','16713567'))
+                if '-DORIOLE_UFSROOT_COW' in flags:
+                    # The observed failure was the COW ADT ending 672 bytes
+                    # past the old profile's fixed payload boundary.
+                    text = (text.replace('p->adt_off=0x2000;p->adt_size=0x1000;',
+                                         'p->adt_off=0xfed590;p->adt_size=0x3470;')
+                            .replace('16713568','16714240').replace('16713567','16714239'))
                 c.write_text(text)
                 subprocess.run(['cc','-O1','-Wall','-Wextra','-Werror',*flags,'-I',str(ROOT/'shim'),
                                 str(c),'-o',str(exe)], check=True)

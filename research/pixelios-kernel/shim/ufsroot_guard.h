@@ -10,7 +10,13 @@ static inline int ur_inside(uint64_t off, uint64_t len, uint64_t limit)
 
 static inline int ufsroot_payload_ok(const struct payload *p, uint64_t available)
 {
+#ifdef ORIOLE_UFSROOT_COW
+    /* Exact RAM-COW payload from oriole_ufsroot_cow.py. The original root
+     * profile remains pinned to its independently checked payload length. */
+    const uint64_t size=16714240;
+#else
     const uint64_t size=16713568;
+#endif
     const uint64_t vb=0xfffffe0006000000ULL;
     if (available < size || p->version!=1 || p->nsegs!=10 ||
         p->virt_base!=vb || p->phys_base!=0x880000000ULL ||
