@@ -578,6 +578,12 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 #endif
     const char *why = loader_boot(dtb);
     con_str("RAM probe refused/returned", why ? why : "?");
+#ifdef ORIOLE_UFS_PREPARECHECK
+    /* The read-only preflight may deliberately skip USB on an unsafe
+     * controller state. Leave the reason visible for a camera before reset. */
+    con_str("ORIOLE_UFS_PREPARECHECK", "screen diagnostic: 120 seconds");
+    wait_ticks(counter_freq() * 120);
+#endif
 #ifdef ORIOLE_UFSROOT
     if (!urs_stop(&ufsroot_active)) bluejay_reset_chain();
 #endif
@@ -1144,6 +1150,10 @@ void exc_handler(uint64_t slot, uint64_t *regs)
 	con_hex("X0", regs[0]);
 	con_hex("X1", regs[1]);
 	con_hex("X30", regs[31]);	/* vent stashed x29/x30 below the frame: regs[30]=x29, regs[31]=x30 */
+#ifdef ORIOLE_UFS_PREPARECHECK
+    con_str("ORIOLE_UFS_PREPARECHECK", "panic screen: 120 seconds");
+    wait_ticks(counter_freq() * 120);
+#endif
 	/* Save the log (pstore) BEFORE the panic-screen wait and pager so
 	 * the pstore copy survives even if the rest never runs. The panic
 	 * entry guards against recursion: a fault inside the save must not

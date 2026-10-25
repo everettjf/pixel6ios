@@ -170,12 +170,12 @@ const char *loader_boot(uintptr_t dtb)
     return "load check complete";
 #endif
 #ifdef ORIOLE_UFSROOT
-    /* Copies and every live-FDT/range check precede the first UFS writer.
-     * Loadcheck returns above: it cannot initialize or hand off UFS. */
+    /* Copies and every live-FDT/range check precede the read-only UFS
+     * preflight. Loadcheck returns above without probing the controller. */
     if (!oriole_ufsroot_prepare()) return "UFS root preparation refused";
 #ifdef ORIOLE_UFS_PREPARECHECK
-    /* Prove cold-init/ownership and then return without entering XNU. The
-     * shim stops its owned list before enabling the diagnostic USB gadget. */
+    /* Check the already-ready controller and return without entering XNU.
+     * The shim rechecks that it is quiet before enabling diagnostic USB. */
     con_str("ORIOLE_UFS_PREPARECHECK", "UFS preparation passed; XNU entry skipped");
     return "UFS prepare check complete";
 #endif
