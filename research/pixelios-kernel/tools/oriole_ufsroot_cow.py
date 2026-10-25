@@ -11,13 +11,13 @@ from tools import adt, mkadt, mkpayload, oriole_ufsroot as base
 
 # The separate COW kernel is a local PIE relink of the reviewed 0105 source.
 KERNEL_SHA = '753d090ab2d833b111e8eb54008b4e984c35bf6f6913a7b492c305fe75cc0d5f'
-PAYLOAD_SHA = 'bb08d5b9db73b7dd3f263b2b97ec336c7f44e3fd37313a8b622aef17d18d7d3b'
+PAYLOAD_SHA = '10c9d2ccc0a13abaa434be624c068fe422a7bdd2c1629b89a1c26aaaa7d1acf9'
 PAYLOAD_SIZE = 16714240
 ARGS = (base.ARGS.replace('sweetrestart=90', 'sweetrestart=300')
         .replace('rootrw=0', 'rootrw=1')
-        + ' ufscow=1 unentitled_ios_sim_launch=1')
+        + ' ufscow=1 unentitled_ios_sim_launch=1 launchd_unsecure_cache=1')
 REQUIRED = dict(base.REQUIRED, sweetrestart='300', rootrw='1', ufscow='1',
-                unentitled_ios_sim_launch='1')
+                unentitled_ios_sim_launch='1', launchd_unsecure_cache='1')
 
 
 def validate_args(args):
