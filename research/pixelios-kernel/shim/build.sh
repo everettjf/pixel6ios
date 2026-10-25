@@ -43,6 +43,7 @@ ufsroot_platform=0
 ufsroot_cow=0
 ufsroot_cow_trace=0
 ufsroot_cow_pool=0
+ufsroot_cow_pool_long=0
 preparecheck=0
 coldinit=0
 while [ "$#" -gt 0 ]; do
@@ -57,6 +58,7 @@ while [ "$#" -gt 0 ]; do
 		--xnu-ufsroot-cow) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-trace) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_trace=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-pool) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
+		--xnu-ufsroot-cow-pool-long) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool_long=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-resetcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; resetcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
@@ -117,6 +119,7 @@ if [ "$ramprobe" = 1 ]; then
     [ "$ufsroot_cow" = 0 ] || payload_checker=../tools/oriole_ufsroot_cow.py
     [ "$ufsroot_cow_trace" = 0 ] || payload_checker=../tools/oriole_ufsroot_cow_trace.py
     [ "$ufsroot_cow_pool" = 0 ] || payload_checker=../tools/oriole_ufsroot_cow_pool.py
+    [ "$ufsroot_cow_pool_long" = 0 ] || payload_checker=../tools/oriole_ufsroot_cow_pool_long.py
     "$PYTHON" "$payload_checker" --check "$payload" || exit 2
 fi
 if [ "$inventory_ufs" = 1 ]; then
