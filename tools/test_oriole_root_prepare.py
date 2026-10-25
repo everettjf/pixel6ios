@@ -18,49 +18,32 @@ class RootPreparationTests(unittest.TestCase):
 #include <assert.h>
 #include <stdlib.h>
 #include "ufsroot_prepare.h"
-static unsigned mode,reads,fail_read,cold_calls,writes,waits;
+static unsigned mode,reads,fail_read;
 static uint32_t dbr,rsr,hce=1,hcs=1,cap=1u<<24,ver=0x300;
 int ufsroot_hw_read(uintptr_t pa,uint32_t *v) {
  reads++;if(reads==fail_read)return 0;
+ if(mode==7 && pa==UR_DBR && reads==7)dbr=2;
+ if(mode==8 && pa==UR_RSR && reads==8)rsr=1;
  switch(pa){case UR_DBR:*v=dbr;break;case UR_RSR:*v=rsr;break;
  case UR_HCE:*v=hce;break;case UR_HCS:*v=hcs;break;
  case UR_CAP:*v=cap;break;case UR_VER:*v=ver;break;default:assert(0);}
  return 1;
 }
-int ufsroot_hw_write(uintptr_t pa,uint32_t v) {
- assert(pa==UR_RSR && v==0);writes++;
- if(mode==10)return 0;
- if(mode!=5)rsr=0;
- return 1;
-}
-void ufsroot_wait_ms(unsigned ms) {assert(ms==1);waits++;assert(waits<=200);}
-int ufsroot_cold_init(void) {
- cold_calls++;
- if(mode==3)return 7;
- if(mode==4 || mode==5 || mode==10)rsr=1;
- if(mode==6)dbr=2;
- if(mode==7)hce=0;if(mode==8)cap=0;if(mode==9)ver=0x200;
- if(mode==11)hcs=0;
- return 0;
-}
 int main(int argc,char **argv) {
  assert(argc==3);mode=(unsigned)atoi(argv[1]);fail_read=(unsigned)atoi(argv[2]);
- volatile unsigned active=0;if(mode==1)dbr=2;if(mode==2)rsr=1;
+ volatile unsigned active=mode==12?1:0;
+ if(mode==1)dbr=2;if(mode==2)rsr=1;if(mode==3)hce=0;
+ if(mode==4)hcs=0;if(mode==5)cap=0;if(mode==6)ver=0x200;
  int result=urs_prepare(&active);
- if(!fail_read){
-  assert(result==(mode==0 || mode==4));
-  if(mode==1 || mode==2)assert(active==2 && !cold_calls && !writes);
-  else assert(active && cold_calls==1);
- }
- if(fail_read && fail_read<=reads)assert(!result);
- if(result)assert(!dbr && !rsr && (cap&(1u<<24)) && ver==0x300);
- unsigned before_stop=reads;
+ int expected=!fail_read ? (mode==0 || mode==9 || mode==10 || mode==11) : fail_read>8;
+ assert(result==expected);
+ if(!result){assert(active==2 && !urs_stop(&active));return 0;}
+ assert(active==1);
+ if(mode==9)dbr=2;if(mode==10)rsr=1;
+ if(mode==11){assert(urs_handoff(&active));assert(active==2);assert(!urs_stop(&active));return 0;}
  int stopped=urs_stop(&active);
- if(mode==1 || mode==2 || mode==5 || mode==6 || mode==10 ||
-    (fail_read && fail_read<=2)){assert(!stopped && active); /* no fallback USB */}
- else if(fail_read>before_stop && fail_read<=reads)assert(!stopped && active);
- else assert(stopped && !active);
- if(mode==6)assert(!writes && dbr==2);
+ assert(stopped==(mode==0 && fail_read==0));
+ if(stopped)assert(active==0);else assert(active==1);
  return 0;
 }
 ''')
@@ -72,13 +55,13 @@ int main(int argc,char **argv) {
     @classmethod
     def tearDownClass(cls):cls.tmp.cleanup()
 
-    def test_preconditions_cold_init_cleanup_and_failure_modes(self):
-        for mode in range(12):
+    def test_readonly_preconditions_cleanup_and_handoff(self):
+        for mode in range(13):
             with self.subTest(mode=mode):
                 subprocess.run([str(self.exe),str(mode),'0'],check=True,timeout=5)
 
-    def test_each_read_fault_refuses_and_does_not_claim_cleanup(self):
-        for read in range(1,17):
+    def test_each_read_fault_refuses_without_cleanup_or_handoff(self):
+        for read in range(1,11):
             with self.subTest(read=read):
                 subprocess.run([str(self.exe),'0',str(read)],check=True,timeout=5)
 

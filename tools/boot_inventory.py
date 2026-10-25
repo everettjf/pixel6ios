@@ -16,7 +16,8 @@ CHECKOUT = ROOT / 'research/pixelios-kernel'
 KNOWN_MODES = frozenset(('inventory', 'inventory-display', 'inventory-ufs',
                          'xnu-ramprobe', 'xnu-loadcheck', 'xnu-resetcheck',
                          'xnu-md0usb', 'xnu-md0usb-loadcheck',
-                         'xnu-ufsroot', 'xnu-ufsroot-loadcheck'))
+                         'xnu-ufsroot', 'xnu-ufsroot-loadcheck',
+                         'xnu-ufsroot-preparecheck'))
 
 
 def fastboot_value(raw, field):
@@ -64,13 +65,14 @@ def main():
     group.add_argument('--md0usb-loadcheck', action='store_true', help='copy md0 USB payload but skip kernel entry')
     group.add_argument('--ufsroot', action='store_true', help='exact read-only UFS root diagnostic')
     group.add_argument('--ufsroot-loadcheck', action='store_true', help='copy UFS-root payload but skip kernel entry')
+    group.add_argument('--ufsroot-preparecheck', action='store_true', help='prepare/stop UFS, then skip kernel entry')
     group.add_argument('--ramprobe', action='store_true', help='exact reviewed RAM-only XNU experiment')
     group.add_argument('--loadcheck', action='store_true', help='load/copy then intentionally skip the XNU branch')
     group.add_argument('--resetcheck', action='store_true', help='load/copy, log volatile reset SMC, then reset')
     ap.add_argument('--image', type=Path, default=CHECKOUT / 'shim/out/shim-boot-avb.img')
     args = ap.parse_args()
     md0profile = args.md0usb or args.md0usb_loadcheck
-    ufsprofile = args.ufsroot or args.ufsroot_loadcheck
+    ufsprofile = args.ufsroot or args.ufsroot_loadcheck or args.ufsroot_preparecheck
     ramprofile = args.ramprobe or args.loadcheck or args.resetcheck or md0profile or ufsprofile
     image = args.image.resolve()
     serial = (ROOT / 'private/target-serial').read_text().strip()
@@ -99,6 +101,8 @@ def main():
         raise SystemExit('md0 USB image must match explicit host profile')
     if ramprofile and ((b'ORIOLE_UFS_ROOT' in kernel) != ufsprofile):
         raise SystemExit('UFS-root image must match explicit host profile')
+    if ramprofile and ((b'ORIOLE_UFS_PREPARECHECK' in kernel) != args.ufsroot_preparecheck):
+        raise SystemExit('UFS prepare-check image must match explicit host profile')
     if ramprofile and ((b'ORIOLE_RESETCHECK' in kernel) != args.resetcheck):
         raise SystemExit('Reset-check image must match explicit host selection')
     if '#define UART_BASE 0x0UL' not in (CHECKOUT / 'shim/out/board_config.h').read_text():
@@ -120,7 +124,7 @@ def main():
     if (fastboot_value(getvar('product'), 'product') != 'oriole' or
             fastboot_value(getvar('unlocked'), 'unlocked') != 'yes'):
         raise SystemExit('Target must be unlocked oriole')
-    mode = ('xnu-ufsroot-loadcheck' if args.ufsroot_loadcheck else 'xnu-ufsroot' if args.ufsroot else 'xnu-md0usb-loadcheck' if args.md0usb_loadcheck else 'xnu-md0usb' if args.md0usb else 'xnu-resetcheck' if args.resetcheck else 'xnu-loadcheck' if args.loadcheck else 'xnu-ramprobe' if args.ramprobe else 'inventory-ufs' if b'UFS INVENTORY' in kernel else
+    mode = ('xnu-ufsroot-preparecheck' if args.ufsroot_preparecheck else 'xnu-ufsroot-loadcheck' if args.ufsroot_loadcheck else 'xnu-ufsroot' if args.ufsroot else 'xnu-md0usb-loadcheck' if args.md0usb_loadcheck else 'xnu-md0usb' if args.md0usb else 'xnu-resetcheck' if args.resetcheck else 'xnu-loadcheck' if args.loadcheck else 'xnu-ramprobe' if args.ramprobe else 'inventory-ufs' if b'UFS INVENTORY' in kernel else
             'inventory-display' if b'RDMA channel' in kernel else 'inventory')
     baseline = json.loads((ROOT / 'private/boot-baseline.json').read_text())
     slot = check_firmware(getvar, baseline, mode)
