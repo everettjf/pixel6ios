@@ -1,0 +1,102 @@
+--- a/bsd/dev/sweet_ufs.c
++++ b/bsd/dev/sweet_ufs.c
+@@ -137,6 +137,7 @@ struct oriole_cow_page {
+ 	uint8_t *data;
+ };
+ static struct oriole_cow_page **oriole_cow_buckets;
++static struct oriole_cow_page *oriole_cow_free;
+ static uint32_t oriole_cow_pages;
+ static uint32_t oriole_cow_trace_reads;
+ static uint32_t oriole_cow_trace_writes;
+@@ -187,30 +188,21 @@ oriole_cow_overlay(uint64_t lba, uint32_t blocks, uint8_t *bounce)
+ 	}
+ }
+ 
+-/* All allocations precede mutations, so ENOMEM/ENOSPC leaves this bounce
++/* All pages come from the boot-time reserve. ENOSPC leaves this bounce
+  * chunk unchanged. A larger strategy request can complete earlier chunks.
+  * The caller has already checked the GPT range. */
+ static int
+ oriole_cow_store(uint64_t lba, uint32_t blocks, const uint8_t *bounce)
+ {
+-	struct oriole_cow_page *pending = NULL;
+ 	uint32_t missing = 0;
+ 	for (uint32_t i = 0; i < blocks; i++) missing += oriole_cow_find(lba + i) == NULL;
+ 	if (missing > ORIOLE_COW_MAX_PAGES - oriole_cow_pages) return ENOSPC;
+-	for (uint32_t i = 0; i < missing; i++) {
+-		struct oriole_cow_page *p = kalloc_type(struct oriole_cow_page, Z_NOWAIT | Z_ZERO);
+-		if (!p) goto nomem;
+-		p->data = kalloc_data(UFS_BLOCK, Z_NOWAIT);
+-		if (!p->data) { kfree_type(struct oriole_cow_page, p); goto nomem; }
+-		p->next = pending;
+-		pending = p;
+-	}
+ 	for (uint32_t i = 0; i < blocks; i++) {
+ 		uint64_t block = lba + i;
+ 		struct oriole_cow_page *p = oriole_cow_find(block);
+ 		if (!p) {
+-			p = pending;
+-			pending = pending->next;
++			p = oriole_cow_free;
++			oriole_cow_free = p->next;
+ 			p->lba = block;
+ 			uint32_t bucket = oriole_cow_bucket(block);
+ 			p->next = oriole_cow_buckets[bucket];
+@@ -220,13 +212,38 @@ oriole_cow_store(uint64_t lba, uint32_t blocks, const uint8_t *bounce)
+ 		memcpy(p->data, bounce + i * UFS_BLOCK, UFS_BLOCK);
+ 	}
+ 	return 0;
++}
++
++/* Root selection is still single-threaded here, before any COW I/O. Do all
++ * potentially blocking allocations outside sweet_ufs_lock and roll back a
++ * partial reserve before refusing the device. */
++static int
++oriole_cow_prepare(void)
++{
++	oriole_cow_buckets = kalloc_type(struct oriole_cow_page *,
++	    ORIOLE_COW_BUCKETS, Z_WAITOK | Z_ZERO);
++	if (!oriole_cow_buckets) return ENOMEM;
++	for (uint32_t i = 0; i < ORIOLE_COW_MAX_PAGES; i++) {
++		struct oriole_cow_page *p = kalloc_type(struct oriole_cow_page,
++		    Z_WAITOK | Z_ZERO);
++		if (!p) goto nomem;
++		p->data = kalloc_data(UFS_BLOCK, Z_WAITOK);
++		if (!p->data) { kfree_type(struct oriole_cow_page, p); goto nomem; }
++		p->next = oriole_cow_free;
++		oriole_cow_free = p;
++	}
++	printf("ORIOLE COW: reserved %u RAM pages before UFS open\n",
++	    ORIOLE_COW_MAX_PAGES);
++	return 0;
+ nomem:
+-	while (pending) {
+-		struct oriole_cow_page *next = pending->next;
+-		kfree_data(pending->data, UFS_BLOCK);
+-		kfree_type(struct oriole_cow_page, pending);
+-		pending = next;
++	while (oriole_cow_free) {
++		struct oriole_cow_page *p = oriole_cow_free;
++		oriole_cow_free = p->next;
++		kfree_data(p->data, UFS_BLOCK);
++		kfree_type(struct oriole_cow_page, p);
+ 	}
++	kfree_type(struct oriole_cow_page *, ORIOLE_COW_BUCKETS, oriole_cow_buckets);
++	oriole_cow_buckets = NULL;
+ 	return ENOMEM;
+ }
+ 
+@@ -883,11 +900,8 @@ sweet_ufs_init(void)
+         oriole_attempted = true;
+     }
+ 	if (su.oriole_cow) {
+-		/* Allocate the pointer-bearing index once, before exposing a
+-		 * writable device and without holding the filesystem I/O lock. */
+-		oriole_cow_buckets = kalloc_type(struct oriole_cow_page *,
+-		    ORIOLE_COW_BUCKETS, Z_WAITOK | Z_ZERO);
+-		if (!oriole_cow_buckets) return ENOMEM;
++		/* Device is not exposed yet; strategy I/O never allocates under lock. */
++		if (oriole_cow_prepare()) return ENOMEM;
+ 	}
+ 	su.regs = ml_io_map(reg[0], reg[1]);
+ 	if (kmem_alloc_contig(kernel_map, &su.dma, DMA_SIZE, PAGE_MASK, 0, 0,

@@ -42,8 +42,8 @@ def check_tree(root):
         raise SystemExit('Oriole RAM-COW: duplicate ADT opt-in')
 
 
-def build(kernel, product, out):
-    base.require_hash(kernel.read_bytes(), KERNEL_SHA)
+def build(kernel, product, out, *, kernel_sha=KERNEL_SHA):
+    base.require_hash(kernel.read_bytes(), kernel_sha)
     base.require_hash(product.read_bytes(), base.PRODUCT_SHA)
     if (base.ROOT/'research/ipsw-x/d22ap.adt').exists():
         raise SystemExit('Oriole RAM-COW: implicit product lookup must remain absent')
@@ -67,10 +67,10 @@ def build(kernel, product, out):
     return mkpayload.build(kernel, tree, ARGS, board='oriole')
 
 
-def check(blob):
-    if len(blob) != PAYLOAD_SIZE:
+def check(blob, *, payload_sha=PAYLOAD_SHA, payload_size=PAYLOAD_SIZE):
+    if len(blob) != payload_size:
         raise SystemExit('Oriole RAM-COW: payload size mismatch')
-    base.require_hash(blob, PAYLOAD_SHA)
+    base.require_hash(blob, payload_sha)
     validate_args(blob[0x48:0x48+608].split(b'\0')[0].decode('ascii'))
 
 

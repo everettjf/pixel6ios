@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline Oriole RAM-COW kernel relink; never prepares or boots a phone image.
 
-Verifies the exact 0105 patch, reconstructed source, compiler recipe and
+Verifies the exact 0105–0107 patches, reconstructed source, compiler recipe and
 replacement object before linking. Success here is not hardware approval.
 """
 import argparse
@@ -22,17 +22,23 @@ LINK = REF / 'kernel.development.sweet.link'
 SUPPORT = ROOT / 'artifacts/native-kernel'
 OUT = ROOT / 'private/oriole-cow-work/relink'
 
-PATCH = ROOT / 'research/pixelios-kernel/xnu/patches/0105-oriole-ram-cow-root.patch'
+PATCHES = [
+    ROOT / 'research/pixelios-kernel/xnu/patches/0105-oriole-ram-cow-root.patch',
+    ROOT / 'research/pixelios-kernel/xnu/patches/0106-oriole-cow-attr-node-trace.patch',
+    ROOT / 'research/pixelios-kernel/xnu/patches/0107-oriole-cow-preallocated-pool.patch',
+]
 BEFORE = ROOT / 'private/oriole-cow-work/sweet_ufs.before.c'
 SOURCE = ROOT / 'artifacts/fullroot-kernel/source/bsd/dev/sweet_ufs.c'
 COMMAND = ROOT / 'artifacts/fullroot-kernel/sweet_ufs.oriole-ro-command.json'
-OBJECT = ROOT / 'private/oriole-cow-work/sweet_ufs.cow.o'
+OBJECT = ROOT / 'private/oriole-cow-work/sweet_ufs.cowpool.o'
 COW_PINS = {
-    PATCH: 'd9f06d73b1cc5dcfd9555d26ff658ca6250043055b5589b90f895587b274cced',
+    PATCHES[0]: 'd9f06d73b1cc5dcfd9555d26ff658ca6250043055b5589b90f895587b274cced',
+    PATCHES[1]: 'd473f358c378c971f511727a7411f538e286197827f97247ebe6e3fac59459ad',
+    PATCHES[2]: 'e06eb9e898d89234b70148ba603fdfc11098a836110a40d7860ea0455dee869c',
     BEFORE: '2fac79b55cf093b0d2fd7a7dcd4ddb924ce8f075975d0a02a0d6ffe634574d0d',
-    SOURCE: 'a9599d919963ac916d0abebc9cea0a5874ab09561fd72442d65f6e86ca4f931b',
+    SOURCE: '65a656ca262b5ac70e06346d0eeb93be477960c6dd9d317f3425dd3cce9a1ee8',
     COMMAND: '695ffc39aa9a8e40c2e86b2ead926db91ef1832fc9189e9ada10150c0610712c',
-    OBJECT: '0ffe4b6657fea96766bbd954b19a769ffb7642cb68e2b8f48656ebe1d060323a',
+    OBJECT: '7eacb99b63ade6b1ae1811698c55c1d76108f081b67999db2b62a1a7a639f641',
 }
 
 
@@ -45,9 +51,10 @@ def verify_cow_object():
         reconstructed = directory / 'bsd/dev/sweet_ufs.c'
         reconstructed.parent.mkdir(parents=True)
         reconstructed.write_bytes(BEFORE.read_bytes())
-        subprocess.run(['git', 'apply', str(PATCH)], cwd=directory, check=True)
+        for patch in PATCHES:
+            subprocess.run(['git', 'apply', str(patch)], cwd=directory, check=True)
         if reconstructed.read_bytes() != SOURCE.read_bytes():
-            raise SystemExit('COW source does not match reviewed 0105 patch')
+            raise SystemExit('COW source does not match reviewed patch series')
         cmd = json.loads(COMMAND.read_text())
         if not isinstance(cmd, list) or cmd.count('-o') != 1 or cmd.count('-MF') != 1:
             raise SystemExit('Unreviewed COW compiler recipe')
@@ -236,15 +243,18 @@ def verify_output(reference, blob, md0):
                '_ufs_find_oriole_userdata.capacity','_ufs_find_partition',
                '_ufs_oriole_stop','_ufs_oriole_stop.cold.1','_ufs_oriole_stop.cold.2',
                '_ufs_oriole_stop.cold.3','_ufs_read_blocks','_ufs_take_over_host',
-               '_oriole_cow_buckets','_oriole_cow_pages',
-               '_oriole_cow_store.__startup_ZALLOC_entry___zone_site_register_179',
-               '_oriole_cow_store.kalloc_type_view_177',
-               '_oriole_cow_store.kalloc_type_view_180',
-               '_oriole_cow_store.kalloc_type_view_203',
-               '_oriole_cow_store.site',
-               '_sweet_ufs_init.__startup_ZALLOC_entry___zone_site_register_857',
-               '_sweet_ufs_init.kalloc_type_view_857',
-               '_sweet_ufs_init.site'}
+               '_oriole_cow_buckets','_oriole_cow_free','_oriole_cow_pages',
+               '_oriole_cow_trace_errors','_oriole_cow_trace_reads',
+               '_oriole_cow_trace_writes',
+               '_oriole_cow_prepare',
+               '_oriole_cow_prepare.__startup_ZALLOC_entry___zone_site_register_224',
+               '_oriole_cow_prepare.__startup_ZALLOC_entry___zone_site_register_230',
+               '_oriole_cow_prepare.kalloc_type_view_224',
+               '_oriole_cow_prepare.kalloc_type_view_228',
+               '_oriole_cow_prepare.kalloc_type_view_231',
+               '_oriole_cow_prepare.kalloc_type_view_243',
+               '_oriole_cow_prepare.kalloc_type_view_245',
+               '_oriole_cow_prepare.site','_oriole_cow_prepare.site.31'}
     if not md0:
         raise SystemExit('Only the exact Oriole read-only storage profile is supported')
     if set(rn)-set(sn) or set(sn)-set(rn) != allowed:

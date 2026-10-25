@@ -10,7 +10,13 @@ static inline int ur_inside(uint64_t off, uint64_t len, uint64_t limit)
 
 static inline int ufsroot_payload_ok(const struct payload *p, uint64_t available)
 {
-#ifdef ORIOLE_UFSROOT_COW
+#ifdef ORIOLE_UFSROOT_COW_POOL
+    /* Exact 0107 preallocated COW payload; previous profiles stay pinned. */
+    const uint64_t size=16714528;
+#elif defined(ORIOLE_UFSROOT_COW_TRACE)
+    /* Exact 0106 diagnostic payload; the original COW limit remains fixed. */
+    const uint64_t size=16714368;
+#elif defined(ORIOLE_UFSROOT_COW)
     /* Exact RAM-COW payload from oriole_ufsroot_cow.py. The original root
      * profile remains pinned to its independently checked payload length. */
     const uint64_t size=16714240;

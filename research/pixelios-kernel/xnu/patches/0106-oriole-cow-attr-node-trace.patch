@@ -1,0 +1,60 @@
+--- a/bsd/dev/sweet_ufs.c
++++ b/bsd/dev/sweet_ufs.c
+@@ -138,6 +138,9 @@
+ };
+ static struct oriole_cow_page **oriole_cow_buckets;
+ static uint32_t oriole_cow_pages;
++static uint32_t oriole_cow_trace_reads;
++static uint32_t oriole_cow_trace_writes;
++static uint32_t oriole_cow_trace_errors;
+ 
+ static uint32_t
+ oriole_cow_bucket(uint64_t lba)
+@@ -151,6 +154,27 @@
+ 	for (struct oriole_cow_page *p = oriole_cow_buckets[oriole_cow_bucket(lba)];
+ 	    p; p = p->next) if (p->lba == lba) return p;
+ 	return NULL;
++}
++
++/* The stock HFSX attributes fork starts at allocation block 3458. Its
++ * previously-unused 8192-byte node 3 occupies device blocks 3464-3465.
++ * Trace only the first few accesses to this measured range so that a fresh
++ * boot reveals whether XNU writes it and whether the COW read sees the data. */
++static void
++oriole_cow_trace_node(bool rd, uint64_t lba, uint32_t blocks,
++    const uint8_t *bounce, int error)
++{
++	uint32_t *seen = rd ? &oriole_cow_trace_reads : &oriole_cow_trace_writes;
++	for (uint32_t i = 0; i < blocks; i++) {
++		uint64_t block = lba + i;
++		if (block != 3464 && block != 3465) continue;
++		if ((*seen)++ >= 32) continue;
++		const uint8_t *p = bounce + i * UFS_BLOCK;
++		printf("ORIOLE COW TRACE %c lba=%llu hit=%u err=%d pages=%u head=%02x%02x%02x%02x%02x%02x%02x%02x\n",
++		    rd ? 'R' : 'W', block, oriole_cow_find(block) != NULL,
++		    error, oriole_cow_pages, p[0], p[1], p[2], p[3],
++		    p[4], p[5], p[6], p[7]);
++	}
+ }
+ 
+ /* Caller holds sweet_ufs_lock; the bounce buffer contains physical blocks. */
+@@ -622,10 +646,18 @@
+ 			 * writes use the same path and never issue a media write. */
+ 			error = ufs_read_blocks(su.first_block + lba, blocks);
+ 			if (!error) oriole_cow_overlay(lba, blocks, bounce);
+-			if (!error && rd) memcpy(vaddr + done, (uint8_t *)bounce + skip, want);
++			if (!error && rd) {
++				oriole_cow_trace_node(true, lba, blocks, bounce, 0);
++				memcpy(vaddr + done, (uint8_t *)bounce + skip, want);
++			}
+ 			if (!error && !rd) {
+ 				memcpy((uint8_t *)bounce + skip, vaddr + done, want);
+ 				error = oriole_cow_store(lba, blocks, bounce);
++				oriole_cow_trace_node(false, lba, blocks, bounce, error);
++			}
++			if (error && oriole_cow_trace_errors++ < 32) {
++				printf("ORIOLE COW IO error=%d %c lba=%llu blocks=%u pages=%u\n",
++				    error, rd ? 'R' : 'W', lba, blocks, oriole_cow_pages);
+ 			}
+ 		} else if (rd) {
+ 			error = ufs_read_blocks(su.first_block + lba, blocks);
