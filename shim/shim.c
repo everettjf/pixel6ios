@@ -553,7 +553,7 @@ int oriole_ufsroot_prepare(void)
         con_hex2("UFS PREFLIGHT","code=",diag.code,"value=",diag.value);
         return 0;
     }
-    con_str("ORIOLE_UFS_ROOT","existing HCE1 DP1 64AS VER300 DBR0 RSR0; no shim UFS writes");
+    con_str("ORIOLE_UFS_ROOT","existing HCE1 DP1 64AS VER300 DBR0 RSR0/1; no shim UFS writes");
     return 1;
 }
 int oriole_ufsroot_handoff(void) { return urs_handoff(&ufsroot_active); }

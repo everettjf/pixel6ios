@@ -1,8 +1,10 @@
 #pragma once
 #include <stdint.h>
 /* HCI offsets: existing shim/ufs.c. CP3A inventory measured an already-ready
- * host: HCE1, DP1, version300, 64AS, DBR0 and RSR0. This preflight is only
- * reads; neither a cold reset nor a new DMA list is needed before XNU. */
+ * host: HCE1, DP1, version300, 64AS, DBR0. UTRLRSR may be 0 or 1: bit0
+ * runs the list, while DBR records outstanding requests. XNU checks DBR0,
+ * stops the foreign list and verifies stop before programming its own base.
+ * This shim preflight only reads; it does not change either list. */
 #define UR_HCI 0x14700000UL
 #define UR_CAP (UR_HCI+0x00)
 #define UR_VER (UR_HCI+0x08)
@@ -55,13 +57,14 @@ static inline int urs_prepare(volatile unsigned *active,struct urs_diag *diag)
     *active=2; /* attempted but not yet proved safe: reset-only on refusal */
     diag->code=0;diag->value=prior;
     if (prior || !urs_checked_read(UR_DBR,&dbr,diag,1) || dbr ||
-        !urs_checked_read(UR_RSR,&rsr,diag,2) || (rsr&1) ||
-        !urs_checked_read(UR_HCE,&hce,diag,3) || !(hce&1) ||
+        !urs_checked_read(UR_RSR,&rsr,diag,2) || rsr>1) return 0;
+    uint32_t first_rsr=rsr;
+    if (!urs_checked_read(UR_HCE,&hce,diag,3) || !(hce&1) ||
         !urs_checked_read(UR_HCS,&hcs,diag,4) || !(hcs&1) ||
         !urs_checked_read(UR_CAP,&cap,diag,5) || !(cap&(1u<<24)) ||
         !urs_checked_read(UR_VER,&ver,diag,6) || ver!=0x300 ||
         !urs_checked_read(UR_DBR,&dbr,diag,7) || dbr ||
-        !urs_checked_read(UR_RSR,&rsr,diag,8) || (rsr&1)) return 0;
+        !urs_checked_read(UR_RSR,&rsr,diag,8) || rsr!=first_rsr) return 0;
     *active=1;
     diag->code=9;diag->value=0;
     return 1;
