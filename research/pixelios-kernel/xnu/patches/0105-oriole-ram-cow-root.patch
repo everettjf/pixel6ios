@@ -1,0 +1,237 @@
+--- a/bsd/dev/sweet_ufs.c
++++ b/bsd/dev/sweet_ufs.c
+@@ -29,6 +29,7 @@
+ #include <sys/uio.h>
+ #include <miscfs/devfs/devfs.h>
+ #include <kern/locks.h>
++#include <kern/kalloc.h>
+ #include <kern/clock.h>
+ #include <kern/sched_prim.h>
+ #include <machine/machine_routines.h>
+@@ -110,6 +111,7 @@
+ 	uint8_t tag;
+ 	bool own_list;                          /* Oriole: only our programmed UTRL */
+ 	bool oriole;                            /* exact opt-in ADT board marker */
++	bool oriole_cow;                        /* RAM-only writable view of userdata */
+ 	bool gs101;                             /* Pixel 6a: ADT compatible google,gs101-ufs */
+ 	uint64_t first_block, nblocks;          /* partition, in 4 KiB device blocks */
+ 	uint32_t secsize;                       /* logical sector size for the BSD layer */
+@@ -124,6 +126,86 @@
+ static LCK_GRP_DECLARE(sweet_ufs_grp, "sweet_ufs");
+ static LCK_MTX_DECLARE(sweet_ufs_lock, &sweet_ufs_grp);
+ 
++/* Only the exact Oriole COW profile uses this volatile block overlay.  No
++ * physical UFS write is reachable in that profile: ufs_scsi still rejects
++ * every data-out command, and ufs_write_blocks still rejects Oriole. */
++#define ORIOLE_COW_BUCKETS 16384u
++#define ORIOLE_COW_MAX_PAGES 65536u
++struct oriole_cow_page {
++	struct oriole_cow_page *next;
++	uint64_t lba;
++	uint8_t *data;
++};
++static struct oriole_cow_page **oriole_cow_buckets;
++static uint32_t oriole_cow_pages;
++
++static uint32_t
++oriole_cow_bucket(uint64_t lba)
++{
++	return (uint32_t)((lba ^ (lba >> 14) ^ (lba >> 28)) & (ORIOLE_COW_BUCKETS - 1));
++}
++
++static struct oriole_cow_page *
++oriole_cow_find(uint64_t lba)
++{
++	for (struct oriole_cow_page *p = oriole_cow_buckets[oriole_cow_bucket(lba)];
++	    p; p = p->next) if (p->lba == lba) return p;
++	return NULL;
++}
++
++/* Caller holds sweet_ufs_lock; the bounce buffer contains physical blocks. */
++static void
++oriole_cow_overlay(uint64_t lba, uint32_t blocks, uint8_t *bounce)
++{
++	for (uint32_t i = 0; i < blocks; i++) {
++		struct oriole_cow_page *p = oriole_cow_find(lba + i);
++		if (p) memcpy(bounce + i * UFS_BLOCK, p->data, UFS_BLOCK);
++	}
++}
++
++/* All allocations precede mutations, so ENOMEM/ENOSPC leaves this bounce
++ * chunk unchanged. A larger strategy request can complete earlier chunks.
++ * The caller has already checked the GPT range. */
++static int
++oriole_cow_store(uint64_t lba, uint32_t blocks, const uint8_t *bounce)
++{
++	struct oriole_cow_page *pending = NULL;
++	uint32_t missing = 0;
++	for (uint32_t i = 0; i < blocks; i++) missing += oriole_cow_find(lba + i) == NULL;
++	if (missing > ORIOLE_COW_MAX_PAGES - oriole_cow_pages) return ENOSPC;
++	for (uint32_t i = 0; i < missing; i++) {
++		struct oriole_cow_page *p = kalloc_type(struct oriole_cow_page, Z_NOWAIT | Z_ZERO);
++		if (!p) goto nomem;
++		p->data = kalloc_data(UFS_BLOCK, Z_NOWAIT);
++		if (!p->data) { kfree_type(struct oriole_cow_page, p); goto nomem; }
++		p->next = pending;
++		pending = p;
++	}
++	for (uint32_t i = 0; i < blocks; i++) {
++		uint64_t block = lba + i;
++		struct oriole_cow_page *p = oriole_cow_find(block);
++		if (!p) {
++			p = pending;
++			pending = pending->next;
++			p->lba = block;
++			uint32_t bucket = oriole_cow_bucket(block);
++			p->next = oriole_cow_buckets[bucket];
++			oriole_cow_buckets[bucket] = p;
++			oriole_cow_pages++;
++		}
++		memcpy(p->data, bounce + i * UFS_BLOCK, UFS_BLOCK);
++	}
++	return 0;
++nomem:
++	while (pending) {
++		struct oriole_cow_page *next = pending->next;
++		kfree_data(pending->data, UFS_BLOCK);
++		kfree_type(struct oriole_cow_page, pending);
++		pending = next;
++	}
++	return ENOMEM;
++}
++
+ static inline uint32_t
+ ufs_rd(uint32_t off)
+ {
+@@ -351,7 +433,8 @@
+     if (!oriole_ufs_userdata(b, &g, &first, &end)) return ENXIO;
+     su.first_block = first;
+     su.nblocks = end - first + 1;
+-    printf("ORIOLE UFS: unique userdata CRC/ranges PASS 0x%llx..0x%llx, read-only\n", first, end);
++    printf("ORIOLE UFS: unique userdata CRC/ranges PASS 0x%llx..0x%llx, %s\n",
++        first, end, su.oriole_cow ? "RAM-COW" : "read-only");
+     return 0;
+ }
+ 
+@@ -496,7 +579,8 @@
+ {
+ 	int error = 0;
+ 	caddr_t vaddr = NULL;
+-	uint64_t off = (uint64_t)buf_blkno(bp) * su.secsize;
++	daddr64_t sector = buf_blkno(bp);
++	uint64_t off = 0;
+ 	uint32_t count = buf_count(bp);
+ 	uint64_t part_bytes = su.nblocks * UFS_BLOCK;
+ 
+@@ -507,6 +591,12 @@
+ 		error = EROFS;
+ 		goto done;
+ 	}
++	if (!su.ready || !su.secsize || sector < 0 ||
++	    (uint64_t)sector > UINT64_MAX / su.secsize) {
++		error = EINVAL;
++		goto done;
++	}
++	off = (uint64_t)sector * su.secsize;
+ 	if (off > part_bytes || count > part_bytes - off) {
+ 		error = EINVAL;
+ 		goto done;
+@@ -527,8 +617,18 @@
+ 		uint32_t want = MIN(count - done, BOUNCE_SIZE - skip);
+ 		uint32_t blocks = (skip + want + UFS_BLOCK - 1) / UFS_BLOCK;
+ 		void *bounce = (void *)(su.dma + DMA_BOUNCE);
+-		if (rd) {
++		if (su.oriole_cow) {
++			/* Always read first: partial writes need untouched bytes; full
++			 * writes use the same path and never issue a media write. */
+ 			error = ufs_read_blocks(su.first_block + lba, blocks);
++			if (!error) oriole_cow_overlay(lba, blocks, bounce);
++			if (!error && rd) memcpy(vaddr + done, (uint8_t *)bounce + skip, want);
++			if (!error && !rd) {
++				memcpy((uint8_t *)bounce + skip, vaddr + done, want);
++				error = oriole_cow_store(lba, blocks, bounce);
++			}
++		} else if (rd) {
++			error = ufs_read_blocks(su.first_block + lba, blocks);
+ 			if (!error) {
+ 				memcpy(vaddr + done, (const char *)bounce + skip, want);
+ 			}
+@@ -589,6 +689,8 @@
+ 		return 0;
+ 	case DKIOCSYNCHRONIZE:
+ 	case DKIOCSYNCHRONIZECACHE: {
++		/* COW pages are already in memory; no device cache holds writes. */
++		if (su.oriole_cow) return 0;
+ 		if (!su.writable) {
+ 			return 0;
+ 		}
+@@ -700,8 +802,8 @@
+ 		return ENXIO;
+ 	}
+     {
+-        const char *compat = NULL, *board = NULL;
+-        unsigned csize = 0, bsize = 0;
++        const char *compat = NULL, *board = NULL, *cow_board = NULL;
++        unsigned csize = 0, bsize = 0, cow_size = 0;
+         if (SecureDTGetProperty(node, "compatible", (void const **)&compat, &csize) != kSuccess || !compat)
+             return ENXIO;
+         if (csize == sizeof("google,gs101-ufs") &&
+@@ -718,6 +820,11 @@
+                 memcmp(board, "oriole", sizeof("oriole")) != 0) return ENXIO;
+             su.oriole = true;
+         }
++        if (SecureDTGetProperty(node, "oriole-cow-board", (void const **)&cow_board, &cow_size) == kSuccess) {
++            if (!su.oriole || !cow_board || cow_size != sizeof("oriole-cow") ||
++                memcmp(cow_board, "oriole-cow", sizeof("oriole-cow")) != 0) return ENXIO;
++            su.oriole_cow = true;
++        }
+     }
+ 	PE_parse_boot_argn("ufsroot", want, sizeof(want));
+ 	uint32_t rw = 0;
+@@ -726,11 +833,13 @@
+ 	PE_parse_boot_argn("ufscache", &cache, sizeof(cache));
+ 	PE_parse_boot_argn("ufswait", &wait, sizeof(wait));
+     if (su.oriole) {
+-        uint32_t rootrw = 0, log = 1;
++        uint32_t rootrw = 0, log = 1, cow = 0;
+         char root[16] = {0};
++        PE_parse_boot_argn("ufscow", &cow, sizeof(cow));
+         if (!PE_parse_boot_arg_str("rd", root, sizeof(root)) || strcmp(root, "ufsroot0") != 0 ||
+             strcmp(want, "userdata") != 0 || rw != 0 || cache != 0 || wait != 0 ||
+-            !PE_parse_boot_argn("rootrw", &rootrw, sizeof(rootrw)) || rootrw != 0 ||
++            !PE_parse_boot_argn("rootrw", &rootrw, sizeof(rootrw)) ||
++            rootrw != (uint32_t)su.oriole_cow || cow != (uint32_t)su.oriole_cow ||
+             !PE_parse_boot_argn("sweetlog", &log, sizeof(log)) || log != 0) return EPERM;
+     }
+ 	su.cache = (cache == 1);
+@@ -741,6 +850,13 @@
+         if (oriole_attempted) return ENXIO;
+         oriole_attempted = true;
+     }
++	if (su.oriole_cow) {
++		/* Allocate the pointer-bearing index once, before exposing a
++		 * writable device and without holding the filesystem I/O lock. */
++		oriole_cow_buckets = kalloc_type(struct oriole_cow_page *,
++		    ORIOLE_COW_BUCKETS, Z_WAITOK | Z_ZERO);
++		if (!oriole_cow_buckets) return ENOMEM;
++	}
+ 	su.regs = ml_io_map(reg[0], reg[1]);
+ 	if (kmem_alloc_contig(kernel_map, &su.dma, DMA_SIZE, PAGE_MASK, 0, 0,
+ 	    KMA_DATA | KMA_ZERO | KMA_PERMANENT, VM_KERN_MEMORY_IOKIT) != KERN_SUCCESS) {
+@@ -793,12 +909,13 @@
+ 	su.bdev = makedev(su.bmajor, 0);
+ 	devfs_make_node(su.bdev, DEVFS_BLOCK, UID_ROOT, GID_OPERATOR, 0640, "ufsroot0");
+ 	devfs_make_node(makedev(su.cmajor, 0), DEVFS_CHAR, UID_ROOT, GID_OPERATOR, 0640, "rufsroot0");
+-	/* Only now, with the partition bounds known, can writes be allowed. */
+-	su.writable = !su.oriole && (rw != 0);
++	/* Oriole is a volatile writable view only. Its media-write SCSI
++	 * commands remain forbidden by both ufs_scsi and ufs_write_blocks. */
++	su.writable = su.oriole ? su.oriole_cow : (rw != 0);
+ 	su.ready = true;
+ 	printf("SWEET UFS: \"%s\" on LUN %u: first block 0x%llx, %llu MiB, %s, DMA at 0x%llx\n",
+ 	    want, su.lun, su.first_block, su.nblocks * UFS_BLOCK >> 20,
+-	    su.writable ? "read-write" : "read-only", su.dma_pa);
++	    su.oriole_cow ? "RAM-COW" : (su.writable ? "read-write" : "read-only"), su.dma_pa);
+ 	sweet_log_start();
+ 	sweet_sample_start();
+ 	sweet_keys_gs101_start();
