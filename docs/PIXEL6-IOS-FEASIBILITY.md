@@ -4,7 +4,7 @@
 
 **建议：立项做分阶段移植验证，首个产品目标限定为“原生启动 iOS 16、触摸操作主屏和少量系统应用”。选择 iPhone X 的 iOS 16.7.16（20H392）用户态，配合现有项目的 XNU 8796.141.3 补丁栈。当前证据支持尝试，尚不能承诺这台 Pixel 6 能启动到 GUI，更不能承诺日常使用。**
 
-证据分四类：**本机实测**（ADB、fastboot 与裸机 USB 日志）、**上游报告**（维护者在 Pixel 6a 上的结果，本轮未独立复现）、**源码事实**（固定版本的代码/设备树）、**工程判断**（据此提出的开发路线）。四类不能互相替代。初始调研之后，已四次通过 `fastboot boot` 启动本地审查过的 oriole 只读探测镜像，收到 USB 日志并自动回到 Android。实验未执行分区刷写；加载器已在真机完成 XNU 段复制与启动参数构造，新实验已通过内核专有 USB Ethernet 枚举确认本机 XNU 执行，但尚未验证 PID1 或完整 iOS 用户态。期间 Android 自行完成 OTA，当前版本与最初采集不同。开发过程与实测记录见 [ACTIVE-WORK.md](ACTIVE-WORK.md)。
+证据分四类：**本机实测**（ADB、fastboot 与裸机 USB 日志）、**上游报告**（维护者在 Pixel 6a 上的结果，本轮未独立复现）、**源码事实**（固定版本的代码/设备树）、**工程判断**（据此提出的开发路线）。四类不能互相替代。初始调研之后，已四次通过 `fastboot boot` 启动本地审查过的 oriole 只读探测镜像，收到 USB 日志并自动回到 Android。实验未执行分区刷写；加载器已在真机完成 XNU 段复制与启动参数构造，新实验已通过真机屏幕照片及 USB 日志确认 XNU 执行、自制 RAM 用户程序以 PID1 运行并完成系统调用，尚未验证 Apple launchd、SpringBoard 或完整 iOS 用户态。期间 Android 自行完成 OTA，当前版本与最初采集不同。开发过程与实测记录见 [ACTIVE-WORK.md](ACTIVE-WORK.md)。
 
 **1. 已连接设备的实际条件**
 
@@ -56,7 +56,7 @@ GitHub API 显示两套项目近期都有成功 CI：PixeliOS 的 [39906729708](
 |---|---|---|
 | CPU、GIC、timer、PSCI | 同为 GS101；本机核型号与上游配置匹配 | 优先复用 SoC 代码，先 `cpus=1`，再 4、8；逐核验证 feature/中断，不先做 DVFS |
 | 内存 | 本机 live FDT 已测四段各 2 GiB，参考机 6 GB | 从当前固件 DTB 和启动时 live FDT 取 banks、reserved-memory、memreserve；选经过验证的连续高内存子集，无须第一天用完 8 GB |
-| 显示 | [Linux 主线 oriole DTS](https://github.com/torvalds/linux/blob/master/arch/arm64/boot/dts/exynos/google/gs101-oriole.dts) 给出 `0xfac00000`、1080×2400、stride 4320、`a8r8g8b8` | 本机 RDMA0 与 shadow 实测 Y8=0xfac00000、1080×2400、自然步长4320；尚待实际清屏/绘制验证 |
+| 显示 | [Linux 主线 oriole DTS](https://github.com/torvalds/linux/blob/master/arch/arm64/boot/dts/exynos/google/gs101-oriole.dts) 给出 `0xfac00000`、1080×2400、stride 4320、`a8r8g8b8` | 本机 RDMA0 与 shadow 实测 Y8=0xfac00000、1080×2400、自然步长4320；后续真机照片已确认 XNU 文字控制台输出，尚无 iOS GUI |
 | 面板 | Google oriole 树列出 `samsung,s6e3fc3`，以及备选 `s6e3hc2-fhd` | 第一阶段借用 Bootloader 已点亮的面板；不先写完整面板驱动、不追 90 Hz |
 | 触摸 | Google oriole DTS 指定 ST FTM5，ID `36 48`，坐标 1079×2399；继承共用 FTS/SPI 配置 | 推翻“Pixel 6 大概率触摸芯片不同”的旧假设。优先复用 FTM5；确认本机固件、SPI/AP-AOC 所有权、reset、IRQ、rail，再读 ID/FIFO |
 | 触摸接线/供电 | Google 共用树给出 SPI11、gpp23、gpp26、gpa9、LDO25M/LDO26M；oriole 固件名为 `ftm5_fw_o6.ftb` | 不拿 6a 固件刷触摸芯片；初期不更新触控固件，先使用其既有固件 |

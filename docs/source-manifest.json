@@ -84,7 +84,7 @@
     "bootloader": "slider-17.0-15681480",
     "slot": "b",
     "vendor_boot_sha256": "450dbe70f90627ac7cef2ea3e878e2bb30f05061adf9a025427c5b3326625b55",
-    "revalidation_profile": "inventory + read-only inventory-display",
+    "revalidation_profile": "inventory/display/UFS + nativeRAMUSB/PID1",
     "prior_experiment_firmware_attribution": "Not all earlier boots captured firmware/slot; no exact OTA transition claim.",
     "inventory_result": {
       "log_bytes": 6099,
@@ -134,6 +134,23 @@
       "log_bytes": 9993,
       "log_sha256": "37bc41764f6c7e32515e4108c8b15b10c4e97034e0988a801c9c471ddaee66c5",
       "android_return_verified": true
+    },
+    "ufs_result": {
+      "source_commit": "8fe7690",
+      "runtime_equivalent_full_gate": "0c4ea1c",
+      "log_bytes": 8037,
+      "log_sha256": "c376ab7a5e6214d6d3c7e302002c06c6e6769b73c122b35490181d46d2b86496",
+      "capacity_last": "0x1dc03ff",
+      "block_size": 4096,
+      "userdata_first": "0x22f1e6",
+      "userdata_last": "0x1dc03fa",
+      "userdata_bytes": "0x1b91215000",
+      "header_and_entries_crc_pass": true,
+      "high_dma": "0x880100000",
+      "cleanup": "DBR0 RSR0",
+      "report_complete": true,
+      "android_return_verified": true,
+      "media_writes": false
     }
   },
   "host_firmware_guard": {
@@ -153,7 +170,7 @@
     "build_id": "informational from Android inspection; not enforced by fastboot helper"
   },
   "native_logging_development": {
-    "status": "Native XNU execution observed through configured CDC-ECM USB+AppleUserECM binding; PID1/fulliOS unverified. Host configd refuses new NIC while console locked; legitimate Mac unlock needed before retry.",
+    "status": "Mac unlocked; exact5139RAMpayload nowprovesPID1+sleep/framebuffer/UDP and Androidreturn. CP3A readonlyUFSrevalidationPASS. Developing dedicatedROUFSrootkernel/shim; fulliOSunverified.",
     "patch": "xnu/patches/0102-sweet-md0-usb-after-network.patch",
     "host_cases": 25,
     "integration_placement_tests": true,
@@ -300,6 +317,22 @@
         "private/native-usb1/host-network.log": "fa572f2f60e0eac6bca14c373642095a6b5eb2a0309c108fe8474d44db10bb0e",
         "private/md0usb-native-return1.json": "ad3300a95e499b6d32e53a53e2fcb18d4ffaafef58be0afe03a87ef4a9fbcd4f"
       }
+    },
+    "native_userspace_result": {
+      "verified_utc": "2026-10-25T00:12:02.743440+00:00",
+      "payload_sha256": "5139a045c73e0a605a431216bfa131cd38442ce1e98b9617a16e611044a6761b",
+      "pid1_banner_count": 11,
+      "sleep_completed_count": 11,
+      "udp_bytes_at_check": 1264,
+      "udp_sha256_at_check": "93f12716b64953419359702da19fdf0da4d54e56f8f0761d15a5a5dbd045476f",
+      "native_userspace_proven": true,
+      "full_ios_proven": false,
+      "host_interface": "en9",
+      "host_usb_ipv4": "192.168.7.1/24",
+      "host_ipv4_gateway": null,
+      "phone_screen_photo_sha256": "18a4416d2a91564ba87f4ac118221dc0e2f788b2b305e827a264b9aac2e0423d",
+      "screen_observation": "User photo visibly shows repeated actual PID1 banner and sleep-completed lines; framebuffer/text console visible, noPANICvisibleinphoto. Not fulliOSGUI.",
+      "android_return_verified": true
     }
   },
   "host_adb_workaround": {
@@ -326,5 +359,28 @@
     "purpose": "Offline full iOS profile input; must be supplied by explicit path in a future separate builder. Not installed at fixed RAM lookup path and not hardware-booted.",
     "source_manifest": "artifacts/fullroot-inputs/manifest.json (ignored, Apple-derived inputs stay local)",
     "device_boot_status": "not used in any boot; fixed RAM payload unchanged"
+  },
+  "cp3a_readonly_ufs_revalidation": {
+    "source_commit": "8fe7690",
+    "runtime_equivalent_full_gate": "0c4ea1c",
+    "log_bytes": 8037,
+    "log_sha256": "c376ab7a5e6214d6d3c7e302002c06c6e6769b73c122b35490181d46d2b86496",
+    "capacity_last": "0x1dc03ff",
+    "block_size": 4096,
+    "userdata_first": "0x22f1e6",
+    "userdata_last": "0x1dc03fa",
+    "userdata_bytes": "0x1b91215000",
+    "header_and_entries_crc_pass": true,
+    "high_dma": "0x880100000",
+    "cleanup": "DBR0 RSR0",
+    "report_complete": true,
+    "android_return_verified": true,
+    "media_writes": false,
+    "classification": "observed on hardware",
+    "image_sha256": "df47f4f903f801e137d61c5fbe2ffd2033d49834fec3bd56df8e534e83c348dd",
+    "evidence_sha256": {
+      "private/cp3a-ufs-run1.log": "c376ab7a5e6214d6d3c7e302002c06c6e6769b73c122b35490181d46d2b86496",
+      "private/cp3a-ufs-return1.json": "ac9938e827005102dc90f68d0bdb1ddad1abae67b88be57c73fbd220f73b3398"
+    }
   }
 }
