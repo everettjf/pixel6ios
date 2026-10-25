@@ -34,9 +34,17 @@ int main(int argc,char **argv) {
  volatile unsigned active=mode==12?1:0;
  if(mode==1)dbr=2;if(mode==2)rsr=1;if(mode==3)hce=0;
  if(mode==4)hcs=0;if(mode==5)cap=0;if(mode==6)ver=0x200;
- int result=urs_prepare(&active);
+ struct urs_diag diag;
+ int result=urs_prepare(&active,&diag);
  int expected=!fail_read ? (mode==0 || mode==9 || mode==10 || mode==11) : fail_read>8;
  assert(result==expected);
+ if(result)assert(diag.code==9 && diag.value==0);
+ if(!result && fail_read && fail_read<=8)assert(diag.code==(unsigned)(0x100+fail_read));
+ if(!result && !fail_read){
+  static const unsigned codes[]={0,1,2,3,4,5,6,7,8,0,0,0,0};
+  static const uint32_t values[]={0,2,1,0,0,0,0x200,2,1,0,0,0,1};
+  assert(diag.code==codes[mode] && diag.value==values[mode]);
+ }
  if(!result){assert(active==2 && !urs_stop(&active));return 0;}
  assert(active==1);
  if(mode==9)dbr=2;if(mode==10)rsr=1;
