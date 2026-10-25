@@ -105,11 +105,12 @@ static inline void dsb_sy(void)
 
 static uint64_t my_mpidr(void)
 {
-#ifdef __aarch64__
+#if defined(__aarch64__) && !defined(__APPLE__)
 	uint64_t m;
 	__asm__ volatile("mrs %0, mpidr_el1" : "=r"(m));
 	return m;
 #else
+	/* Apple Silicon host tests run at EL0, where MPIDR_EL1 is inaccessible. */
 	return 0x1000;
 #endif
 }
@@ -126,7 +127,7 @@ static int save_lock(void)
 	uint64_t self = my_mpidr();
 	if (save_owner == self)
 		return 1;
-#ifdef __aarch64__
+#if defined(__aarch64__) && !defined(__APPLE__)
 	for (int i = 0; i < 64; i++) {
 		uint64_t old;
 		uint32_t ok;

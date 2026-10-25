@@ -116,8 +116,18 @@ static void window_assert_single_reads(void)
 /* Host stand-ins for the linker symbols usbprobe.c gates the image
  * overlap check against. Declared in order; the assert below pins the
  * precondition the device linker script guarantees (_head < _end). */
+#ifdef __APPLE__
+/* Keep the fake image symbols in source order; Mach-O reverses separate
+ * tentative C definitions even when both specify the same section. */
+extern char _head[], _end[];
+__asm__(".section __DATA,__fakeimg\n"
+        ".globl __head\n__head:\n.space 64\n"
+        ".globl __end\n__end:\n.space 1\n"
+        ".text\n");
+#else
 char _head[64];
 char _end[1];
+#endif
 
 static void con_log_reset(void)
 {
