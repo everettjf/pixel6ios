@@ -1,0 +1,1231 @@
+{
+  "abi_policy": {
+    "baseline_import_delta": {
+      "ufs": {
+        "add": [],
+        "remove": []
+      },
+      "usb": {
+        "add": [
+          "_bzero"
+        ],
+        "remove": []
+      }
+    },
+    "global_symbols": "every rebuilt object must exactly equal its corresponding pinned CI member",
+    "mach_header": {
+      "cpusubtype": 0,
+      "cputype": "0x0100000c",
+      "filetype": 1,
+      "magic": "0xfeedfacf",
+      "reserved": 0
+    },
+    "patched_import_delta_from_baseline": {
+      "ufs": {
+        "add": [
+          "_PE_parse_boot_arg_str",
+          "_panic"
+        ],
+        "remove": [
+          "_strncmp"
+        ]
+      },
+      "usb": {
+        "add": [
+          "_sweet_restart_poll"
+        ],
+        "remove": []
+      }
+    },
+    "required_undefined": [
+      "___stack_chk_fail",
+      "___stack_chk_guard"
+    ],
+    "ufs_mutex_bytes": 16,
+    "ufs_sections": {
+      "__BOOTDATA,__init": 104,
+      "__BOOTDATA,__init_entry_set": 48,
+      "__DATA,__lock_grp": 328
+    }
+  },
+  "baseline_patches": [
+    {
+      "path": "xnu/patches/0001-new-clang-drop-removed-auto-var-init-flag.patch",
+      "sha256": "c057dea49d5bcccbc7d317d60f91cc8062689fd26d3d739f709e279bddb56a1c"
+    },
+    {
+      "path": "xnu/patches/0002-new-clang-backport-UIO_STACKBUF.patch",
+      "sha256": "19f7571eb90608ef66f1d8cf9dee5333d4fbbccbfeee9ea244b90cb4a4240727"
+    },
+    {
+      "path": "xnu/patches/0003-sweet-framebuffer-serial-console.patch",
+      "sha256": "ff08f768b0e7d830efd1cab98b8cb18e66c60935c4b640e74146e5c1cbb5371c"
+    },
+    {
+      "path": "xnu/patches/0004-sweet-machine-config.patch",
+      "sha256": "b18a77a0b994871937a0b4138906f9f1693153c61eca6e598018271360ad5432"
+    },
+    {
+      "path": "xnu/patches/0005-non-pac-build-fixes.patch",
+      "sha256": "b84deb9b9e5b8426aca7b713c3c5b5829e4e22354dd86d64329f14b15704d58c"
+    },
+    {
+      "path": "xnu/patches/0006-sweet-master-config-open-source-asm-pmap.patch",
+      "sha256": "c7cf993c8362a689371f2b819903792be2deb5032e9ea7edc20a4abd627e233f"
+    },
+    {
+      "path": "xnu/patches/0007-sweet-stub-apple-internal-headers.patch",
+      "sha256": "8c8e43ac50591a2c6e4f1c1bff4edeb1935f8e02b28db50596f3be9a3a80c8e5"
+    },
+    {
+      "path": "xnu/patches/0008-sweet-fill-closed-lib-gaps-kpc-stub.patch",
+      "sha256": "4a959eeac46696c08fe826a0d0a7d602c0767f5f92bf28bd641e5c6fb5a7d452"
+    },
+    {
+      "path": "xnu/patches/0009-sweet-drop-apple-soc-only-exports.patch",
+      "sha256": "07ed88210debc8395944e1fafd1771abd5935f31ebae620ff8f15fd96d9a810e"
+    },
+    {
+      "path": "xnu/patches/0010-sweet-early-framebuffer-debug.patch",
+      "sha256": "bdc940de4f8d51b0d254b89e54036dcbfd1e33baaaa13267ae2b9ad980046c5a"
+    },
+    {
+      "path": "xnu/patches/0011-sweet-physmap-alignment-padding.patch",
+      "sha256": "4c1c2d3f82222a8182060ffd5f681905c20d9232ec972001daa8c25b21ada520"
+    },
+    {
+      "path": "xnu/patches/0012-sweet-keep-debug-console-after-ttbr0.patch",
+      "sha256": "6e5f5e04b940f2c35e17f97df480784459a922e8fc40b8c75b637325c35a474f"
+    },
+    {
+      "path": "xnu/patches/0013-sweet-kmem-rng-without-corecrypto.patch",
+      "sha256": "12132c39435479e546d1ce4e24622d2ad145c8eb6274293b690ea5e1e58d9f91"
+    },
+    {
+      "path": "xnu/patches/0014-sweet-kernel-hmac-prng.patch",
+      "sha256": "04d13bf3c6c2e23c95c55677a6aa8f1e5c69971d8615eee7d0f05ba9d6963237"
+    },
+    {
+      "path": "xnu/patches/0015-sweet-unavailable-trust-cache-runtime.patch",
+      "sha256": "52c922333707deb9f9e697cf5ba092213dcb578f36ca209e750582a650b1eb18"
+    },
+    {
+      "path": "xnu/patches/0016-sweet-device-tree-platform-expert.patch",
+      "sha256": "b71c0fc56d832537a6ca096a3fe4893c498c234adb4fde419e1a791de74172ab"
+    },
+    {
+      "path": "xnu/patches/0017-sweet-device-tree-virtual-timer-irq.patch",
+      "sha256": "b3b561af3354f8c1297a084c8025c282d28aeb0d4e14758d6d63bdc81cd0bd50"
+    },
+    {
+      "path": "xnu/patches/0018-sweet-boot-cpu-driver.patch",
+      "sha256": "06de6e84d8ff9b0307872fb78a827e84fc1e16a1b7286a87f0e618a5dc2692a9"
+    },
+    {
+      "path": "xnu/patches/0019-stage-libpthread.sh",
+      "sha256": "76db7a8c6db0fb4ce2dd70be21c2738749a60702951eb4542652389a693707c1"
+    },
+    {
+      "path": "xnu/patches/0019-sweet-builtin-pthread.patch",
+      "sha256": "ee34ec3e5876f1316c6665059c3c38a09602bc100d805cebe23f260e2033899d"
+    },
+    {
+      "path": "xnu/patches/0020-stage-bearssl.sh",
+      "sha256": "7cb12c6b2e927289be24a0cc8a4da71072500e8138a0c47d862b0f6571c0f37f"
+    },
+    {
+      "path": "xnu/patches/0020-sweet-portable-aes-cbc.patch",
+      "sha256": "b05cdf11845d95bc9cff7d9ca44ef4d24d303bcf759cb5bb74a9408473161b26"
+    },
+    {
+      "path": "xnu/patches/0021-sweet-mockfs-ramdisk-root.patch",
+      "sha256": "27b5a4fb195e772178a60311d5d1935a908bd223ea7ebb5fca811532ad975e2c"
+    },
+    {
+      "path": "xnu/patches/0022-sweet-ramdisk-root-without-iomedia.patch",
+      "sha256": "ca83981bb7bd4d4f8ab22919f74ee88577b628f7a9049af222af609d9a721461"
+    },
+    {
+      "path": "xnu/patches/0023-sweet-builtin-sha256-for-libkern.patch",
+      "sha256": "9f2e879d87d976200ee8697182121a15d73c22ec3beeb14c2d35069be01267f9"
+    },
+    {
+      "path": "xnu/patches/0024-sweet-mockfs-virtual-ramdisk-io.patch",
+      "sha256": "20d0a830ed4128141b3b211fd50cfed090bc490597c4f8b36256cc93f003dc76"
+    },
+    {
+      "path": "xnu/patches/0025-sweet-builtin-amfi-no-entitlements.patch",
+      "sha256": "5cb4008df97884c35943d6f4b9349e89768072b9bf00e1032a32a8f65166eae6"
+    },
+    {
+      "path": "xnu/patches/0026-stage-hfs.sh",
+      "sha256": "40e0504ad4097be017f1c60efe99ea263a498f8c0ca2f8914b2e093d85710a5b"
+    },
+    {
+      "path": "xnu/patches/0026-sweet-builtin-hfs.patch",
+      "sha256": "465d96fd71bc2094d0aa0388e1a2586ea7fd856d021272d1d2d7083bd020d6e4"
+    },
+    {
+      "path": "xnu/patches/0027-sweet-bearssl-md5.patch",
+      "sha256": "98d9c82553b790468d3675f74821ced99eb524350ed9b7fd7cc796fdd26f981e"
+    },
+    {
+      "path": "xnu/patches/0028-sweet-ufs-root-device.patch",
+      "sha256": "249f468e5c85bfa53f4005f5c1c669004462d424dd95b612268091a73e13cecc"
+    },
+    {
+      "path": "xnu/patches/0029-sweet-unsealed-root-volume.patch",
+      "sha256": "e76d458b4ee831309759425f10347caff6d6fc7736e024abf0afcea0623c04ac"
+    },
+    {
+      "path": "xnu/patches/0030-sweet-ufs-writes.patch",
+      "sha256": "fb2869176d0fb4cc55d8754aec609015d529696fc783de025368b44834192802"
+    },
+    {
+      "path": "xnu/patches/0031-sweet-read-write-root.patch",
+      "sha256": "949a2ddd2832e39e4e36b3f40888718ec30201142d5d14e79203f0000f79e056"
+    },
+    {
+      "path": "xnu/patches/0032-sweet-bearssl-sha1.patch",
+      "sha256": "611f179956b844d0cc0e2a5d53eb664552420a6804551e1f5f55eb17040a31ed"
+    },
+    {
+      "path": "xnu/patches/0033-sweet-bearssl-sha384-sha512.patch",
+      "sha256": "13641194f854ed7da857394facfd6b5b3339716ced2f90e02836fd9fa689476d"
+    },
+    {
+      "path": "xnu/patches/0034-sweet-ufs-dma-above-4g.patch",
+      "sha256": "e1e76854114d882db815889b3109d27fe63abc839c3ef4bcf235d32ca36eec7f"
+    },
+    {
+      "path": "xnu/patches/0035-sweet-amfi-entitlements-platform-binaries.patch",
+      "sha256": "fa98049cca8a1ac0f77592117897b4dfa9a357606f97a66183525d96c5b3e252"
+    },
+    {
+      "path": "xnu/patches/0036-sweet-amfi-cs-signed.patch",
+      "sha256": "a23593fac4ad8b59160dd8363db5eafd799b19f59378ce01b2d07a9fa02f8904"
+    },
+    {
+      "path": "xnu/patches/0037-sweet-config-bindfs.patch",
+      "sha256": "53159e116791f743cc5f2b7a5ec9ec31c4f308fe44dd62c94417985c9a457e53"
+    },
+    {
+      "path": "xnu/patches/0038-sweet-applekeystore.patch",
+      "sha256": "71ab043a53c00db2814878c85818d83e97ae580ee0b3bde3ddf1dd1e97038087"
+    },
+    {
+      "path": "xnu/patches/0039-sweet-coredump-default-off.patch",
+      "sha256": "6d60ba2732759a8fc1dbe183dbe16a8f05462e861b8008a76a6dcb20a812df8b"
+    },
+    {
+      "path": "xnu/patches/0040-sweet-iowatchdog.patch",
+      "sha256": "c58a94a2ce3acc03e5b60efc1a98a8c8fd723fe139908186396a119248879669"
+    },
+    {
+      "path": "xnu/patches/0041-sweet-hfs-link-notes.patch",
+      "sha256": "ef924399bbef4728daa16cec9421e583aab301d327a480c0b9dcac6ce68b2728"
+    },
+    {
+      "path": "xnu/patches/0042-sweet-short-exec-log.patch",
+      "sha256": "aed20087fb248a87567883dafb7f2e83da8647c1e8ef112299052decb2167fdd"
+    },
+    {
+      "path": "xnu/patches/0043-sweet-console-crash-log.patch",
+      "sha256": "ef83e99baf6ae1b9cc35968d06bb49262c10ea07f51e64bfbb58d50c5a5e58e6"
+    },
+    {
+      "path": "xnu/patches/0044-sweet-crash-log-reason.patch",
+      "sha256": "f1b4085e217de41a9b26824d3bd0c27fec15abb2b016abc98acd7b44249a99b3"
+    },
+    {
+      "path": "xnu/patches/0045-sweet-iowatchdog-pmu-primary.patch",
+      "sha256": "5733977651e593d6a4179b7b16d3d8c14459dff1ae48dc16d1ff718cff0ca4d2"
+    },
+    {
+      "path": "xnu/patches/0046-sweet-iosurface-iomfb.patch",
+      "sha256": "0f23986cf9861ad52a6a0986328fa83c9f0ec222d53dee2bce5921d79c90e5be"
+    },
+    {
+      "path": "xnu/patches/0047-sweet-persistent-console-log.patch",
+      "sha256": "1e73bc5acf4823f5c842ea2b61c70595a2ca764872d13cd2aafbcec8db708017"
+    },
+    {
+      "path": "xnu/patches/0048-sweet-devnull-tee.patch",
+      "sha256": "ced1853fa17a1a542935f7fb549591aeb3a7184dadd18fd8111812a5b3a66d91"
+    },
+    {
+      "path": "xnu/patches/0049-sweet-iokit-trace.patch",
+      "sha256": "c0522c74d30e577707174d0fb3e5bda005ac35f81339d8f1ab4e2a50de413f85"
+    },
+    {
+      "path": "xnu/patches/0050-sweet-sandbox-policy.patch",
+      "sha256": "d2c2036e2a4e2388d442165cd0b85f7bf622f6d249a75e4242fb1994076142bd"
+    },
+    {
+      "path": "xnu/patches/0051-sweet-crash-heap-strings.patch",
+      "sha256": "8b0fc8aaa7f2a76ef6202db233dc6c2134fd163c212393c5838dc238dfdcaec4"
+    },
+    {
+      "path": "xnu/patches/0052-sweet-hfs-rename-swap.patch",
+      "sha256": "5b115a5435a3d8bd28f9b30bf0eb667a36a3454256ee53b806f0a0f09145f6b2"
+    },
+    {
+      "path": "xnu/patches/0053-sweet-crash-scan-springboard.patch",
+      "sha256": "ed1f28e8a578bade8c4d8ae1e25dd510a1cd0b9f9a5e515418a01c80a2704ff1"
+    },
+    {
+      "path": "xnu/patches/0054-sweet-process-sampler.patch",
+      "sha256": "e3ac3a3c5b349f05e9b467588209ac13bf0d2ec6549983796c6cba8fa404430e"
+    },
+    {
+      "path": "xnu/patches/0055-sweet-aks-ext-state-sampler-depth.patch",
+      "sha256": "5555b8045c6ab2b0653725cbf2d361f54d296730e83f8495c1c71e0a6c0fa495"
+    },
+    {
+      "path": "xnu/patches/0056-sweet-fb-throttled-present.patch",
+      "sha256": "36eb518904a3304d9494e9a58e90e9bd72fe6a577e9bf6f647ad6592c882fa97"
+    },
+    {
+      "path": "xnu/patches/0057-sweet-no-ext-resolver.patch",
+      "sha256": "dde36d2d45ee13ee364e7f1e858242d901b828986d6fd3c4157fcfdcd85ff725"
+    },
+    {
+      "path": "xnu/patches/0058-sweet-hid-event-services.patch",
+      "sha256": "9ce7e4b84d0622c6c0153a1d3511f92612e220d2a830049fa428e6ac1625bcc3"
+    },
+    {
+      "path": "xnu/patches/0059-sweet-iphone-identity.patch",
+      "sha256": "59bd94a272d6620d4a402ff09cc96def02f78bd96a10bda0d3cd2e4809a180a0"
+    },
+    {
+      "path": "xnu/patches/0060-sweet-iphone-x-display-size.patch",
+      "sha256": "d4d795cbb17cc4084f1ce148778a6d908d004a7b41da6f4c0e38353071cca735"
+    },
+    {
+      "path": "xnu/patches/0061-sweet-battery-spmi.patch",
+      "sha256": "62de87e9e09654f2b0586059f84ed199943e0bfe7c71a5c64a5ab8453c22a1b9"
+    },
+    {
+      "path": "xnu/patches/0062-sweet-priv-work-interval.patch",
+      "sha256": "ef85defd8cbdb9d444070614865d419e0b028e1ab6b0bb8ce1b8b2da8ede63d6"
+    },
+    {
+      "path": "xnu/patches/0063-sweet-smp-psci.patch",
+      "sha256": "4aad63a0c924ca516f7960c0484b1a4bea6c97ae4581e20fef2cea0cfe489d16"
+    },
+    {
+      "path": "xnu/patches/0064-sweet-crash-fault-region.patch",
+      "sha256": "77fd8f78fbbdc0f934d6f966054f059932de5df7b28f75ebea934a4b7cf46182"
+    },
+    {
+      "path": "xnu/patches/0065-sweet-console-mute.patch",
+      "sha256": "3a5b644a242354c62b73baae3d05a816b982ba9c19836bc7297362813af1c77d"
+    },
+    {
+      "path": "xnu/patches/0066-sweet-surface-lookup-cached.patch",
+      "sha256": "97a5b8a9414761cb9b9d2d666be46ffeb3629faa03185930dbf96a72e0bbf804"
+    },
+    {
+      "path": "xnu/patches/0067-sweet-ufs-faster.patch",
+      "sha256": "d81f1a3da8ad84017e4bf5edb0ed10c0f49159180c0abe5843e417d9391578d3"
+    },
+    {
+      "path": "xnu/patches/0068-sweet-pid-hibernate.patch",
+      "sha256": "ec925678a435aa3146cb3d8b3bfa4121eea53c5251f77db229737b5902c8801b"
+    },
+    {
+      "path": "xnu/patches/0069-sweet-touch-edge.patch",
+      "sha256": "05fa04a2272971f414fe5bccbb7ca75ac4fb3d49bd3c6240990fff0eaff27ccc"
+    },
+    {
+      "path": "xnu/patches/0070-sweet-usb-probe.patch",
+      "sha256": "05b61dcdd6f13584b9af27968d339a9f12d445f2795670275d5fd7db8e1eb13d"
+    },
+    {
+      "path": "xnu/patches/0071-sweet-usb-device-ep0.patch",
+      "sha256": "66ddd7707ab11dd690a3f3a3d38350ab4ac4a8d1b673a7b740710754d3e9c7de"
+    },
+    {
+      "path": "xnu/patches/0072-sweet-usb-vbus-override.patch",
+      "sha256": "e1478db32cb6e19b1e137e38782871935244f29805297d86147b157e7941a20f"
+    },
+    {
+      "path": "xnu/patches/0073-sweet-usb-ecm.patch",
+      "sha256": "16e9a14cff842ef243fb891d3153fcee813b85c8cfb3739f942843e946dcc8e3"
+    },
+    {
+      "path": "xnu/patches/0074-sweet-usb-rx-mbuf.patch",
+      "sha256": "eba80b448ca75c23b2eaf80ec29d094566361c55d4c30e4cdcc3c93d03456e94"
+    },
+    {
+      "path": "xnu/patches/0075-sweet-usb-live-log.patch",
+      "sha256": "c39f6f8178892b2fc87721dc572d044bdb11a048443fbc28aae6f7010f012c9b"
+    },
+    {
+      "path": "xnu/patches/0076-sweet-smp-8-cores.patch",
+      "sha256": "3598dc629f16e5f2abb342a7ecb04b3b8d15b4b2709ac9c8af6db89de30c4f7d"
+    },
+    {
+      "path": "xnu/patches/0077-sweet-display-power.patch",
+      "sha256": "bd3ee11c8c69ec8f90816efa7b407403aec03497704a5166b20f1dcb5c790eda"
+    },
+    {
+      "path": "xnu/patches/0078-sweet-net-trace.patch",
+      "sha256": "03a43a3b03fb4c4f87642c007c84fdd3353541a160ae921293e3f7ac9c978b1d"
+    },
+    {
+      "path": "xnu/patches/0079-sweet-usb-link-state.patch",
+      "sha256": "4d6b492d81379b93ae831a34a3972cb6366e0412c981385c32b36ee512c95da9"
+    },
+    {
+      "path": "xnu/patches/0080-sweet-ufs-gs101.patch",
+      "sha256": "44bea7b6838b386de881e051385b42f6e762f63de44fc15758bc3068e7be1a2e"
+    },
+    {
+      "path": "xnu/patches/0081-sweet-qr-log.patch",
+      "sha256": "37aa4688179f789fd956954bbebe58e516e370f991b38cac393798a7ac96cfbf"
+    },
+    {
+      "path": "xnu/patches/0082-sweet-usb-gs101.patch",
+      "sha256": "f88002b9ec5df36d2eb00a53ff9e818c89fc61343a00b3fe027f995aa0ff28e4"
+    },
+    {
+      "path": "xnu/patches/0083-sweet-restart.patch",
+      "sha256": "51af89b5fbffdc59c0bdd674006399be1382268f49e37ba446a398dbfbcb1829"
+    },
+    {
+      "path": "xnu/patches/0084-sweet-iokit-quiet-accelerator.patch",
+      "sha256": "c8dabd4fb0bd5a8b8b56ce7f7f0157664dac857630be2bf6b6d669c2539c0b7c"
+    },
+    {
+      "path": "xnu/patches/0085-sweet-sandbox-container-path-appex.patch",
+      "sha256": "11854da8fa7b752e50686bd41543b529390f7e8fd7bdf3952c617860cd2b246f"
+    },
+    {
+      "path": "xnu/patches/0086-sweet-restart-poll.patch",
+      "sha256": "a464612c259f69c28e2e0f6d0defb78e879553e8f222aef60f79f2a3dd73ff08"
+    },
+    {
+      "path": "xnu/patches/0087-sweet-gs101-keys.patch",
+      "sha256": "45d8a2edd5eeb588cd3d343f51f6952177b310b9c3b5322329ae0feffb783b29"
+    },
+    {
+      "path": "xnu/patches/0088-sweet-gs101-touch.patch",
+      "sha256": "75f88b4ffbc64b50c29491b3cff9506786bdce6f348cc25a49a7284c72bc655f"
+    },
+    {
+      "path": "xnu/patches/0089-sweet-touch-cmu-clock.patch",
+      "sha256": "80591c21ad4aa9bc952cbd2975d7824a6e723cd26ec7e86fcbceedd00dbbfd28"
+    },
+    {
+      "path": "xnu/patches/0090-sweet-touch-spi-diag.patch",
+      "sha256": "9fd5976a05331c7068fb1ee3bab540e0b519ac2141ca4889079b598c3d8fa6cd"
+    },
+    {
+      "path": "xnu/patches/0091-sweet-usb-before-ufs.patch",
+      "sha256": "7ccd0d23fc305406fc3c4d013430836bb882db7627732864a6b2f9fc7e238f8a"
+    },
+    {
+      "path": "xnu/patches/0092-sweet-touch-cmu-top.patch",
+      "sha256": "867d13fdd0f4168af8a149c79defb9b7129dff456a0bb40505a28d01a45f2434"
+    },
+    {
+      "path": "xnu/patches/0093-sweet-touch-poke.patch",
+      "sha256": "00153035df9dadd7048a7305157a382ff61acb2c24c7bfd6be99296bf1f57494"
+    },
+    {
+      "path": "xnu/patches/0094-sweet-qr-ql2.patch",
+      "sha256": "15750c68ad0975ac7e2190c89ca0531934c8dafd44239eb449190ba7acd897f8"
+    },
+    {
+      "path": "xnu/patches/0095-sweet-touch-abl-transfer.patch",
+      "sha256": "a8332b0d9c78c2d499e9591689929c0f28ea7566108c4299a399bd3d906b0534"
+    },
+    {
+      "path": "xnu/patches/0096-sweet-cpu-clock-probe.patch",
+      "sha256": "cc26897fa019fc412ea2a458d7feaa2881154b8b3a9046e7cda910befce54594"
+    },
+    {
+      "path": "xnu/patches/0097-sweet-fvmap-dump.patch",
+      "sha256": "01a4da8be871d8c5a0e7514dd8317333bdf2505bfe8e5b5cf61ee2470feeda15"
+    },
+    {
+      "path": "xnu/patches/0098-sweet-busy-dump.patch",
+      "sha256": "b8c189a6bd43d48270a62995e0a1cc1602074264a7cbca6cd088cab25a89d052"
+    },
+    {
+      "path": "xnu/patches/0099-sweet-ionetworkstack.patch",
+      "sha256": "9f1e4231c5353251c7a4092e5e09d8af33cad556eef7da87a7e3bad625bee2df"
+    },
+    {
+      "path": "xnu/patches/0100-sweet-remote-reset.patch",
+      "sha256": "8241cafec048341dfc643fd1ecfdf9e18d7ecc92767f3e3a921724c8b313ecd8"
+    },
+    {
+      "path": "xnu/patches/0101-sweet-fb-vsync-period.patch",
+      "sha256": "457ad2530f3cef0d1efc800f6c5aa5704284e5757d7b95cc523d1595921b9a81"
+    },
+    {
+      "path": "xnu/patches/0102-sweet-md0-usb-after-network.patch",
+      "sha256": "75d9734f5b6cc8ea195f1d29260063ff15d8f6203f51665c40bdb6858264b1cf"
+    }
+  ],
+  "builder": {
+    "path": "${ROOT}/tools/build-oriole-storage-objects.py",
+    "sha256": "68b47e01f17285d04fcda983f85aec1e87501a2c37217305b49cd200770b0b78"
+  },
+  "compile_flags": [
+    "-target",
+    "arm64-apple-macos14.0",
+    "-march=armv8.2-a+crypto",
+    "-mkernel",
+    "-nostdinc",
+    "-fstack-protector-strong",
+    "-fno-builtin",
+    "-fno-common",
+    "-ftrivial-auto-var-init=zero",
+    "-fsigned-bitfields",
+    "-fmerge-all-constants",
+    "-fno-c++-static-destructors",
+    "-momit-leaf-frame-pointer",
+    "-fno-strict-aliasing",
+    "-mgeneral-regs-only",
+    "-O2",
+    "-UARM_LARGE_MEMORY",
+    "-DAPPLE",
+    "-DKERNEL",
+    "-DKERNEL_PRIVATE",
+    "-DXNU_KERNEL_PRIVATE",
+    "-DBSD_KERNEL_PRIVATE",
+    "-DPRIVATE",
+    "-D__APPLE_API_PRIVATE",
+    "-D__MACHO__=1",
+    "-Dvolatile=__volatile",
+    "-DXNU_KERN_EVENT_DATA_IS_VLA",
+    "-Darm64",
+    "-DARM64",
+    "-D__ARM64__",
+    "-DLP64",
+    "-DPAGE_SIZE_FIXED",
+    "-DVM_KERNEL_LINK_ADDRESS=0xfffffff007004000",
+    "-D__API__=v4",
+    "-DARM64_BOARD_CONFIG_SWEET",
+    "-DDEVELOPMENT=1",
+    "-DDEBUG=0",
+    "-DCONFIG_EMBEDDED=1",
+    "-DCONFIG_DTRACE=1",
+    "-DLOCK_STATS=1"
+  ],
+  "dependencies": {
+    "ufs": {
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/Headers/AvailabilityVersions.h": "5b0f0813fc20e8c8621e63f8c39d88093f5ea42fd07fc223ecafb7d9cf73c299",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/Headers/architecture/byte_order.h": "a512d027f26005bca984e49a7c8897223bad13e99528e837e847457a09f61347",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/Headers/stdatomic.h": "a81c1f29dc06590ec238a0860433fa0df56449f0619a5ff1374583e708c65c33",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/mach-o/loader.h": "8780a1e622375833b563f488bc820422c2fb5b8727bb8df8ceaa73ab6f0f88e3",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/mach-o/nlist.h": "9e1a328c1a9632fae48d4d95b09d377f5007374ddb8addad97e0841052304c96",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/mach-o/reloc.h": "2c011c2a5266c4f3966a3eed80fb3348e0c0dc3a545bff36319a8b46d984f327",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/san/memintrinsics.h": "ac9771df0ffd235071f884c329797b4a7c0921f875d91bffce15564bb5edab8e",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/stdarg.h": "570766173e061aed683fd4e1d1583f8d81b1f9ef5b245d4ec602c578ee31a006",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/stdatomic.h": "a81c1f29dc06590ec238a0860433fa0df56449f0619a5ff1374583e708c65c33",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/stdbool.h": "4078dbe551efe321270e0649c8809d7d6cf85b58824b2d8e904710738642252f",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/stddef.h": "e25557850984df7eefe30cd7c69d88172f551bad5098726597a6dddb12db49da",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/stdint.h": "3a864084358d6061fcb5796291f8bac2237147bc07014b0eb93344c03408d3d3",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/string.h": "1471180a982933bc8ab959cb8195f0bb1055f6640869d307c04f0f941f81c678",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/_limits.h": "b64325f6b5aba08a361b7b8e537df3d8d193538c1d6329a4c4a7e72f5aa63478",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/_mcontext.h": "6af56aec1a82613dbd54b09d95eaf96fa7b9443a4cf4c7e9ba689f6de6047186",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/_param.h": "7df463cd4e47b0bcef897e82b90a5e108715b420f109568864ac720973b85397",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/_types.h": "ad7a22ae6c61d7ce8e99c1b61438b99cefca9cf34a1a502c9e9e191d67027d55",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/endian.h": "2e6a952f394a135df76d9e0c31c5b42ac266fd2ac7f31a7445932b9ed4a08817",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/limits.h": "b04908929c75dc835b8d9eb63a23a3176292987d8990644502a4ca8b4babb9cd",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/param.h": "1aef582d154132ed20b12550abd7bf8893e67ea1e91c3db49fd52872e4ad4ea5",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/signal.h": "de0bc923b92bd88f3bd8bcd38b20f8123277732d7d3309cb2a5bdc60bb4dd8c6",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/types.h": "83b4738e2536bad884818548d5499c788b63aac572fda43b61154cee85a723f6",
+      "${ROOT}/research/xnu-8796-reference/bsd/bsm/audit.h": "27305a37bf8bf11c382391f776406078deef800e236625ba9ac3187d13933f79",
+      "${ROOT}/research/xnu-8796-reference/bsd/libkern/copyio.h": "9eaba5b823e52ac4a1ba9c95b4181e8d8829a6226795015b4bd2576f759663f9",
+      "${ROOT}/research/xnu-8796-reference/bsd/libkern/libkern.h": "57fd3fb4a96f9532b9dc3354526611bd8204e074b0d299b6423e9828f726a485",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/_mcontext.h": "9d3425653d2a1623d785dee4601c3c00e05f4797d7e840b00f17d529f8c6c51e",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/_types.h": "f27264f8fdec9f164b4fc2b556f666ed7c5c0e5b88fd9f23db0b731ffa6cf864",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/endian.h": "37f9e1c8599a729e605477a5b6a77cea727fa66816e4585d0dd32e3ba377f450",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/limits.h": "50345f1ab843fca787a38c552a84177e678d79dab86e714434f94f2546839357",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/param.h": "9a03a8edbbe2c4718553013b97dbac07113610350f983994aa53db0db07e0bb5",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/signal.h": "09b1798034cf3b5217df3e415d6053df9c2e16b858036fc11888e63f4493f53f",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/types.h": "76e7c59451d996fe674a6fc7e518366609a95875c9b9aec9fd590a3ac138dddd",
+      "${ROOT}/research/xnu-8796-reference/bsd/miscfs/devfs/devfs.h": "8dedba9a277696f70aac24c212fb73435bce80aec81fe35291da383eb7139210",
+      "${ROOT}/research/xnu-8796-reference/bsd/pthread/priority_private.h": "7471216f3bcf1c07595e9ee29bcada84bb03f0d863a12a3f320bf290f920658f",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_endian.h": "c671de48521b687ae3f7c6279ee8585d54123a04afd7e7862df27377a9348bc2",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types.h": "05c2492e48ffb3929b077b1d191b25495361c87773a761951f9b61b4602b2f3d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_blkcnt_t.h": "3526cf25ca7734bf6bc945c9483727b8c1ab3fde5ad8fb23acad7489e231330d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_blksize_t.h": "4331ba446f9b5930e5da1dc065c97e258672ed0cbec5b3f0816c228fd0198955",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_caddr_t.h": "8f3cb6951661925334f0d2b306842b710ba352110234a9f2d688cd79a9848f02",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_clock_t.h": "e7be094e48f450875288ef68a59409e530dbe2d9449c78ff3d9ea9d654e0e857",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_dev_t.h": "4ba3d19759544b9f7bf424d2a16a518ff586e31ed968d525440e678cfbb07a5d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_errno_t.h": "ca230b22b22becab1bb191bfe5a8dd4595ea0566f5c8cc9b299eca308ee5a271",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_clr.h": "c6f6dbf7f22f218c13bf0714030e7455ac866ca35ad3fb8134c515c54acc0925",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_copy.h": "52769f18d0c4077216f44d4a4fffc53d621296e62855adde5d79cd79b50f5fd7",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_def.h": "78f8810f1080b28e7857d2b068076ee00912b9a72dbecc470218049f39798579",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_isset.h": "ba75c556025875617bb0064f4e2164a5dae669c41c97801675eeb3e1c56db3e2",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_set.h": "551f6071cb842a0988f529eb3e543abd36c15583ed6d5153b28556d8841b53b5",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_setsize.h": "e3f939c5cb0ac33582de3266dc41e5064878d8151800900b9a91b152167ef6d9",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_zero.h": "cc50d427d02466ac54ea805ff363905d861f42a427e34aaffb140992b2d79adf",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fsblkcnt_t.h": "f986ed21599c2e0e1fc2efb8e014aae5a99e9f40d374a3e1af9b7c98ac9815cf",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fsfilcnt_t.h": "e56f6f9b9c48eb7c035d5241a611169cd130a6319a5d179522c818d9d3384cdb",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fsid_t.h": "63908a097cb2628d6d652317974e416a0df39e46b1a9a0ab0a10b83ea8948a2f",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fsobj_id_t.h": "f411229eb775e55326d5f3e1e00c822c97fff57e474e5f66574aa1572d67259f",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_gid_t.h": "e687ad58c03701c132a02ebf20699c8cacfd34c3a67271bd2a415a5a8e4a9ea7",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_guid_t.h": "7fa1d7251dbc7160b64401e61ec841c0f70414976c8d65b9204887fc65e2c618",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_id_t.h": "fb7255c9872e2a805c206796326e21d47146e22c93c09752126d7166bdaba5e5",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_in_addr_t.h": "8da608117e441ff6e6b108d35334d7cf4b346b838522f97bcc621d925e0ba7fe",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_in_port_t.h": "cf4b90c7af861346ee46c6b9e5d57cfe20bd62a03b1533ee9a369480ace0bac9",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_ino64_t.h": "f143d5c0bfea65489ef89a866e96c9065d7ac28d62c0cec36f79d4dd7269fd13",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_ino_t.h": "1e067108b372f2c81cfcad28413d6c0d2b9ef21d34fab740c3c8af059deadfea",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_int16_t.h": "e40d40ad59c6dc98577b2c7cfdba1121ebfee17b29e093cbd10b7936df496d8e",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_int32_t.h": "77127195e57f1690402377ddd72e3dcda684ddf591346f08ef4772dddcbbc281",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_int64_t.h": "a2427b34e5e83996bd28d83cec920cf3b82a366af90e767234557bd11fa33a18",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_int8_t.h": "607f6beede0251eb801e763493df26fd45d46eb951e4ff9cac17f1ac951b8cc0",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_intptr_t.h": "7b45af46d5dc1c1790e726c0eb7c56be27e1245ee027521520a1fdc9ce300448",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_iovec_t.h": "f60cfdd101322d759ce291978284113a4e5a3f867cabecdcc66318a59c0f3884",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_key_t.h": "42e8a3f076c5892d7b8ca5594b15a989eb206df5834070bd2b89b1febb3e9913",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_mode_t.h": "7c4261bde41387fc23aefe5dee1e6298ae6b6f5592bca51947fdd9736e0640a6",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_nlink_t.h": "7cc46bfc5d0f4238c735ff28bb1a8dcefc26d1f0e52b7098a5c89e68bf87288a",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_null.h": "cffc3b8490d81cca16d8c5ef697f440bc7146ea017e102665cdb099585db19d8",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_o_dsync.h": "47e59afa1ca0d9beeb20835cbf44ea9d6dddc5bd12822ca35c5c0fc21dd45c49",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_o_sync.h": "76de975c1a6a1c621851079934547a628665d15049a451dc6c7e2ddec779f1b0",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_off_t.h": "7b07626d71084f1b3220e045089f54fd30f4d736be9cd0449042c5fe411fc569",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_offsetof.h": "54838992f46ae7c3376ccd32b1a30fc8cd40418a1b0ace6bd220b9fffa128320",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_pid_t.h": "052a6dbbec8e30623c2d33dd373992f6c5d0c57c57ed4949d2b48c4ab0976487",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_posix_vdisable.h": "f32872a8af4cfb71be9ca5bcd356241badadceba195d55907129425bc239c222",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_rsize_t.h": "5756d7c08aed7b65fec529bc57eab103986e2340b77396d9db02c4fd89f4390a",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_s_ifmt.h": "95154f4d16869867b303c173ed569ab17957fedb98ce7140583df75bcca2bd9e",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_seek_set.h": "8a8f6819bd2c5ee64de64e860bdfa07039929e09b3ebd5124550c3d7752d2e40",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_sigaltstack.h": "2bc87d34186fe6524fe89fa1e2d878462c6688134d03880b8bfa1486db297687",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_sigset_t.h": "df99c73ecdbde1fcb3a4a22169871e036240452472b8ea70f287456d42593972",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_size_t.h": "466586df6a9fa94dbd17fd65ec89aa8252f6784213508cffb8d5da18f5481842",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_ssize_t.h": "58eb3bdea24b27e6b5fb45e203e476faf2510b5c0aa81a0b45c17b528aa9c192",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_suseconds_t.h": "d799ffc16cf29b6559b36d879fc7d5fec80ec3c39502eaef078ae9178eeaf275",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_time_t.h": "c0a28cdc5c9c8cf99abea53556895bd8001a6cb13ae6ca9f366955500678b35a",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_timespec.h": "3314f260a6b3ce09c02df185ba2253577b2a268dac05d3cad55f76bb3e8019e8",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_timeval.h": "f723018fec267200e915777897515b5d7ed20901bcb294873f94b1d835f9ae45",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_timeval64.h": "76ac085edf939eac51da6b4a605f42ac3b97e9ea69c6f4935a7c5b3c70721226",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_char.h": "50e11dbb6152079cdefd9eaf854e3182496130b651142e0fc08fcd1456802e81",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_int.h": "85e9858c13fdc4fb614948fbcadec5f5973dbf6874b97464044a3b4e23486978",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_int16_t.h": "9dabbd8280c28416a5ba115355678d2540588df1a7251bd9b4a13e30c309a71b",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_int32_t.h": "196cba7a865c086bba457758d3b2605a4c1299c54a758366b7d420a585895f1d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_int64_t.h": "d096eee54a5acc2c3cd5cf71256d69198ada8f8d82cdb0a717bc8ed65650ad93",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_int8_t.h": "7505dbbdf3ecca2b8e585871ad81c0e67a3cb63c97c47abe73fe262e071a3ebb",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_short.h": "f78b1ac66a04e293df9a08ce2466401f50075a773c5f64000864b9d59ec4edc9",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_ucontext.h": "d67fecbd5fba1fc876b41b0a69ff080e3d47c9884f3ea4012f8a334ffda62681",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_uid_t.h": "d2140a65a17943a857381757c0b73a920f35ade41dc9809437c168be457c276a",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_uintptr_t.h": "e435f739013a22883da08b7d8b8819d6fd421756d025b369fecdee90ff40eb39",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_useconds_t.h": "37c49808a92cc4417181adb1530cc24ca11cc89f064c6c0494a1aff981f92870",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user32_itimerval.h": "1f9cd4ad1c7cae980669256bee8dd57b832ea1805586e8adc6c7e0a54a933a57",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user32_timespec.h": "9089400131e084c3358cab7743cf2d61a54714b5020a9ff0f4767feafee2d0b5",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user32_timeval.h": "f46070705759135cc992a6d2e5fb5b326b405a15ad1836c3428d8f54694c899f",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user64_itimerval.h": "faf2f8eed84f9f66372ebbea22a6905ca24ae3dbe864ae55deae914a3ac4c668",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user64_timespec.h": "2f1a4255b0d6ff44065e01129e55bb48ce1945a2cea163ef3e81fee3787ffa37",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user64_timeval.h": "813d879dcad2b7b4ef9b8e550144e10556ddc003e34f768d1594ae653653e64e",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user_timespec.h": "392963851d053be2bae79c3d610c2a24e4013e1efdc896f378aa87ca5d32a94c",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user_timeval.h": "db2121c91df95b1fbcc42c54c3baaadc2d5086c57405d1e2fc0373c42188cb3e",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_uuid_t.h": "ba8364ff4aed847f5ca3259e27fc2d1920432d02e8e79c7ac57ec043f1dc2842",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/appleapiopts.h": "efd9793f56c08917cf1ddf5108b78240ede88a5bbc8977d6fdaf1684b6b01c1c",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/buf.h": "1a138a7b19f9ac3253a18f640d0d79aa6e353c6a18725c1d292e5514bdebcaeb",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/cdefs.h": "1c9b7e900ac563138aa3d72a81fa04fbf744adb927788c903c7a15ed56f254f1",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/codesign.h": "d869735217e7e56be6484bdf26e7b783ec38e06b74f4a9b5d2f99faac37d414b",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/conf.h": "ccb21c75f02547ac202f3245bb12bce964cbc2146eeeac092b480dc36ee811c6",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/constrained_ctypes.h": "b7a1a4fe34df4b618878f05e6e5d2fa49c2bd388f8957364fafce4c2a4061569",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/disk.h": "51715b7926fec9d3556aa702f4b63e377611b83b3a709b6f5a0780fa66f67392",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/errno.h": "c8a527ee020cee45bf69cd150b0c5743c148863d54bfa29e1193caa6af274f36",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/event.h": "3d5bafa95e84a1528dd16ec18c2c4f2d7d8eda198a2591115f7c992ee69f5f9b",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/fcntl.h": "084757ba7bf696ae64e0ed31d431ee9d8bea7fd2fb35e97b0826c668fab00cf7",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/filio.h": "df459d9647fffb55107707ca768b75a813370ae5a0d9ea9f6467ce9604acc36d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ioccom.h": "b3284ebc39413010e71d77efbae1b5ec71d2cf0b3c9ae9f2095e7fe827976694",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ioctl.h": "0e04ffc00e601cb42240c56ea32e276c6d6e21d8e870a0a60f0f52afef47f0e1",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ioctl_compat.h": "3a017ea7bb8dcd35d27e540db1839a2fba0529a50f5d7f6b6a6debf6b3a52eb7",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/kernel_types.h": "e19cdbfa558d92ed89b4087f2d4878f7b39b7847e450c645f1566a6b756ca723",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/lock.h": "4eb2746b76aa7872a31915b3e0abcda7ab5676dda8f68b20a3ebf6bc9bceab92",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/malloc.h": "f98e0bc90ac5fa53deecc08bd936ac0d21cdc6568e4a4c06254d03c2c5ef6d04",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/param.h": "054975412e6c24bd225c9ae7b3f5599bbed98a06b36e6be3c350ab00b0c9d412",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/proc.h": "90965db462229fa7b3e2f812d22805a579761d00732cf0295376882440503a93",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/queue.h": "cc64e15ab2e5f2e0b70269305f3acf987c3f375f660af68d81cc012de2b7a2c6",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/resource.h": "50485b14f830a88de25a2f9ca9dccbaf171c22e1cece85667afb9b4e3b63b495",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/select.h": "967cf02c2ac2fba821488b55f7b340eb351a87ec4f81211512748c5b06f6fe1e",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/signal.h": "756fed2cab1ebcff529a90b6216629a4b14ebc58fda84acc314ecad458cd17b8",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/sockio.h": "37b6267410a1094be5330e43a3155f86e4110a387e419ef9119ba9772a9669aa",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/syslimits.h": "6cebe82961b51188ff024eabc7c1ea25ca2cd06529bbedc31141ed1c4bcfb178",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/systm.h": "ebefcfa2cef35b4a9b6b69b3913b46cf19494ef844fc05a7babc67b9b25dfb4f",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/termios.h": "296b9c3459e120c331183bd6115e4e3f09c78c0a5baa55a62d9f3dfde13dcf83",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/time.h": "d94d4d116f23a7a2b761f5dbf970a6efe3f04eaf557bf58d1bc9fe43a4b5021d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/tty.h": "5a98ba369decfd259141c401198ac4d49b4cec85ad4893b82e8e493bb1147fbd",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ttychars.h": "7dc0d8fa072df4c77013c9b5e4d259c0c54f9c95d5788126acffa9477804ce4c",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ttycom.h": "13fbbbe40ede4ac4260d3de9d01f6780a9cf907b98828372dc8d26a26df4463a",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ttydefaults.h": "d2ab60271dc08c35f748b815bbf34fc5cd40e9bcbd724f7c72c57ee2a228f3d9",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ttydev.h": "a685322c893b42d215077a09a56b2deae21102ecd9851ad34b3b5e7cb05a342b",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/types.h": "2a5c490fa9b0afc0e88c298256bd5acffbcece680b323c63f172c9a2851a5985",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ucred.h": "07656fff3ef26e31b5125e9e96a47a787c1a1659c6f0a04c036f735b993eb4db",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/uio.h": "b35dfa5abdad82d757d82045f869c2e6d3b861004e6929f1727d1fe16c6508b3",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/vm.h": "cdf9b052c7d82ccea3118fa36b1e9b6f9b131ef081392c177cdb66eb9ea35279",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/vmmeter.h": "d905b39cf9d483a075f1e251352ae616e3b5a68a09580fefdb6a06a4cf47f7b8",
+      "${ROOT}/research/xnu-8796-reference/bsd/uuid/uuid.h": "50ce8ec9cee87771ff8d7dc668954ff059c3fe4e960d857b5e7c69de5a81acb2",
+      "${ROOT}/research/xnu-8796-reference/iokit/IOKit/IOInterrupts.h": "12ed6bf742f5c5765fc7ba5bb6566e212117d73a9f183dcc05ee0df87922f8a8",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/OSByteOrder.h": "d17d3304cb999d80a98165490aa38e0a550a8a3fa914b764e906dd68681bd3c9",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/_OSByteOrder.h": "17e0812916668d7179e319a0bc52fb4f2d51d737d06bba4a122bcc1d56f4f69c",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/arm/OSByteOrder.h": "2f293c0246a66b7ea8acd0c3af286574c29b21a999d055c00a7ed2aa734bc961",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/crc.h": "ee72e1c66e7fb88760ec8970354045554f5b2cfaef677f066cf369c41b82c623",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/kernel_mach_header.h": "2d8f4bafba61fa0bc0f978d23a6e6ae7c5cd4db3f1a13e830eb57582edb01cbc",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/section_keywords.h": "6eb8da4a80eba7377562f47623065571f73ddc837ef8b0e0e07519ed25cc433b",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/alloc_util.h": "3ec1b31fc914b9a248f1635e44f5f75e701f8709888764e1df61adbdceeda8ff",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/atomic.h": "636a5ec02f2e628d565eb7a6f6c2c21d4d53507b8dda003ccb73e6acd5d516c5",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/atomic_private.h": "5b9cf9206c3a649565a6106daed00a8111a7c812d0f7d250f04b8699bc60e69f",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/atomic_private_arch.h": "f5343911bb19f1acbab608cc2f17f20cf644419ea2ecff259720b45fe05e1c24",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/atomic_private_impl.h": "84585d9e7f440541b90a4e4b299b880b676ffdd15ba0be4eede14b075d30be0d",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/base.h": "575c388233328cfa33281dd5ba1fcf516b1cb395c6771211c93e3176f7c8b804",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/overflow.h": "776965f5343582b345fbe5c6d6b135cc0628d146105639e9339ba53eb69dc1de",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/refcnt.h": "c1841db3343cb6acc4cb986220aac1a8cb81d3731ea202068fb667d0ecab6932",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/refcnt_internal.h": "2254ffa443685b4f65b3035b7ef917afce0c0984a1e3a3541c306c3a2c01edc3",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/arch.h": "9c6c2b16a06afddccc63421fb96e0ba9a444051ba4c9e3a3249e1dfa27bc38cc",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/atomic.h": "07e256e4e471669eb1b6370ebe243d4e3694677967a4636879c434f71f989a4d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/cpu_number.h": "da610f5bcb8ff05bcce9aaa2b77f7a605a39095afed1036273b853a2b213960d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/locks.h": "55fbc3c18075912c805b3a8d47191269dcd2bc570ab6b13ae7e8d87c2d9862aa",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/machine_routines.h": "1eec9e9dac950421a27a6db83e81adc05ea15eac6549542805ec7a764c43644e",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/memory_types.h": "8844a987bbe0ba4929d1222c950b8b6a75c1c73ce60c6a5bae805eefc112d84b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/assert.h": "80a2de626d3cee3bfe08d2b2d705002c5be59ffa338dee2f1185b8ab4c34a576",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/block_hint.h": "432fa16a0149dcb3136c7bcf48d5c0e180b94abae34c19d94257d93dd63e7d31",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/clock.h": "a2657effae6e918f73f815d9c53e73054cd0a716a38a3ccd77b71050e957afe6",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/counter.h": "0c588f39122e61bfc7dce5f70c38bed6a49659dccac84980f5c0d1d00e227f6b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/cpu_number.h": "8c660625c90fb1d6b36cfe2fb3aad4e83872e12b896a3f97f648483cd7bc4fb1",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/cs_blobs.h": "c6b8b5a37e1c51c7ab9191b319418a50777693da734a0fd53db0714a3b8f3e88",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/debug.h": "162fd7de98ec0cc3c995d111fea91659a6644a8028155cad1972a28709f18f62",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/kalloc.h": "34289216bd95d4691f407996c97d5a64d665153b5470e605ec9391bf1661edd3",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/kcdata.h": "6823438924887f5ed2f42cf797c214c552ec4715f6dd79efe88aaa7d8c93938e",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/kern_types.h": "8d548cef0d89db3f68cde9235ab1dbc4530c76ef8fcb9c39329a73f9fb9825b2",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/lock_attr.h": "f5235929a5c9456a22d2eda390ee3baede014860772af8795d07112e4e038bf8",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/lock_group.h": "2dd628fd59538922fd0f445a19e0bcd4eed66873d40699ebc0a48297c9d4b0d3",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/lock_mtx.h": "e22b95131cb1650c012162a28ac45780ce60765fc89cff5786090cf13753ee31",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/lock_rw.h": "6807b530a6d9b7b9e1a90d17fcc6bbd094aaafd0510ad5068d426f9805e221d4",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/lock_types.h": "5e51b7dfa2877da3db3380826f05738f06d6905be66a355c6e4cd78b74117fba",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/locks.h": "15406ddf29c0d5c5a3d3bfbf48018fcbf58dd989f1f73e3cde0d3b3251aa6e73",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/macro_help.h": "6bf35433d7fab3ea45dd0e19dd0998f59974bf87b2cf2b661be9d45ab3789d24",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/percpu.h": "32cffa403da43aa95117a7b260ad8eb18b36f8d3501265fb6fd26a1ea0144d5a",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/priority_queue.h": "01af0d26efc23747f317d722145044cf511e26eb199730f9a598d4373221e635",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/queue.h": "db927c32690d07ddd39bdba2b20d0966c9f41f1d873006999c465077c65578ef",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/sched_hygiene.h": "a9c6354c65c39982ef74a7c19eeaaa015bacee6c69123b7cbc0745453676e5d0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/sched_prim.h": "ff834a30d9aaa6cbc14fa563f9e22fc29acb70f00ea83b96d3fb7b4394fa3ac6",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/startup.h": "41afcc8be3e13b2e865fa55be1da100894c74cbd84023ef781392efa746d75f5",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/thread.h": "7251f727bc2fb71271628ef604ce6123d2c5154fe360ae976fafce1f31f06791",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/ticket_lock.h": "ec5e5023965eeb4fb013f2d7d1300c94cd7c5321a803c78d1bd94d5ecc11bfbc",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/trustcache.h": "60a71bb9b8fc7f1ee2d922c35acd04b606b7a6664cb4c0312f2293b5b80793e2",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/waitq.h": "8db2ce057f52e3cbbabb795fd7083bb55e71c6cb85a8ffa2312c6797de792506",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/zalloc.h": "883e8219afcf75100c0712ed88f4d656b1d03215b0d21234ca6c9bb9baf8e1a9",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/_structs.h": "4102233310cd4124549e9243208b19e3912c787834d07150398a9b6efec9ebbc",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/boolean.h": "03ceda8c88250b93a3bebca92e03dd558e13fe68e83eff6bba5db32f95b48b6d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/exception.h": "dbf6ea8a4c49412459aec83c89a2ce345bfbd5cffeddb86c8cd983381d4e2df8",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/kern_return.h": "c06cb329babef0663cd8c86b5e5f545fafc8d8659bb83cef75506281187ef9f1",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/processor_info.h": "221c68381baa90adc77aff8e73cb374f9818534ed6f1661ab1ac1313d3bbb7c6",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/thread_state.h": "ab91af1d14bd3ff1e028709e7d4db215eac0df620ff81ad3aa38ae295a50aed0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/thread_status.h": "5c824c3c4f9a235deda98402f95c6155e35c0438a1cbaf902edd42c510cc4a54",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/vm_param.h": "eb24020fe382a83750c2337240ceb5607e05ef68af14390408652f4e4a74e5fb",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/vm_types.h": "b2deb6cfadc2972a42f698b1822393d240f96c1f91426f4f087e0cffc367225d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/boolean.h": "c050da6ed29d186ac403c0ba187031aca3ac32da2b4e618e0d0c8ba1b7665523",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/clock_types.h": "eadbcec07f37d0f7c07dc4c2f7c3a4c5c6949bcdd54c440b484e69dee55f25f0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/coalition.h": "5e1a538798e8787193e9737e1748610e1b0acbdbccc5bbf2148866d1cbce7a76",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/dyld_kernel.h": "1fceeeca56348b1aad6e6c97d5b12c5616094459fad45676b0bd57cb603a9c83",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/exception_types.h": "b1ed0c03559591fb83b55ed2e7f77a923ae168bb506f8a2e34978419fb52b3c4",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/host_info.h": "45903a1cb2b253134ae0482299955aeeab76d4bc3ad066c3e0a50e2c2f1eaf42",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/host_notify.h": "31b3050a653a792d3f40294224d5edd5d0257611b48c34e123ee3296b7bf181a",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/host_special_ports.h": "76193fc29a57891d4f273b009ad80ee38ec24f1ef4ebb8f6fdd29894d032be1c",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/kern_return.h": "4577d58f74dfbb8ef07ce460f82cb7a45999ad2a0479486df8d22658d4847f50",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/kmod.h": "a8fcc1de6620c9484ff96f699d20d37e2b1504615f2acfc547e8f0d14198a2f7",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/mach_param.h": "eab7cbc3713351e426e18a6691119bde459e27fa935feeb3aac5a2d24a4dbb33",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/mach_time.h": "707178ae40a1273c9fa7813f89008d0a34c19a7cc7ef11fc9b5fde7a57b3385d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/mach_types.h": "7ea11e1d6b6ef609b2b2034b952e37f7d94daf265de490837afc50f5cc7eed8e",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/mach_voucher_types.h": "0aaabcd2eb7b388e28783241991273be5fdaa0240618e1a2a9ae1a73097a03e6",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine.h": "71b3deb76b932d672c43ea4ab80e78e5e9ca15f4a4842960a6127fade5ea3d03",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/_structs.h": "410350f04225bf139bd89f1a99418a55734e4ab2101bb93dc301f790a130f59c",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/boolean.h": "a22e0c8c541b9117a86d85ab4a977eda49917a9867b24576f5972b6fa6554f23",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/exception.h": "50a572de0f7b9ddd7925debb3de372a1535baa0a6955c53e5709cbbf3947be94",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/kern_return.h": "160d3b4460244b7f469a34f3030071bd717d2918cb748527c1207ca78310d51d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/processor_info.h": "806acb7cca13b111b07ca0aee27c12e72ea264d7e9220ceaeb2c24889129fd1b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/thread_state.h": "c3f5251c26e2bd1eaad3d57df544254e8ce4ffadde120c5394badcf24f9d6086",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/thread_status.h": "756a3db7289b7cea839f9bd9e9556427ab3c9effa77e552bdc9b2e6e096d2f7c",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/vm_param.h": "574cf089b3d18d6334da1339692ffff16d15d5064692af27fc0a94042603a2d8",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/vm_types.h": "1c2a4ff4b5843ded602775a447494f353a295015ca8d913a0a13439f4ee28654",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/memory_object_types.h": "3e9fb05c03b21dad311c952b1ca4e0d5ff6931bc9602b97bec31948a1030206f",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/message.h": "c68342945823ba76cb43febf39f2cc39b72e6d90b20a67ab2aef33da7bbc823b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/policy.h": "a457c6acb170fab0e17c517959c01098c9625960e1d077d232a89a5b288595b8",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/port.h": "cc7aa46a7211a076bafb507baa6ce38c333c6b96418e2e7193e8cadd8ceabf97",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/processor_info.h": "d96524e982971ed9f369f12247484c8cd956f7aae70e13b7afdc506b80d2f0da",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/std_types.h": "839d581eb7f1b8ac5d74ed9506fd11f49e287e0c2fb39ffc62f9139dffcdf3fb",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/sync_policy.h": "f6eefc41523b41dee1bac5023b5df3018174512fb265f7ce018ba9b3098bbcd2",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/task_info.h": "54f5264ac024346649c1b2617f83736ee60c7e3e67b96e9bce69e0a601371dfb",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/task_inspect.h": "686e81a4c1c01904b6ce238d98341bc9652dffe7df3e78c2814f12957de04471",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/task_policy.h": "3f11a39e36bc01421d747e416c9ecdc4a7ba53401d9a459c2ad2421aeb8be08f",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/task_policy_private.h": "ea0682963b62eed6ef17b4bb5e4e1bb32ab4bbf5a343a782fc897f057d223132",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/task_special_ports.h": "1229346aa214a879cc8661c1e97752a2a8722b1734add4b43089c834731c088a",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/thread_info.h": "0248ce5526e6239e2e6ee824b358a60f74dff68d81a5ff912aea72e15d54440b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/thread_policy.h": "16fd7bc787aaab51fb76a580d4c18d090936b0b9a4c14ec7d395cace5431ab8b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/thread_policy_private.h": "745d86aaf62b50c495fe946e3387f0b1e5de455a911d7ef75896d840685a0dc0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/thread_special_ports.h": "e1bede553979e7d79b9035c351d303a68f1d0384de5e8098929f07d04f34beb1",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/thread_status.h": "ebffe87f2b535072fb6d6da945fbcdd6da7e6eab26bcb5383807d34e0299162b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/time_value.h": "b11b0606d2f5f44bd0fa1728928ff6dd301b42d67d5ab2c035a84be85f1f7b21",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_attributes.h": "b00af7534a5025e955c6dec28e8ab2085f652fc59d000f45cf1f9fbe39579222",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_behavior.h": "19f9046991bafec8af9f23d4b3e850ff16e40e291bf1e3ac2f7b33e9e8105cc0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_inherit.h": "e17decc7bed87d828afbf77199b6263d12c1d5219f0f9c5b6600d81d6463d266",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_param.h": "bb01970537f59491c2741323d0b4269bc3f02f4b15ac274df9228954ece9f7da",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_prot.h": "ec56947652b1e62f3b78b70cf706eafa16237b34e26f3607f1f0b22aba7c4392",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_purgable.h": "d63a19a52f2e9cd3c0b7528111f3ee52609ea52b72f28158c92cddff79826c26",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_region.h": "e137d05cf33d62a7303fd5a3f62c6963546fcffbc8fa4aeca65a4d06fa58667d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_statistics.h": "058285cb7f1d52f89f4b3790d742a3e031b77d770116fd694bc7ea0e7fdbfce0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_sync.h": "666d92238e97817a42ff7c2aeca7ec701eef133bf895661399dcaac266bd63d2",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_types.h": "df52204bad8668284b16da16007a0b88553dd4dc2e6882093fe2f2d335ad2330",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach_debug/ipc_info.h": "30e7dae3dc521b5394ccc5fdfada8c26b2cec176bbf5bf78ac6d3bae3a9843eb",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach_debug/zone_info.h": "1f919b1ca0f8b4f6ea4f767701d50965c2a6d2b3e8bafca8f5ddb05f60c93cb1",
+      "${ROOT}/research/xnu-8796-reference/osfmk/machine/atomic.h": "97775840e020952f50fdcb8116a35751a1b0859f7fdca399832e074161df61d8",
+      "${ROOT}/research/xnu-8796-reference/osfmk/machine/config.h": "4e832679f7901f4051853e22b0463723f99848e95d240601869d0d62353af2dc",
+      "${ROOT}/research/xnu-8796-reference/osfmk/machine/cpu_number.h": "9b85c05365b8cf50ddce6724444afb6be9a32523e3dd8f56ba10a45e3453a900",
+      "${ROOT}/research/xnu-8796-reference/osfmk/machine/locks.h": "0650343b50c27f44e5a3f68ab742e2acdd3aaddfae50a107c4f554832120d08d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/machine/machine_routines.h": "d57b9d0d5580aac5750da5b9305028bada988b06555404e440e43ef2de4098ba",
+      "${ROOT}/research/xnu-8796-reference/osfmk/machine/memory_types.h": "692c30fdb36143fcd94ccaeaa514ad79fa25efb54252cc7d6f61cc54170d7062",
+      "${ROOT}/research/xnu-8796-reference/osfmk/vm/memory_types.h": "9d9724be8d1c84f557d93d9b79058dc08d998af9c55ff96a01907be618753959",
+      "${ROOT}/research/xnu-8796-reference/osfmk/vm/pmap.h": "2fcea83f826ed21eab303d80a902b8f81060519398f98d7c3508c1c58d185a14",
+      "${ROOT}/research/xnu-8796-reference/osfmk/vm/vm_kern.h": "f65a4aefbbd0901ec16b39c8d78bcb8c43ea2a2bb7f9f2fbbc5a22d94e6a2ae1",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/arm/consistent_debug.h": "b3fec17406455918e4b836e9f02d6329d8b39b89ea9ffb2709eba99f3fdf02a8",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/arm/protos.h": "23ac6d9f9b7e5f34d911359007cef4394d3d58665c5339de52184cde7fb10b7f",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/arm64/boot.h": "efdfec46319cb147297682a8faebe02873f845261b57f7511ab8e15c13ef3439",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/boot.h": "3273a124a1b743e7bf53252e5a2ce158aa63090a25467d6b95e8024a39e3aa4b",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/device_tree.h": "a558ceea1bfff5b5d381550db38cba482a6fe67096e2cab89073ab3c9ecb8ccf",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/machine/boot.h": "208e5c5cacd10b9f1c9c5c39a7e66dba22d88a8d3e71ad4b7acc2f455a774bd0",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/pexpert.h": "21f595229a45958b377f71f1aef48fb86119c7168283b6fb76b29e65dad4943f",
+      "${XCODE}/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/Availability.h": "d39d74d343b5f3dc147525c5f4ba99c1ae9133bccc57eb6205a74d0ba99d92cb",
+      "${XCODE}/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/AvailabilityInternal.h": "4b7f7e27b33d7ccdcc21654b0016eaa4187ce63387eb135babf269cddedcb9b0",
+      "${XCODE}/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/AvailabilityInternalLegacy.h": "4c15ffce0467946a20beaa2eb25eba2cbe1788c620aaeb2516c39436a88fe276",
+      "${XCODE}/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/ptrcheck.h": "ac60d1e96ac17d789d1879b968d391dfbfa222f12213ba95f14592453eebe338"
+    },
+    "usb": {
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/Headers/AvailabilityVersions.h": "5b0f0813fc20e8c8621e63f8c39d88093f5ea42fd07fc223ecafb7d9cf73c299",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/Headers/architecture/byte_order.h": "a512d027f26005bca984e49a7c8897223bad13e99528e837e847457a09f61347",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/Headers/stdatomic.h": "a81c1f29dc06590ec238a0860433fa0df56449f0619a5ff1374583e708c65c33",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/mach-o/loader.h": "8780a1e622375833b563f488bc820422c2fb5b8727bb8df8ceaa73ab6f0f88e3",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/mach-o/nlist.h": "9e1a328c1a9632fae48d4d95b09d377f5007374ddb8addad97e0841052304c96",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/mach-o/reloc.h": "2c011c2a5266c4f3966a3eed80fb3348e0c0dc3a545bff36319a8b46d984f327",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/ptrauth.h": "9a8eb54a418f84216e6c7f0ed0b4206d32917f73015e22e7965ca9075c37bd51",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/san/memintrinsics.h": "ac9771df0ffd235071f884c329797b4a7c0921f875d91bffce15564bb5edab8e",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/stdarg.h": "570766173e061aed683fd4e1d1583f8d81b1f9ef5b245d4ec602c578ee31a006",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/stdatomic.h": "a81c1f29dc06590ec238a0860433fa0df56449f0619a5ff1374583e708c65c33",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/stdbool.h": "4078dbe551efe321270e0649c8809d7d6cf85b58824b2d8e904710738642252f",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/stddef.h": "e25557850984df7eefe30cd7c69d88172f551bad5098726597a6dddb12db49da",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/stdint.h": "3a864084358d6061fcb5796291f8bac2237147bc07014b0eb93344c03408d3d3",
+      "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/PrivateHeaders/string.h": "1471180a982933bc8ab959cb8195f0bb1055f6640869d307c04f0f941f81c678",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/_limits.h": "b64325f6b5aba08a361b7b8e537df3d8d193538c1d6329a4c4a7e72f5aa63478",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/_mcontext.h": "6af56aec1a82613dbd54b09d95eaf96fa7b9443a4cf4c7e9ba689f6de6047186",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/_param.h": "7df463cd4e47b0bcef897e82b90a5e108715b420f109568864ac720973b85397",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/_types.h": "ad7a22ae6c61d7ce8e99c1b61438b99cefca9cf34a1a502c9e9e191d67027d55",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/endian.h": "2e6a952f394a135df76d9e0c31c5b42ac266fd2ac7f31a7445932b9ed4a08817",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/limits.h": "b04908929c75dc835b8d9eb63a23a3176292987d8990644502a4ca8b4babb9cd",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/param.h": "1aef582d154132ed20b12550abd7bf8893e67ea1e91c3db49fd52872e4ad4ea5",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/signal.h": "de0bc923b92bd88f3bd8bcd38b20f8123277732d7d3309cb2a5bdc60bb4dd8c6",
+      "${ROOT}/research/xnu-8796-reference/bsd/arm/types.h": "83b4738e2536bad884818548d5499c788b63aac572fda43b61154cee85a723f6",
+      "${ROOT}/research/xnu-8796-reference/bsd/bsm/audit.h": "27305a37bf8bf11c382391f776406078deef800e236625ba9ac3187d13933f79",
+      "${ROOT}/research/xnu-8796-reference/bsd/libkern/copyio.h": "9eaba5b823e52ac4a1ba9c95b4181e8d8829a6226795015b4bd2576f759663f9",
+      "${ROOT}/research/xnu-8796-reference/bsd/libkern/libkern.h": "57fd3fb4a96f9532b9dc3354526611bd8204e074b0d299b6423e9828f726a485",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/_mcontext.h": "9d3425653d2a1623d785dee4601c3c00e05f4797d7e840b00f17d529f8c6c51e",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/_param.h": "a439dd9d92d11570d734c87c634f32f85dc8f98624c72acc70e2f0bfbcd73e1a",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/_types.h": "f27264f8fdec9f164b4fc2b556f666ed7c5c0e5b88fd9f23db0b731ffa6cf864",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/endian.h": "37f9e1c8599a729e605477a5b6a77cea727fa66816e4585d0dd32e3ba377f450",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/limits.h": "50345f1ab843fca787a38c552a84177e678d79dab86e714434f94f2546839357",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/param.h": "9a03a8edbbe2c4718553013b97dbac07113610350f983994aa53db0db07e0bb5",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/signal.h": "09b1798034cf3b5217df3e415d6053df9c2e16b858036fc11888e63f4493f53f",
+      "${ROOT}/research/xnu-8796-reference/bsd/machine/types.h": "76e7c59451d996fe674a6fc7e518366609a95875c9b9aec9fd590a3ac138dddd",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/classq/classq.h": "a1d828afc695f5720f2aa2a0bfd5f33f7101e2765708b262b3f4c60ea9740c8a",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/classq/if_classq.h": "9e3633384aaa3f96068ca2f535f097b9a0cad6aa89229433b853a7abbcad413b",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/dlil.h": "af80bff531cb929ecccb6816bca5e0a362e72af433825bcd8a19210f2d73a46c",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/ether_if_module.h": "033f65779e3d09284a51e368a2ac66b7a186ee48a004e43c18cb3bbd3f8c2cad",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/ethernet.h": "90c705e10230992417020b32d56e584c9344c779f2c954f6c4c56f55d8184f6f",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/flowadv.h": "4650c0ad29f59f8e1cd0fb74ee77bb49c55d7ae3b030f50f6f08131a80d56424",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/if.h": "a9ff417cb71a862612834208638bf1fb563ebb41bcdf969e8873e6d282ab30ad",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/if_dl.h": "4bd786eeed1aba0c41cb1440ed0472efc1a3992808299ce64745bd44224019fd",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/if_ether.h": "a19d8b01f66c873fb0d910be1e388474a7b1fd842fbbfd01df7394e91f4ced0d",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/if_llatbl.h": "d951725e0662bcb07470d743b6e94eb66e8fa87bfe89c2b815e40fcb29692df9",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/if_media.h": "b38aba410c69d6892ad1cce291de1ab94e8cecf065d967f5b0d339571442ad5b",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/if_private.h": "dbd2a57b81631c548f747cd28418acb416ff352753bccc9851e2f17313c4bfa4",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/if_types.h": "d9dc8475578808d475f73858f6f98e8e6e0531cb401bcb356a7d43208c734c4d",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/if_var.h": "fe1b5951e8bdd17a72b2cfbff9d460a47cb7a9993492dc705161f114f61d7d50",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/if_var_private.h": "ee9b72335ddda110ffa24ad43eca76005bbb6c7e993bd5342f32634831bf01c0",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/if_var_status.h": "ee8162296724451280b6f98a52f2d505eb411c69dbda64656ab8dda0071b3496",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/kpi_interface.h": "4aac7ab3d15b963c8d189314cb60d574d157990174087d7991bc634d7c962f92",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/kpi_protocol.h": "c354716052c080d6adaf7b6f073bf702c9935c18d9efb01597953c4ff2fc3bb5",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/net_kev.h": "f9eb5bc17ea1457a3b86e945809c0486adc5f745abd0548bebe73ffaa63fc788",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/pktsched/pktsched.h": "29cbc666aadab35d642b08e47ba48ed20ddfd1a7476765bbb64d7ff0bc189a5d",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/pktsched/pktsched_fq_codel.h": "2441670b1e27a7485bab285f05f72f3d14f7bde2d7abeeb430813c84d2aa7473",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/radix.h": "6bd5fd9877eb42f21143260d5caa4b169b02e0e50378703506a86191a3f126f4",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/route.h": "dcd77dcb77e8468004b3fe667ec490a8bf0849487c2b832dcee8010ffbdea92d",
+      "${ROOT}/research/xnu-8796-reference/bsd/net/route_private.h": "d852c23c65b43447ec903d9229026b3d50ea2f05659daceffc97ac302c720280",
+      "${ROOT}/research/xnu-8796-reference/bsd/netinet/in.h": "5076fa97b6c946875cd6c6be058de6faa289d601b937710a6eb8c5bb9f584002",
+      "${ROOT}/research/xnu-8796-reference/bsd/netinet/in_private.h": "647970e2441d23cdd05b8aa46324c24228c3222ff3bbeffffb31a75cea519e8c",
+      "${ROOT}/research/xnu-8796-reference/bsd/netinet6/in6.h": "18e9d5ecce564efc49c36a72adbaba48aaef5ac0b95715f44998cea9e8888bfe",
+      "${ROOT}/research/xnu-8796-reference/bsd/netinet6/in6_private.h": "7078f3953c980a0d73f54e7ff85560a4a6d95e6d0f56dfbd6b00f3acd1eba121",
+      "${ROOT}/research/xnu-8796-reference/bsd/pthread/priority_private.h": "7471216f3bcf1c07595e9ee29bcada84bb03f0d863a12a3f320bf290f920658f",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_endian.h": "c671de48521b687ae3f7c6279ee8585d54123a04afd7e7862df27377a9348bc2",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types.h": "05c2492e48ffb3929b077b1d191b25495361c87773a761951f9b61b4602b2f3d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_blkcnt_t.h": "3526cf25ca7734bf6bc945c9483727b8c1ab3fde5ad8fb23acad7489e231330d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_blksize_t.h": "4331ba446f9b5930e5da1dc065c97e258672ed0cbec5b3f0816c228fd0198955",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_caddr_t.h": "8f3cb6951661925334f0d2b306842b710ba352110234a9f2d688cd79a9848f02",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_clock_t.h": "e7be094e48f450875288ef68a59409e530dbe2d9449c78ff3d9ea9d654e0e857",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_dev_t.h": "4ba3d19759544b9f7bf424d2a16a518ff586e31ed968d525440e678cfbb07a5d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_errno_t.h": "ca230b22b22becab1bb191bfe5a8dd4595ea0566f5c8cc9b299eca308ee5a271",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_clr.h": "c6f6dbf7f22f218c13bf0714030e7455ac866ca35ad3fb8134c515c54acc0925",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_copy.h": "52769f18d0c4077216f44d4a4fffc53d621296e62855adde5d79cd79b50f5fd7",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_def.h": "78f8810f1080b28e7857d2b068076ee00912b9a72dbecc470218049f39798579",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_isset.h": "ba75c556025875617bb0064f4e2164a5dae669c41c97801675eeb3e1c56db3e2",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_set.h": "551f6071cb842a0988f529eb3e543abd36c15583ed6d5153b28556d8841b53b5",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_setsize.h": "e3f939c5cb0ac33582de3266dc41e5064878d8151800900b9a91b152167ef6d9",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fd_zero.h": "cc50d427d02466ac54ea805ff363905d861f42a427e34aaffb140992b2d79adf",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fsblkcnt_t.h": "f986ed21599c2e0e1fc2efb8e014aae5a99e9f40d374a3e1af9b7c98ac9815cf",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fsfilcnt_t.h": "e56f6f9b9c48eb7c035d5241a611169cd130a6319a5d179522c818d9d3384cdb",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fsid_t.h": "63908a097cb2628d6d652317974e416a0df39e46b1a9a0ab0a10b83ea8948a2f",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_fsobj_id_t.h": "f411229eb775e55326d5f3e1e00c822c97fff57e474e5f66574aa1572d67259f",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_gid_t.h": "e687ad58c03701c132a02ebf20699c8cacfd34c3a67271bd2a415a5a8e4a9ea7",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_guid_t.h": "7fa1d7251dbc7160b64401e61ec841c0f70414976c8d65b9204887fc65e2c618",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_id_t.h": "fb7255c9872e2a805c206796326e21d47146e22c93c09752126d7166bdaba5e5",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_in_addr_t.h": "8da608117e441ff6e6b108d35334d7cf4b346b838522f97bcc621d925e0ba7fe",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_in_port_t.h": "cf4b90c7af861346ee46c6b9e5d57cfe20bd62a03b1533ee9a369480ace0bac9",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_ino64_t.h": "f143d5c0bfea65489ef89a866e96c9065d7ac28d62c0cec36f79d4dd7269fd13",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_ino_t.h": "1e067108b372f2c81cfcad28413d6c0d2b9ef21d34fab740c3c8af059deadfea",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_int16_t.h": "e40d40ad59c6dc98577b2c7cfdba1121ebfee17b29e093cbd10b7936df496d8e",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_int32_t.h": "77127195e57f1690402377ddd72e3dcda684ddf591346f08ef4772dddcbbc281",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_int64_t.h": "a2427b34e5e83996bd28d83cec920cf3b82a366af90e767234557bd11fa33a18",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_int8_t.h": "607f6beede0251eb801e763493df26fd45d46eb951e4ff9cac17f1ac951b8cc0",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_intptr_t.h": "7b45af46d5dc1c1790e726c0eb7c56be27e1245ee027521520a1fdc9ce300448",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_iovec_t.h": "f60cfdd101322d759ce291978284113a4e5a3f867cabecdcc66318a59c0f3884",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_key_t.h": "42e8a3f076c5892d7b8ca5594b15a989eb206df5834070bd2b89b1febb3e9913",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_mode_t.h": "7c4261bde41387fc23aefe5dee1e6298ae6b6f5592bca51947fdd9736e0640a6",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_nlink_t.h": "7cc46bfc5d0f4238c735ff28bb1a8dcefc26d1f0e52b7098a5c89e68bf87288a",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_null.h": "cffc3b8490d81cca16d8c5ef697f440bc7146ea017e102665cdb099585db19d8",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_o_dsync.h": "47e59afa1ca0d9beeb20835cbf44ea9d6dddc5bd12822ca35c5c0fc21dd45c49",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_o_sync.h": "76de975c1a6a1c621851079934547a628665d15049a451dc6c7e2ddec779f1b0",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_off_t.h": "7b07626d71084f1b3220e045089f54fd30f4d736be9cd0449042c5fe411fc569",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_offsetof.h": "54838992f46ae7c3376ccd32b1a30fc8cd40418a1b0ace6bd220b9fffa128320",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_os_inline.h": "0b4aa055199f1aa01485a7951a191aed5e3c8377be334e9a9e928988d52d1409",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_pid_t.h": "052a6dbbec8e30623c2d33dd373992f6c5d0c57c57ed4949d2b48c4ab0976487",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_posix_vdisable.h": "f32872a8af4cfb71be9ca5bcd356241badadceba195d55907129425bc239c222",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_rsize_t.h": "5756d7c08aed7b65fec529bc57eab103986e2340b77396d9db02c4fd89f4390a",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_s_ifmt.h": "95154f4d16869867b303c173ed569ab17957fedb98ce7140583df75bcca2bd9e",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_sa_family_t.h": "04be200df47f1cc3e10ec0a57ac563b8ecbd80c3d29e10e8ea5875145c4d53b7",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_seek_set.h": "8a8f6819bd2c5ee64de64e860bdfa07039929e09b3ebd5124550c3d7752d2e40",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_sigaltstack.h": "2bc87d34186fe6524fe89fa1e2d878462c6688134d03880b8bfa1486db297687",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_sigset_t.h": "df99c73ecdbde1fcb3a4a22169871e036240452472b8ea70f287456d42593972",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_size_t.h": "466586df6a9fa94dbd17fd65ec89aa8252f6784213508cffb8d5da18f5481842",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_socklen_t.h": "a747e7fd8c243c7bbbd2f2cfa4b05f56f905e1f013fb2ff230f07a1954fdbf07",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_ssize_t.h": "58eb3bdea24b27e6b5fb45e203e476faf2510b5c0aa81a0b45c17b528aa9c192",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_suseconds_t.h": "d799ffc16cf29b6559b36d879fc7d5fec80ec3c39502eaef078ae9178eeaf275",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_time_t.h": "c0a28cdc5c9c8cf99abea53556895bd8001a6cb13ae6ca9f366955500678b35a",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_timespec.h": "3314f260a6b3ce09c02df185ba2253577b2a268dac05d3cad55f76bb3e8019e8",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_timeval.h": "f723018fec267200e915777897515b5d7ed20901bcb294873f94b1d835f9ae45",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_timeval32.h": "5d80e8bf5f32db57d31158140f8bfe6b57f2720c89591d1bee3e0bb789a75026",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_timeval64.h": "76ac085edf939eac51da6b4a605f42ac3b97e9ea69c6f4935a7c5b3c70721226",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_char.h": "50e11dbb6152079cdefd9eaf854e3182496130b651142e0fc08fcd1456802e81",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_int.h": "85e9858c13fdc4fb614948fbcadec5f5973dbf6874b97464044a3b4e23486978",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_int16_t.h": "9dabbd8280c28416a5ba115355678d2540588df1a7251bd9b4a13e30c309a71b",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_int32_t.h": "196cba7a865c086bba457758d3b2605a4c1299c54a758366b7d420a585895f1d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_int64_t.h": "d096eee54a5acc2c3cd5cf71256d69198ada8f8d82cdb0a717bc8ed65650ad93",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_int8_t.h": "7505dbbdf3ecca2b8e585871ad81c0e67a3cb63c97c47abe73fe262e071a3ebb",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_u_short.h": "f78b1ac66a04e293df9a08ce2466401f50075a773c5f64000864b9d59ec4edc9",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_ucontext.h": "d67fecbd5fba1fc876b41b0a69ff080e3d47c9884f3ea4012f8a334ffda62681",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_uid_t.h": "d2140a65a17943a857381757c0b73a920f35ade41dc9809437c168be457c276a",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_uintptr_t.h": "e435f739013a22883da08b7d8b8819d6fd421756d025b369fecdee90ff40eb39",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_useconds_t.h": "37c49808a92cc4417181adb1530cc24ca11cc89f064c6c0494a1aff981f92870",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user32_itimerval.h": "1f9cd4ad1c7cae980669256bee8dd57b832ea1805586e8adc6c7e0a54a933a57",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user32_timespec.h": "9089400131e084c3358cab7743cf2d61a54714b5020a9ff0f4767feafee2d0b5",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user32_timeval.h": "f46070705759135cc992a6d2e5fb5b326b405a15ad1836c3428d8f54694c899f",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user64_itimerval.h": "faf2f8eed84f9f66372ebbea22a6905ca24ae3dbe864ae55deae914a3ac4c668",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user64_timespec.h": "2f1a4255b0d6ff44065e01129e55bb48ce1945a2cea163ef3e81fee3787ffa37",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user64_timeval.h": "813d879dcad2b7b4ef9b8e550144e10556ddc003e34f768d1594ae653653e64e",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user_timespec.h": "392963851d053be2bae79c3d610c2a24e4013e1efdc896f378aa87ca5d32a94c",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_user_timeval.h": "db2121c91df95b1fbcc42c54c3baaadc2d5086c57405d1e2fc0373c42188cb3e",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/_types/_uuid_t.h": "ba8364ff4aed847f5ca3259e27fc2d1920432d02e8e79c7ac57ec043f1dc2842",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/appleapiopts.h": "efd9793f56c08917cf1ddf5108b78240ede88a5bbc8977d6fdaf1684b6b01c1c",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/cdefs.h": "1c9b7e900ac563138aa3d72a81fa04fbf744adb927788c903c7a15ed56f254f1",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/codesign.h": "d869735217e7e56be6484bdf26e7b783ec38e06b74f4a9b5d2f99faac37d414b",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/constrained_ctypes.h": "b7a1a4fe34df4b618878f05e6e5d2fa49c2bd388f8957364fafce4c2a4061569",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/errno.h": "c8a527ee020cee45bf69cd150b0c5743c148863d54bfa29e1193caa6af274f36",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/event.h": "3d5bafa95e84a1528dd16ec18c2c4f2d7d8eda198a2591115f7c992ee69f5f9b",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/eventhandler.h": "f75e4238f84598b589228a42d3cb91798a06b6cce08c18ffe053e440c05590f7",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/fcntl.h": "084757ba7bf696ae64e0ed31d431ee9d8bea7fd2fb35e97b0826c668fab00cf7",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/filedesc.h": "e44d61855f723633be7606c1582b6ef06f1bcad1bec92f6ebc865c937112f393",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/filio.h": "df459d9647fffb55107707ca768b75a813370ae5a0d9ea9f6467ce9604acc36d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ioccom.h": "b3284ebc39413010e71d77efbae1b5ec71d2cf0b3c9ae9f2095e7fe827976694",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ioctl.h": "0e04ffc00e601cb42240c56ea32e276c6d6e21d8e870a0a60f0f52afef47f0e1",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ioctl_compat.h": "3a017ea7bb8dcd35d27e540db1839a2fba0529a50f5d7f6b6a6debf6b3a52eb7",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/kern_event.h": "b945de0f064db8028e2f96d6146ec30a7db6323bd397170c2c76c69cfe064a51",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/kernel_types.h": "e19cdbfa558d92ed89b4087f2d4878f7b39b7847e450c645f1566a6b756ca723",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/kpi_mbuf.h": "db0e42d8b61d4671e06144996e30d760edb19f3c8951f45eb41eb5fcd488f1e8",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/kpi_socket.h": "6ac7e61d0a2b1e80ae137b98359bf1c5457cb2c839a09241e100a75a6dc089a6",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/lock.h": "4eb2746b76aa7872a31915b3e0abcda7ab5676dda8f68b20a3ebf6bc9bceab92",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/malloc.h": "f98e0bc90ac5fa53deecc08bd936ac0d21cdc6568e4a4c06254d03c2c5ef6d04",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/mbuf.h": "597b14638d822edfbbacf001333287b51b4acbaaf7588d5c18b96306cca9acac",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/mcache.h": "98b3673f83f151eaace5e9d16dbf3372a00de9fe51179b90d4224f36593af7d9",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/param.h": "054975412e6c24bd225c9ae7b3f5599bbed98a06b36e6be3c350ab00b0c9d412",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/proc.h": "90965db462229fa7b3e2f812d22805a579761d00732cf0295376882440503a93",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/proc_internal.h": "5b7197c46efc97487db4e718c897777c18d6fb1de64920753e79da4c8f0bb4eb",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/proc_ro.h": "e158170822fac897706c8e59b7ffc21a2664d7420e4cf6d42c07b9db568ae820",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/queue.h": "cc64e15ab2e5f2e0b70269305f3acf987c3f375f660af68d81cc012de2b7a2c6",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/resource.h": "50485b14f830a88de25a2f9ca9dccbaf171c22e1cece85667afb9b4e3b63b495",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/select.h": "967cf02c2ac2fba821488b55f7b340eb351a87ec4f81211512748c5b06f6fe1e",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/signal.h": "756fed2cab1ebcff529a90b6216629a4b14ebc58fda84acc314ecad458cd17b8",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/signalvar.h": "a3cc1fbd0ae9796cbfa308a37af7f9ff4078df64fd0d1ea0974233a9cc6df778",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/socket.h": "b97aa23b96bb79f305aab9e0608db655148b82c291b11f948885de20e8b5afdb",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/sockio.h": "37b6267410a1094be5330e43a3155f86e4110a387e419ef9119ba9772a9669aa",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/sys_domain.h": "28254d72b105c9e57bb7029bfac6fe2936901d5cf81c9b9813ca0fe864a27dba",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/sysctl.h": "c8e3ae8a6a560c9d6abcad2f2ea83fe377f9f962179f28c30baab87c002477f4",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/syslimits.h": "6cebe82961b51188ff024eabc7c1ea25ca2cd06529bbedc31141ed1c4bcfb178",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/syslog.h": "58fa4c384555f3069a20644a31245bee42783cec0e795e97e29625f66ec02fb8",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/systm.h": "ebefcfa2cef35b4a9b6b69b3913b46cf19494ef844fc05a7babc67b9b25dfb4f",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/termios.h": "296b9c3459e120c331183bd6115e4e3f09c78c0a5baa55a62d9f3dfde13dcf83",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/time.h": "d94d4d116f23a7a2b761f5dbf970a6efe3f04eaf557bf58d1bc9fe43a4b5021d",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/tree.h": "e3192b8968932e5020a76405b8fc5ec41c190c2296ccaf4fcad207f00c311043",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/tty.h": "5a98ba369decfd259141c401198ac4d49b4cec85ad4893b82e8e493bb1147fbd",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ttychars.h": "7dc0d8fa072df4c77013c9b5e4d259c0c54f9c95d5788126acffa9477804ce4c",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ttycom.h": "13fbbbe40ede4ac4260d3de9d01f6780a9cf907b98828372dc8d26a26df4463a",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ttydefaults.h": "d2ab60271dc08c35f748b815bbf34fc5cd40e9bcbd724f7c72c57ee2a228f3d9",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ttydev.h": "a685322c893b42d215077a09a56b2deae21102ecd9851ad34b3b5e7cb05a342b",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/types.h": "2a5c490fa9b0afc0e88c298256bd5acffbcece680b323c63f172c9a2851a5985",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/ucred.h": "07656fff3ef26e31b5125e9e96a47a787c1a1659c6f0a04c036f735b993eb4db",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/uio.h": "b35dfa5abdad82d757d82045f869c2e6d3b861004e6929f1727d1fe16c6508b3",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/vm.h": "cdf9b052c7d82ccea3118fa36b1e9b6f9b131ef081392c177cdb66eb9ea35279",
+      "${ROOT}/research/xnu-8796-reference/bsd/sys/vmmeter.h": "d905b39cf9d483a075f1e251352ae616e3b5a68a09580fefdb6a06a4cf47f7b8",
+      "${ROOT}/research/xnu-8796-reference/bsd/uuid/uuid.h": "50ce8ec9cee87771ff8d7dc668954ff059c3fe4e960d857b5e7c69de5a81acb2",
+      "${ROOT}/research/xnu-8796-reference/iokit/IOKit/IOInterrupts.h": "12ed6bf742f5c5765fc7ba5bb6566e212117d73a9f183dcc05ee0df87922f8a8",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/OSAtomic.h": "4b1944153e479b7f06eb676d3d799730f3b257f8f704197db7e1c359871cdc82",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/OSBase.h": "d3d2697a914bc09d7542651866598c5ea8eac1a6e7a089b1b9573afd5edfd345",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/OSByteOrder.h": "d17d3304cb999d80a98165490aa38e0a550a8a3fa914b764e906dd68681bd3c9",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/OSTypes.h": "d69bfc819b4c2974d47feef84a9e02b91d723f0901db89e1685d0138a0494f08",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/_OSByteOrder.h": "17e0812916668d7179e319a0bc52fb4f2d51d737d06bba4a122bcc1d56f4f69c",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/arm/OSByteOrder.h": "2f293c0246a66b7ea8acd0c3af286574c29b21a999d055c00a7ed2aa734bc961",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/crc.h": "ee72e1c66e7fb88760ec8970354045554f5b2cfaef677f066cf369c41b82c623",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/kernel_mach_header.h": "2d8f4bafba61fa0bc0f978d23a6e6ae7c5cd4db3f1a13e830eb57582edb01cbc",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/section_keywords.h": "6eb8da4a80eba7377562f47623065571f73ddc837ef8b0e0e07519ed25cc433b",
+      "${ROOT}/research/xnu-8796-reference/libkern/libkern/tree.h": "7bde9f6ba98f15e326813b82dc0e5e9e2d3013c025a91c946f9cd238e80e4939",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/alloc_util.h": "3ec1b31fc914b9a248f1635e44f5f75e701f8709888764e1df61adbdceeda8ff",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/atomic.h": "636a5ec02f2e628d565eb7a6f6c2c21d4d53507b8dda003ccb73e6acd5d516c5",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/atomic_private.h": "5b9cf9206c3a649565a6106daed00a8111a7c812d0f7d250f04b8699bc60e69f",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/atomic_private_arch.h": "f5343911bb19f1acbab608cc2f17f20cf644419ea2ecff259720b45fe05e1c24",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/atomic_private_impl.h": "84585d9e7f440541b90a4e4b299b880b676ffdd15ba0be4eede14b075d30be0d",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/base.h": "575c388233328cfa33281dd5ba1fcf516b1cb395c6771211c93e3176f7c8b804",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/overflow.h": "776965f5343582b345fbe5c6d6b135cc0628d146105639e9339ba53eb69dc1de",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/refcnt.h": "c1841db3343cb6acc4cb986220aac1a8cb81d3731ea202068fb667d0ecab6932",
+      "${ROOT}/research/xnu-8796-reference/libkern/os/refcnt_internal.h": "2254ffa443685b4f65b3035b7ef917afce0c0984a1e3a3541c306c3a2c01edc3",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/arch.h": "9c6c2b16a06afddccc63421fb96e0ba9a444051ba4c9e3a3249e1dfa27bc38cc",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/cpu_number.h": "da610f5bcb8ff05bcce9aaa2b77f7a605a39095afed1036273b853a2b213960d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/locks.h": "55fbc3c18075912c805b3a8d47191269dcd2bc570ab6b13ae7e8d87c2d9862aa",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/machine_routines.h": "1eec9e9dac950421a27a6db83e81adc05ea15eac6549542805ec7a764c43644e",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/memory_types.h": "8844a987bbe0ba4929d1222c950b8b6a75c1c73ce60c6a5bae805eefc112d84b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/assert.h": "80a2de626d3cee3bfe08d2b2d705002c5be59ffa338dee2f1185b8ab4c34a576",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/block_hint.h": "432fa16a0149dcb3136c7bcf48d5c0e180b94abae34c19d94257d93dd63e7d31",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/clock.h": "a2657effae6e918f73f815d9c53e73054cd0a716a38a3ccd77b71050e957afe6",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/counter.h": "0c588f39122e61bfc7dce5f70c38bed6a49659dccac84980f5c0d1d00e227f6b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/cpu_number.h": "8c660625c90fb1d6b36cfe2fb3aad4e83872e12b896a3f97f648483cd7bc4fb1",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/cs_blobs.h": "c6b8b5a37e1c51c7ab9191b319418a50777693da734a0fd53db0714a3b8f3e88",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/debug.h": "162fd7de98ec0cc3c995d111fea91659a6644a8028155cad1972a28709f18f62",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/kalloc.h": "34289216bd95d4691f407996c97d5a64d665153b5470e605ec9391bf1661edd3",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/kcdata.h": "6823438924887f5ed2f42cf797c214c552ec4715f6dd79efe88aaa7d8c93938e",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/kern_types.h": "8d548cef0d89db3f68cde9235ab1dbc4530c76ef8fcb9c39329a73f9fb9825b2",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/lock_attr.h": "f5235929a5c9456a22d2eda390ee3baede014860772af8795d07112e4e038bf8",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/lock_group.h": "2dd628fd59538922fd0f445a19e0bcd4eed66873d40699ebc0a48297c9d4b0d3",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/lock_mtx.h": "e22b95131cb1650c012162a28ac45780ce60765fc89cff5786090cf13753ee31",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/lock_rw.h": "6807b530a6d9b7b9e1a90d17fcc6bbd094aaafd0510ad5068d426f9805e221d4",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/lock_types.h": "5e51b7dfa2877da3db3380826f05738f06d6905be66a355c6e4cd78b74117fba",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/locks.h": "15406ddf29c0d5c5a3d3bfbf48018fcbf58dd989f1f73e3cde0d3b3251aa6e73",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/macro_help.h": "6bf35433d7fab3ea45dd0e19dd0998f59974bf87b2cf2b661be9d45ab3789d24",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/percpu.h": "32cffa403da43aa95117a7b260ad8eb18b36f8d3501265fb6fd26a1ea0144d5a",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/priority_queue.h": "01af0d26efc23747f317d722145044cf511e26eb199730f9a598d4373221e635",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/queue.h": "db927c32690d07ddd39bdba2b20d0966c9f41f1d873006999c465077c65578ef",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/sched_hygiene.h": "a9c6354c65c39982ef74a7c19eeaaa015bacee6c69123b7cbc0745453676e5d0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/sched_prim.h": "ff834a30d9aaa6cbc14fa563f9e22fc29acb70f00ea83b96d3fb7b4394fa3ac6",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/smr.h": "8f441d2337ee55eee5b844f32d49c8e7a0bf943c63df6ce31f40def8187b4b34",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/smr_types.h": "4318d87f70903cc737fb1d36d9e963f44cdd9e3efbfb7b856446f9a3804ca193",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/startup.h": "41afcc8be3e13b2e865fa55be1da100894c74cbd84023ef781392efa746d75f5",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/thread.h": "7251f727bc2fb71271628ef604ce6123d2c5154fe360ae976fafce1f31f06791",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/thread_call.h": "cf5ffaba639866b36a05ef333b612d000081163cecf811cc00357de934865629",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/ticket_lock.h": "ec5e5023965eeb4fb013f2d7d1300c94cd7c5321a803c78d1bd94d5ecc11bfbc",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/trustcache.h": "60a71bb9b8fc7f1ee2d922c35acd04b606b7a6664cb4c0312f2293b5b80793e2",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/waitq.h": "8db2ce057f52e3cbbabb795fd7083bb55e71c6cb85a8ffa2312c6797de792506",
+      "${ROOT}/research/xnu-8796-reference/osfmk/kern/zalloc.h": "883e8219afcf75100c0712ed88f4d656b1d03215b0d21234ca6c9bb9baf8e1a9",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/_structs.h": "4102233310cd4124549e9243208b19e3912c787834d07150398a9b6efec9ebbc",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/boolean.h": "03ceda8c88250b93a3bebca92e03dd558e13fe68e83eff6bba5db32f95b48b6d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/exception.h": "dbf6ea8a4c49412459aec83c89a2ce345bfbd5cffeddb86c8cd983381d4e2df8",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/kern_return.h": "c06cb329babef0663cd8c86b5e5f545fafc8d8659bb83cef75506281187ef9f1",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/processor_info.h": "221c68381baa90adc77aff8e73cb374f9818534ed6f1661ab1ac1313d3bbb7c6",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/thread_state.h": "ab91af1d14bd3ff1e028709e7d4db215eac0df620ff81ad3aa38ae295a50aed0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/thread_status.h": "5c824c3c4f9a235deda98402f95c6155e35c0438a1cbaf902edd42c510cc4a54",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/vm_param.h": "eb24020fe382a83750c2337240ceb5607e05ef68af14390408652f4e4a74e5fb",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/arm/vm_types.h": "b2deb6cfadc2972a42f698b1822393d240f96c1f91426f4f087e0cffc367225d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/boolean.h": "c050da6ed29d186ac403c0ba187031aca3ac32da2b4e618e0d0c8ba1b7665523",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/clock_types.h": "eadbcec07f37d0f7c07dc4c2f7c3a4c5c6949bcdd54c440b484e69dee55f25f0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/coalition.h": "5e1a538798e8787193e9737e1748610e1b0acbdbccc5bbf2148866d1cbce7a76",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/dyld_kernel.h": "1fceeeca56348b1aad6e6c97d5b12c5616094459fad45676b0bd57cb603a9c83",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/exception_types.h": "b1ed0c03559591fb83b55ed2e7f77a923ae168bb506f8a2e34978419fb52b3c4",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/host_info.h": "45903a1cb2b253134ae0482299955aeeab76d4bc3ad066c3e0a50e2c2f1eaf42",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/host_notify.h": "31b3050a653a792d3f40294224d5edd5d0257611b48c34e123ee3296b7bf181a",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/host_special_ports.h": "76193fc29a57891d4f273b009ad80ee38ec24f1ef4ebb8f6fdd29894d032be1c",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/kern_return.h": "4577d58f74dfbb8ef07ce460f82cb7a45999ad2a0479486df8d22658d4847f50",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/kmod.h": "a8fcc1de6620c9484ff96f699d20d37e2b1504615f2acfc547e8f0d14198a2f7",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/mach_param.h": "eab7cbc3713351e426e18a6691119bde459e27fa935feeb3aac5a2d24a4dbb33",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/mach_time.h": "707178ae40a1273c9fa7813f89008d0a34c19a7cc7ef11fc9b5fde7a57b3385d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/mach_types.h": "7ea11e1d6b6ef609b2b2034b952e37f7d94daf265de490837afc50f5cc7eed8e",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/mach_voucher_types.h": "0aaabcd2eb7b388e28783241991273be5fdaa0240618e1a2a9ae1a73097a03e6",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine.h": "71b3deb76b932d672c43ea4ab80e78e5e9ca15f4a4842960a6127fade5ea3d03",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/_structs.h": "410350f04225bf139bd89f1a99418a55734e4ab2101bb93dc301f790a130f59c",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/boolean.h": "a22e0c8c541b9117a86d85ab4a977eda49917a9867b24576f5972b6fa6554f23",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/exception.h": "50a572de0f7b9ddd7925debb3de372a1535baa0a6955c53e5709cbbf3947be94",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/kern_return.h": "160d3b4460244b7f469a34f3030071bd717d2918cb748527c1207ca78310d51d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/processor_info.h": "806acb7cca13b111b07ca0aee27c12e72ea264d7e9220ceaeb2c24889129fd1b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/thread_state.h": "c3f5251c26e2bd1eaad3d57df544254e8ce4ffadde120c5394badcf24f9d6086",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/thread_status.h": "756a3db7289b7cea839f9bd9e9556427ab3c9effa77e552bdc9b2e6e096d2f7c",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/vm_param.h": "574cf089b3d18d6334da1339692ffff16d15d5064692af27fc0a94042603a2d8",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/machine/vm_types.h": "1c2a4ff4b5843ded602775a447494f353a295015ca8d913a0a13439f4ee28654",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/memory_object_types.h": "3e9fb05c03b21dad311c952b1ca4e0d5ff6931bc9602b97bec31948a1030206f",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/message.h": "c68342945823ba76cb43febf39f2cc39b72e6d90b20a67ab2aef33da7bbc823b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/policy.h": "a457c6acb170fab0e17c517959c01098c9625960e1d077d232a89a5b288595b8",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/port.h": "cc7aa46a7211a076bafb507baa6ce38c333c6b96418e2e7193e8cadd8ceabf97",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/processor_info.h": "d96524e982971ed9f369f12247484c8cd956f7aae70e13b7afdc506b80d2f0da",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/resource_monitors.h": "a6428ac39db5a1a6ba28c1a4ac345d1da9f58507e3312ab9c156584b2e6165b8",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/std_types.h": "839d581eb7f1b8ac5d74ed9506fd11f49e287e0c2fb39ffc62f9139dffcdf3fb",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/sync_policy.h": "f6eefc41523b41dee1bac5023b5df3018174512fb265f7ce018ba9b3098bbcd2",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/task_info.h": "54f5264ac024346649c1b2617f83736ee60c7e3e67b96e9bce69e0a601371dfb",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/task_inspect.h": "686e81a4c1c01904b6ce238d98341bc9652dffe7df3e78c2814f12957de04471",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/task_policy.h": "3f11a39e36bc01421d747e416c9ecdc4a7ba53401d9a459c2ad2421aeb8be08f",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/task_policy_private.h": "ea0682963b62eed6ef17b4bb5e4e1bb32ab4bbf5a343a782fc897f057d223132",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/task_special_ports.h": "1229346aa214a879cc8661c1e97752a2a8722b1734add4b43089c834731c088a",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/thread_info.h": "0248ce5526e6239e2e6ee824b358a60f74dff68d81a5ff912aea72e15d54440b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/thread_policy.h": "16fd7bc787aaab51fb76a580d4c18d090936b0b9a4c14ec7d395cace5431ab8b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/thread_policy_private.h": "745d86aaf62b50c495fe946e3387f0b1e5de455a911d7ef75896d840685a0dc0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/thread_special_ports.h": "e1bede553979e7d79b9035c351d303a68f1d0384de5e8098929f07d04f34beb1",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/thread_status.h": "ebffe87f2b535072fb6d6da945fbcdd6da7e6eab26bcb5383807d34e0299162b",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/time_value.h": "b11b0606d2f5f44bd0fa1728928ff6dd301b42d67d5ab2c035a84be85f1f7b21",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_attributes.h": "b00af7534a5025e955c6dec28e8ab2085f652fc59d000f45cf1f9fbe39579222",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_behavior.h": "19f9046991bafec8af9f23d4b3e850ff16e40e291bf1e3ac2f7b33e9e8105cc0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_inherit.h": "e17decc7bed87d828afbf77199b6263d12c1d5219f0f9c5b6600d81d6463d266",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_param.h": "bb01970537f59491c2741323d0b4269bc3f02f4b15ac274df9228954ece9f7da",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_prot.h": "ec56947652b1e62f3b78b70cf706eafa16237b34e26f3607f1f0b22aba7c4392",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_purgable.h": "d63a19a52f2e9cd3c0b7528111f3ee52609ea52b72f28158c92cddff79826c26",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_region.h": "e137d05cf33d62a7303fd5a3f62c6963546fcffbc8fa4aeca65a4d06fa58667d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_statistics.h": "058285cb7f1d52f89f4b3790d742a3e031b77d770116fd694bc7ea0e7fdbfce0",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_sync.h": "666d92238e97817a42ff7c2aeca7ec701eef133bf895661399dcaac266bd63d2",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach/vm_types.h": "df52204bad8668284b16da16007a0b88553dd4dc2e6882093fe2f2d335ad2330",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach_debug/ipc_info.h": "30e7dae3dc521b5394ccc5fdfada8c26b2cec176bbf5bf78ac6d3bae3a9843eb",
+      "${ROOT}/research/xnu-8796-reference/osfmk/mach_debug/zone_info.h": "1f919b1ca0f8b4f6ea4f767701d50965c2a6d2b3e8bafca8f5ddb05f60c93cb1",
+      "${ROOT}/research/xnu-8796-reference/osfmk/machine/config.h": "4e832679f7901f4051853e22b0463723f99848e95d240601869d0d62353af2dc",
+      "${ROOT}/research/xnu-8796-reference/osfmk/machine/cpu_number.h": "9b85c05365b8cf50ddce6724444afb6be9a32523e3dd8f56ba10a45e3453a900",
+      "${ROOT}/research/xnu-8796-reference/osfmk/machine/locks.h": "0650343b50c27f44e5a3f68ab742e2acdd3aaddfae50a107c4f554832120d08d",
+      "${ROOT}/research/xnu-8796-reference/osfmk/machine/machine_routines.h": "d57b9d0d5580aac5750da5b9305028bada988b06555404e440e43ef2de4098ba",
+      "${ROOT}/research/xnu-8796-reference/osfmk/machine/memory_types.h": "692c30fdb36143fcd94ccaeaa514ad79fa25efb54252cc7d6f61cc54170d7062",
+      "${ROOT}/research/xnu-8796-reference/osfmk/vm/memory_types.h": "9d9724be8d1c84f557d93d9b79058dc08d998af9c55ff96a01907be618753959",
+      "${ROOT}/research/xnu-8796-reference/osfmk/vm/pmap.h": "2fcea83f826ed21eab303d80a902b8f81060519398f98d7c3508c1c58d185a14",
+      "${ROOT}/research/xnu-8796-reference/osfmk/vm/vm_kern.h": "f65a4aefbbd0901ec16b39c8d78bcb8c43ea2a2bb7f9f2fbbc5a22d94e6a2ae1",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/arm/consistent_debug.h": "b3fec17406455918e4b836e9f02d6329d8b39b89ea9ffb2709eba99f3fdf02a8",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/arm/protos.h": "23ac6d9f9b7e5f34d911359007cef4394d3d58665c5339de52184cde7fb10b7f",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/arm64/boot.h": "efdfec46319cb147297682a8faebe02873f845261b57f7511ab8e15c13ef3439",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/boot.h": "3273a124a1b743e7bf53252e5a2ce158aa63090a25467d6b95e8024a39e3aa4b",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/device_tree.h": "a558ceea1bfff5b5d381550db38cba482a6fe67096e2cab89073ab3c9ecb8ccf",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/machine/boot.h": "208e5c5cacd10b9f1c9c5c39a7e66dba22d88a8d3e71ad4b7acc2f455a774bd0",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/pexpert.h": "21f595229a45958b377f71f1aef48fb86119c7168283b6fb76b29e65dad4943f",
+      "${XCODE}/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/Availability.h": "d39d74d343b5f3dc147525c5f4ba99c1ae9133bccc57eb6205a74d0ba99d92cb",
+      "${XCODE}/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/AvailabilityInternal.h": "4b7f7e27b33d7ccdcc21654b0016eaa4187ce63387eb135babf269cddedcb9b0",
+      "${XCODE}/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/AvailabilityInternalLegacy.h": "4c15ffce0467946a20beaa2eb25eba2cbe1788c620aaeb2516c39436a88fe276",
+      "${XCODE}/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/ptrcheck.h": "ac60d1e96ac17d789d1879b968d391dfbfa222f12213ba95f14592453eebe338"
+    }
+  },
+  "draft_patches": [
+    {
+      "number": 103,
+      "path": "${ROOT}/research/pixelios-kernel/xnu/patches/0103-oriole-readonly-ufs-root-validation.patch",
+      "sha256": "e3506f764dacd726ccae1c84b01f352633964a410c0e3ae47f3f169c6a18a31e"
+    },
+    {
+      "number": 104,
+      "path": "${ROOT}/research/pixelios-kernel/xnu/patches/0104-sweet-usb-log-cursor-and-reset-poll.patch",
+      "sha256": "96cf37a9e81c01b943b4fef1ceae4595f1062c10860c11476f25333feaa0370b"
+    }
+  ],
+  "expected_objects": {
+    "baseline": {
+      "sweet_ufs.o": "0a1cdea622e5f4128addd3cb45d737461ad25831d9942ab568224d31e411c2c8",
+      "sweet_usb.o": "130aae55fe991821b604362b12b362ddcd9851e0238b2046efdc438d947aa833"
+    },
+    "patched": {
+      "sweet_ufs.o": "762a5b0a033635fa8f513eb8969ebb2b068a8f84898d0f441e4c1cd291e20624",
+      "sweet_usb.o": "0672bfb4eacf840d8c9bafc34b223d03ea8033640d4d975257b06e029c212cc9"
+    }
+  },
+  "installed_header_tree": {
+    "path": "${ROOT}/artifacts/native-kernel/fakeroot/System/Library/Frameworks/Kernel.framework/Versions/A",
+    "sha256": "c367378a0b25570ed5d9381336478bc0291c58979d544f60d1a5c2ab05b5be61"
+  },
+  "overlay": {
+    "derivation": {
+      "caches_internal": "pinned unifdef -DMACH_KERNEL_PRIVATE over pinned official header",
+      "development_options": "verify pinned config/MASTER enables CONFIG_DTRACE and LOCK_STATS; these translation units do not include generated mach_assert.h",
+      "sweet_machine_headers": "copy pinned XNU proc_reg.h and board_config.h, then apply committed patch 0004 only"
+    },
+    "inputs": {
+      "${ROOT}/research/xnu-8796-reference/config/MASTER": "e89579a814c1cf6b32ebf99119fa57d42725e085ccad677d9fdb3175d4f58c3a",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm/caches_internal.h": "b74c450c23c6e4730eb7b0a1df886f6e3d4b9f1d51294d69be66f4495eee9d1c",
+      "${ROOT}/research/xnu-8796-reference/osfmk/arm64/proc_reg.h": "129f4d42d97c8c403dd83ebbb99bb7ccc3954adfcbb9621bcf08f8f8b218b33b",
+      "${ROOT}/research/xnu-8796-reference/pexpert/pexpert/arm64/board_config.h": "1de4d28c9f2896dadbe0e1a430a9b2cea463817dd13523f03583a3a4c3edaab9"
+    },
+    "outputs": {
+      "osfmk/arm/caches_internal.h": "bf0b9004bf44c2041afca3a7b1c3b17ac72b1a82f50337ae8e02854fe3888dcb",
+      "osfmk/arm64/proc_reg.h": "d1ee94a900c134ebcc2bb12f3e1a6b6a9dfbbf6a543bfb71a812f8b16cf50116",
+      "pexpert/pexpert/arm64/SWEET.h": "4241c9a1561a77e16cecaf3c07f89a7d3f1cf89efc97a8adc85c8707f9fd4d00",
+      "pexpert/pexpert/arm64/board_config.h": "18743c1a6536505295d209d7d22ada6a276e3d25ae10bed1c33a2ee6abfab0ba"
+    }
+  },
+  "reference_archive": {
+    "members": {
+      "sweet_ufs.o": "068d0b32415fc1df29638fdb80ce6b3101975b4df2651e3ce8434c7f187b4393",
+      "sweet_usb.o": "968d1e89d8b48fce3a69fa03f998b804449c080fed92528574682e9981537e7b"
+    },
+    "path": "${ROOT}/artifacts/xnu-reference/kernel.development.sweet.link/kernel.development.sweet.a",
+    "sha256": "b2727483286c777c50a9a1d083f3f661c8d4489b48ed38bd5f48d5771ec49aea"
+  },
+  "schema": 1,
+  "source_outputs": {
+    "baseline": {
+      "bsd/dev/sweet_ufs.c": "437ddba07cbf75a67900e6f78e9907c92297226bb0ecf81d5194dafb634faee2",
+      "bsd/dev/sweet_usb.c": "a3580533c69799284c0497f4de96246e2e637240c051963e98fc32d76813859b"
+    },
+    "patched": {
+      "bsd/dev/oriole_ufs_guard.h": "b9f175ca67f0045ad8dc1c1f2949a2ea8c8d679002d2390ee5a37e0348d521a8",
+      "bsd/dev/sweet_ufs.c": "2fac79b55cf093b0d2fd7a7dcd4ddb924ce8f075975d0a02a0d6ffe634574d0d",
+      "bsd/dev/sweet_usb.c": "9793df7f007429dfbb09c14a51161a4da540e94c1774a27c70959b4961e3aabf"
+    }
+  },
+  "source_revisions": {
+    "patches": {
+      "commit": "8fe7690f77c06767f0a1b503a2aae39140695974",
+      "path": "${ROOT}/research/pixelios-kernel"
+    },
+    "xnu": {
+      "commit": "1b191cb58250d0705d8a51287127505aa4bc0789",
+      "path": "${ROOT}/research/xnu-8796-reference"
+    }
+  },
+  "status": "offline object-build input policy; does not authorize linking, payload creation, or hardware boot",
+  "tools": {
+    "ar": {
+      "path": "${XCODE}/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar",
+      "sha256": "37ce0999654a9a265bd5ba6cd737d995f18d4c96f63ca117178b47d26d38fb1d"
+    },
+    "clang": {
+      "path": "${XCODE}/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+      "sha256": "06e3d64f541c65a93acd176690bdaae13a3d7db092c8b98b392d4c6d0d03f176",
+      "version_prefix": "Apple clang version 21.0.0 (clang-2100.3.34.2)"
+    },
+    "git": {
+      "path": "${XCODE}/Contents/Developer/usr/bin/git",
+      "sha256": "fc70e33c773264c837e9e3ecee7e508567a2104452652444cc5563e65376dd2e"
+    },
+    "unifdef": {
+      "path": "${XCODE}/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/unifdef",
+      "sha256": "137a640294150d85dae095b12e6762705cd79e9129bb7dbde23a0be664bac105"
+    }
+  }
+}

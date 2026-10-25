@@ -14,6 +14,13 @@ class BootBaselineTests(unittest.TestCase):
     def test_same_baseline_accepted(self):
         check_firmware(self.values.__getitem__,self.baseline,'xnu-loadcheck')
 
+    def test_storage_modes_remain_closed_until_explicitly_added(self):
+        for mode in ('xnu-ufsroot-loadcheck','xnu-ufsroot'):
+            with self.assertRaisesRegex(SystemExit,'not validated'):
+                check_firmware(self.values.__getitem__,self.baseline,mode)
+            opened=dict(self.baseline,allowed_modes=self.baseline['allowed_modes']+[mode])
+            self.assertEqual(check_firmware(self.values.__getitem__,opened,mode),'a')
+
     def test_ota_bootloader_and_slot_drift_refused_independently(self):
         for key,new in [('version-bootloader','slider-17.0-15681480'),('current-slot','b')]:
             values=dict(self.values);values[key]=key+': '+new
