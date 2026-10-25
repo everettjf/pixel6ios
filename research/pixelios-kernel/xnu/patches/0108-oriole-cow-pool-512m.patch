@@ -1,0 +1,8 @@
+--- a/bsd/dev/sweet_ufs.c
++++ b/bsd/dev/sweet_ufs.c
+@@ -131,4 +131,4 @@
+  * every data-out command, and ufs_write_blocks still rejects Oriole. */
+ #define ORIOLE_COW_BUCKETS 16384u
+-#define ORIOLE_COW_MAX_PAGES 65536u
++#define ORIOLE_COW_MAX_PAGES 131072u
+ struct oriole_cow_page {

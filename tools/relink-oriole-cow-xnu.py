@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Offline Oriole RAM-COW kernel relink; never prepares or boots a phone image.
 
-Verifies the exact 0105–0107 patches, reconstructed source, compiler recipe and
-replacement object before linking. Success here is not hardware approval.
+Verifies the exact 0105–0107 patches (plus optional 0108), reconstructed source,
+compiler recipe and replacement object before linking. Success here is not
+hardware approval.
 """
 import argparse
 from collections import Counter
@@ -286,8 +287,26 @@ def verify_output(reference, blob, md0):
 
 
 def main():
+    global PATCHES, SOURCE, COMMAND, OBJECT, OUT, COW_PINS
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.parse_args()
+    ap.add_argument('--pool-512', action='store_true',
+                    help='relink the reviewed 131072-page Oriole COW reserve')
+    args = ap.parse_args()
+    if args.pool_512:
+        work = ROOT / 'private/oriole-cow512-work'
+        patch = ROOT / 'research/pixelios-kernel/xnu/patches/0108-oriole-cow-pool-512m.patch'
+        for old in (SOURCE, COMMAND, OBJECT):
+            del COW_PINS[old]
+        PATCHES = [*PATCHES, patch]
+        SOURCE = work / 'sweet_ufs.c'
+        COMMAND = work / 'compile-command.json'
+        OBJECT = work / 'sweet_ufs.cow512.o'
+        OUT = work / 'relink'
+        COW_PINS = {**COW_PINS,
+            patch: '27841b687b0ffa2f63924a2432fab0008fbf35d31468703b71f702dec5a75e73',
+            SOURCE: '8e52498587326544750aa87e7a0b90ae9c6100b03f9fb26d1e38e6787c44d00f',
+            COMMAND: '63014347cae2c51ac042596c2c596c9625e5c2240be0036fe3e78df2279e4bb2',
+            OBJECT: '71f294598feab9fcf4637af513fa5683a84dc3b72cfc069763702e738708278c'}
     # Invalidate both published outputs before any input validation. A failed
     # run must never leave a prior success-looking kernel/manifest pair.
     OUT.mkdir(parents=True,exist_ok=True)
