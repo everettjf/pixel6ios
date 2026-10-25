@@ -33,6 +33,7 @@ dvfs_khz=
 inventory=0
 inventory_display=0
 inventory_ufs=0
+inventory_ufs_ready=0
 ramprobe=0
 loadcheck=0
 resetcheck=0
@@ -52,6 +53,7 @@ while [ "$#" -gt 0 ]; do
 		--xnu-ramprobe) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--inventory) inventory=1; usb_gadget=1; shift ;;
 		--inventory-ufs) inventory=1; inventory_ufs=1; usb_gadget=1; shift ;;
+		--inventory-ufs-ready) inventory=1; inventory_ufs=1; inventory_ufs_ready=1; usb_gadget=1; shift ;;
 		--inventory-display) inventory=1; inventory_display=1; usb_gadget=1; shift ;;
 		--avb) avb=1; shift ;;
 		--pstore-fast) pstore_fast=1; shift ;;
@@ -297,6 +299,7 @@ if [ "$qrlog" = 1 ]; then
 	CFLAGS="$CFLAGS -DQRLOG -I../qrlog -I../qrlog/stubs"
 fi
 [ "$inventory_ufs" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_UFS"
+[ "$inventory_ufs_ready" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_UFS_READY"
 [ "$inventory_display" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_DISPLAY"
 mkdir -p out
 # Invalidate provenance before every build, including failed/non-AVB builds.

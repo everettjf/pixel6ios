@@ -18,6 +18,11 @@
 #ifdef INVENTORY_UFS
 #include "ufsinventory_guard.h"
 #include "ufsinventory_gpt.h"
+static volatile unsigned inventory_controller_owned;
+#endif
+#ifdef INVENTORY_UFS_READY
+#include "ufsroot_prepare.h"
+static volatile unsigned ready_preflight;
 #endif
 
 #ifndef UFS_BASE
@@ -513,7 +518,20 @@ static int ufs_slot_clear(const char *label)
  * pending IS bits. Never ring a doorbell onto a list that is not ours. */
 static int ufs_takeover_list(const struct ufs_dma *dma, const char *label)
 {
+#ifdef INVENTORY_UFS_READY
+    if (ufs_rd(REG_UTRLDBR)) return 0;
+    inventory_controller_owned=2; /* uncertain until the new base is verified */
+#endif
 	ufs_wr(REG_UTRLRSR, 0);
+#ifdef INVENTORY_UFS_READY
+    uint64_t stop_start=ticks();
+    while (ufs_rd(REG_UTRLRSR)&1) {
+        if (ticks()-stop_start>counter_freq()/10) {
+            con_str(label,"foreign UTRL stop timeout"); return 0;
+        }
+    }
+    if (ufs_rd(REG_UTRLDBR)) return 0;
+#endif
 	uintptr_t list = (uintptr_t)dma->utrl;
 	ufs_wr(REG_UTRLBA, (uint32_t)list);
 	ufs_wr(REG_UTRLBAU, (uint32_t)(list >> 32));
@@ -534,6 +552,13 @@ static int ufs_takeover_list(const struct ufs_dma *dma, const char *label)
     }
 #endif
 	uint32_t stale = ufs_rd(REG_UTRLDBR);
+#ifdef INVENTORY_UFS_READY
+    if (stale) {
+        con_hex("UFS foreign doorbell after takeover",stale);
+        return 0;
+    }
+    inventory_controller_owned=1;
+#else
 	if (stale) {
 		ufs_wr(REG_UTRLCLR, stale);	/* BROKEN_REQ_LIST_CLR: write 1 */
 		uint64_t start = ticks();
@@ -545,6 +570,7 @@ static int ufs_takeover_list(const struct ufs_dma *dma, const char *label)
 		}
 		con_hex2(label, "cleared stale=", stale, "left=", ufs_rd(REG_UTRLDBR));
 	}
+#endif
 	uint32_t is = ufs_rd(REG_IS);
 	if (is)
 		ufs_wr(REG_IS, is);	/* write-1-to-clear */
@@ -820,16 +846,35 @@ static void report_placement(const char *what, uint64_t addr, uint64_t size,
 }
 
 #ifdef INVENTORY_UFS
-static volatile unsigned inventory_controller_owned;
 int try_read32(uintptr_t address,uint32_t *value);
 int try_write32(uintptr_t address,uint32_t value);
+#ifdef INVENTORY_UFS_READY
+/* Same CP3A read-only preflight used by the XNU preparation check. */
+int ufsroot_hw_read(uintptr_t pa,uint32_t *value)
+{
+    if (!(pa==UR_CAP || pa==UR_VER || pa==UR_HCS || pa==UR_HCE || pa==UR_DBR || pa==UR_RSR)) return 0;
+    return try_read32(pa,value);
+}
+#endif
 /* Same existing HCI registers/gs101 write-one clear semantics as
  * ufs_slot_clear and ufs_takeover_list. No CDB or media command here. */
 int ufs_inventory_stop(void)
 {
+#ifdef INVENTORY_UFS_READY
+    /* A refused preflight leaves state 2: reset without USB fallback. */
+    if (!inventory_controller_owned) return urs_stop(&ready_preflight);
+    /* An unproved takeover may still refer to a foreign list. Reset only. */
+    if (inventory_controller_owned!=1) return 0;
+#else
     if (!inventory_controller_owned) return 1;
+#endif
     uint32_t dbr=0,rsr=1; int cleared=0,stopped=0;
     if (!try_read32(UFS_BASE+REG_UTRLDBR,&dbr)) return 0;
+#ifdef INVENTORY_UFS_READY
+    /* At the end of an attempt no command is ours. A live doorbell is
+     * uncertain, even in slots zero/one: reset instead of clearing it. */
+    if (dbr) return 0;
+#endif
     if (dbr && !try_write32(UFS_BASE+REG_UTRLCLR,dbr)) return 0;
     for (uint64_t start=ticks(); ticks()-start<counter_freq();) {
         if (!try_read32(UFS_BASE+REG_UTRLDBR,&dbr)) break;
@@ -845,7 +890,13 @@ int ufs_inventory_stop(void)
     __asm__ volatile("dsb sy" ::: "memory");
     if (!try_read32(UFS_BASE+REG_UTRLDBR,&dbr) || dbr) cleared=0;
     con_hex2("UFS INVENTORY stopped","dbr=",dbr,"rsr=",rsr);
-    if (cleared && stopped) { inventory_controller_owned=0; return 1; }
+    if (cleared && stopped) {
+#ifdef INVENTORY_UFS_READY
+        if (!urs_stop(&ready_preflight)) return 0;
+#endif
+        inventory_controller_owned=0;
+        return 1;
+    }
     con_str("UFS INVENTORY","quiesce failed: reset immediately");
     return 0;
 }
@@ -911,10 +962,19 @@ void test_ufs_bluejay(uintptr_t dtb)
         con_str("UFS INVENTORY", "live DMA placement refused"); return;
     }
     con_hex("UFS INVENTORY high DMA", UFS_INVENTORY_BASE);
+#ifdef INVENTORY_UFS_READY
+    struct urs_diag ready_diag;
+    if (!urs_prepare(&ready_preflight,&ready_diag)) {
+        con_hex2("UFS READY-HOST refused","code=",ready_diag.code,"value=",ready_diag.value);
+        return;
+    }
+    con_str("UFS READY-HOST","no cold init; guarded NOP/TUR/capacity");
+#else
     inventory_controller_owned=1;
     if (ufs_cold_init()) {
         con_str("UFS INVENTORY", "cold init failed"); return;
     }
+#endif
 #endif
     uint32_t cap = ufs_rd(REG_CAP), hcs = ufs_rd(REG_HCS), hce = ufs_rd(REG_HCE);
 	con_hex2("UFS", "hce=", hce, "hcs=", hcs);

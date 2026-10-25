@@ -14,6 +14,7 @@ CHECKOUT = ROOT / 'research/pixelios-kernel'
 
 
 KNOWN_MODES = frozenset(('inventory', 'inventory-display', 'inventory-ufs',
+                         'inventory-ufs-ready',
                          'xnu-ramprobe', 'xnu-loadcheck', 'xnu-resetcheck',
                          'xnu-md0usb', 'xnu-md0usb-loadcheck',
                          'xnu-ufsroot', 'xnu-ufsroot-loadcheck',
@@ -124,7 +125,7 @@ def main():
     if (fastboot_value(getvar('product'), 'product') != 'oriole' or
             fastboot_value(getvar('unlocked'), 'unlocked') != 'yes'):
         raise SystemExit('Target must be unlocked oriole')
-    mode = ('xnu-ufsroot-preparecheck' if args.ufsroot_preparecheck else 'xnu-ufsroot-loadcheck' if args.ufsroot_loadcheck else 'xnu-ufsroot' if args.ufsroot else 'xnu-md0usb-loadcheck' if args.md0usb_loadcheck else 'xnu-md0usb' if args.md0usb else 'xnu-resetcheck' if args.resetcheck else 'xnu-loadcheck' if args.loadcheck else 'xnu-ramprobe' if args.ramprobe else 'inventory-ufs' if b'UFS INVENTORY' in kernel else
+    mode = ('xnu-ufsroot-preparecheck' if args.ufsroot_preparecheck else 'xnu-ufsroot-loadcheck' if args.ufsroot_loadcheck else 'xnu-ufsroot' if args.ufsroot else 'xnu-md0usb-loadcheck' if args.md0usb_loadcheck else 'xnu-md0usb' if args.md0usb else 'xnu-resetcheck' if args.resetcheck else 'xnu-loadcheck' if args.loadcheck else 'xnu-ramprobe' if args.ramprobe else 'inventory-ufs-ready' if b'UFS READY-HOST' in kernel else 'inventory-ufs' if b'UFS INVENTORY' in kernel else
             'inventory-display' if b'RDMA channel' in kernel else 'inventory')
     baseline = json.loads((ROOT / 'private/boot-baseline.json').read_text())
     slot = check_firmware(getvar, baseline, mode)

@@ -28,7 +28,7 @@ class InventoryGateTests(unittest.TestCase):
                      ['--pstore-fast'], ['--qrlog'], ['payload.bin']]:
             with self.subTest(args=args):
 
-                for mode in ['--inventory', '--inventory-display', '--inventory-ufs']:
+                for mode in ['--inventory', '--inventory-display', '--inventory-ufs', '--inventory-ufs-ready']:
                     self.reject([mode] + args, '--inventory cannot run')
 
     def test_fixed_dma_override_closed(self):
@@ -37,8 +37,10 @@ class InventoryGateTests(unittest.TestCase):
     def test_ufs_overrides_closed(self):
         for name in ['UFS_DMA_HI_BASE', 'UFS_ATTEMPTS', 'XNU_UFS', 'REBOOT_BL']:
             with self.subTest(variable=name):
-                self.reject(['--inventory-ufs'], 'forbids overrides', **{name: '1'})
+                for mode in ['--inventory-ufs', '--inventory-ufs-ready']:
+                    self.reject([mode], 'forbids overrides', **{name: '1'})
         self.reject(['--inventory-ufs', '--inventory-display'], 'forbids overrides')
+        self.reject(['--inventory-ufs-ready', '--inventory-display'], 'forbids overrides')
 
     def test_window_bounded(self):
         for value in ['0', '61', '-1', 'garbage']:
