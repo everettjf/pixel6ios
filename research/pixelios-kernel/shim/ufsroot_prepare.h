@@ -70,6 +70,18 @@ static inline int urs_prepare(volatile unsigned *active,struct urs_diag *diag)
     return 1;
 }
 
+/* After a shim-owned controller re-init, keep the externally visible state
+ * reset-only until all the same read-only checks have passed again. A fault
+ * during the second probe must never make USB fallback appear safe. */
+static inline int urs_recheck_after_reinit(volatile unsigned *active,struct urs_diag *diag)
+{
+    if (*active!=2) { diag->code=0; diag->value=*active; return 0; }
+    volatile unsigned candidate=0;
+    if (!urs_prepare(&candidate,diag)) return 0;
+    *active=1;
+    return 1;
+}
+
 static inline int urs_handoff(volatile unsigned *active)
 {
     if (*active!=1) return 0;

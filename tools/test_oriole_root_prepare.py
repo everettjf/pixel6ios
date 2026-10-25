@@ -37,7 +37,7 @@ int main(int argc,char **argv) {
  if(mode==13)rsr=2;
  struct urs_diag diag;
  int result=urs_prepare(&active,&diag);
- int expected=!fail_read ? (mode==0 || mode==2 || mode==9 || mode==10 || mode==11) : fail_read>8;
+ int expected=!fail_read ? (mode==0 || mode==2 || mode==9 || mode==10 || mode==11 || (mode>=14 && mode<=17)) : fail_read>8;
  assert(result==expected);
  if(result)assert(diag.code==9 && diag.value==0);
  if(!result && fail_read && fail_read<=8)assert(diag.code==(unsigned)(0x100+fail_read));
@@ -48,6 +48,16 @@ int main(int argc,char **argv) {
  }
  if(!result){assert(active==2 && !urs_stop(&active));return 0;}
  assert(active==1);
+ if(mode>=14 && mode<=17){
+  assert(urs_handoff(&active) && active==2);
+  reads=0;fail_read=mode==15?1:0;
+  if(mode==16)dbr=2;if(mode==17)rsr=2;
+  int checked=urs_recheck_after_reinit(&active,&diag);
+  assert(checked==(mode==14));
+  if(checked)assert(active==1 && urs_stop(&active) && active==0);
+  else assert(active==2 && !urs_stop(&active));
+  return 0;
+ }
  if(mode==9)dbr=2;if(mode==10)rsr=1;
  if(mode==11){assert(urs_handoff(&active));assert(active==2);assert(!urs_stop(&active));return 0;}
  int stopped=urs_stop(&active);
@@ -65,7 +75,7 @@ int main(int argc,char **argv) {
     def tearDownClass(cls):cls.tmp.cleanup()
 
     def test_readonly_preconditions_cleanup_and_handoff(self):
-        for mode in range(14):
+        for mode in range(18):
             with self.subTest(mode=mode):
                 subprocess.run([str(self.exe),str(mode),'0'],check=True,timeout=5)
 

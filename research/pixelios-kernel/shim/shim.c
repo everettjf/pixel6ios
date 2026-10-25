@@ -553,7 +553,24 @@ int oriole_ufsroot_prepare(void)
         con_hex2("UFS PREFLIGHT","code=",diag.code,"value=",diag.value);
         return 0;
     }
+#ifdef ORIOLE_UFS_COLDINIT
+    /* The ready-host trial timed out on its first NOP; the same phone's
+     * inventory cold-init completed NOP/TUR/capacity. The first preflight
+     * proves no foreign doorbell before taking reset-only writer ownership.
+     * Any fault or failed init resets; only a second checked preflight can
+     * reopen the safe-to-return state. No media command is sent here. */
+    if (!urs_handoff(&ufsroot_active)) return 0;
+    uint32_t rc=(uint32_t)ufs_cold_init();
+    con_hex("ORIOLE_UFS_COLDINIT rc",rc);
+    if (rc) return 0;
+    if (!urs_recheck_after_reinit(&ufsroot_active,&diag)) {
+        con_hex2("UFS REINIT PREFLIGHT","code=",diag.code,"value=",diag.value);
+        return 0;
+    }
+    con_str("ORIOLE_UFS_COLDINIT","cold init and read-only recheck passed");
+#else
     con_str("ORIOLE_UFS_ROOT","existing HCE1 DP1 64AS VER300 DBR0 RSR0/1; no shim UFS writes");
+#endif
     return 1;
 }
 int oriole_ufsroot_handoff(void) { return urs_handoff(&ufsroot_active); }
@@ -585,6 +602,11 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 #ifdef ORIOLE_UFS_PREPARECHECK
     /* The read-only preflight may deliberately skip USB on an unsafe
      * controller state. Leave the reason visible for a camera before reset. */
+#ifdef ORIOLE_UFS_COLDINIT
+    /* A failed writer attempt is reset-only; do not hold a partial re-init
+     * live for the camera timeout with both watchdogs disabled. */
+    if (ufsroot_active==2) bluejay_reset_chain();
+#endif
     con_str("ORIOLE_UFS_PREPARECHECK", "screen diagnostic: 120 seconds");
     wait_ticks(counter_freq() * 120);
 #endif
@@ -1155,6 +1177,9 @@ void exc_handler(uint64_t slot, uint64_t *regs)
 	con_hex("X1", regs[1]);
 	con_hex("X30", regs[31]);	/* vent stashed x29/x30 below the frame: regs[30]=x29, regs[31]=x30 */
 #ifdef ORIOLE_UFS_PREPARECHECK
+#ifdef ORIOLE_UFS_COLDINIT
+    if (ufsroot_active==2) bluejay_reset_chain();
+#endif
     con_str("ORIOLE_UFS_PREPARECHECK", "panic screen: 120 seconds");
     wait_ticks(counter_freq() * 120);
 #endif

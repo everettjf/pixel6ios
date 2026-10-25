@@ -16,7 +16,8 @@ class BootBaselineTests(unittest.TestCase):
 
     def test_storage_modes_remain_closed_until_explicitly_added(self):
         for mode in ('inventory-ufs-ready', 'xnu-ufsroot-loadcheck',
-                     'xnu-ufsroot-preparecheck', 'xnu-ufsroot'):
+                     'xnu-ufsroot-preparecheck', 'xnu-ufsroot',
+                     'xnu-ufsroot-coldinit', 'xnu-ufsroot-coldinit-preparecheck'):
             with self.assertRaisesRegex(SystemExit,'not validated'):
                 check_firmware(self.values.__getitem__,self.baseline,mode)
             opened=dict(self.baseline,allowed_modes=self.baseline['allowed_modes']+[mode])
