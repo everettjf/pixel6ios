@@ -546,20 +546,13 @@ int ufsroot_hw_read(uintptr_t pa,uint32_t *value)
     if (!(pa==UR_CAP || pa==UR_VER || pa==UR_HCS || pa==UR_HCE || pa==UR_DBR || pa==UR_RSR)) return 0;
     return try_read32(pa,value);
 }
-int ufsroot_hw_write(uintptr_t pa,uint32_t value)
-{
-    /* Only stop-list=0; no request-list base, doorbell, UTRLCLR or media CDB. */
-    if (pa!=UR_RSR || value!=0) return 0;
-    return try_write32(pa,value);
-}
-void ufsroot_wait_ms(unsigned ms) { delay_ms(ms); }
-int ufsroot_cold_init(void) { return ufs_cold_init(); }
 int oriole_ufsroot_prepare(void)
 {
     if (!urs_prepare(&ufsroot_active)) return 0;
-    con_str("ORIOLE_UFS_ROOT","cold-init PASS; HCE1 DP1 64AS VER300 DBR0 RSR0; no shim DMA");
+    con_str("ORIOLE_UFS_ROOT","existing HCE1 DP1 64AS VER300 DBR0 RSR0; no shim UFS writes");
     return 1;
 }
+int oriole_ufsroot_handoff(void) { return urs_handoff(&ufsroot_active); }
 #endif
 
 static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)

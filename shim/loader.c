@@ -21,6 +21,7 @@
 #ifdef ORIOLE_UFSROOT
 #include "ufsroot_guard.h"
 extern int oriole_ufsroot_prepare(void);
+extern int oriole_ufsroot_handoff(void);
 #else
 #include "ramprobe_guard.h"
 #endif
@@ -180,6 +181,11 @@ const char *loader_boot(uintptr_t dtb)
 #endif
 #endif
 	con_str("XNU", "jumping (fbcon clears screen)");
+#ifdef ORIOLE_UFSROOT
+    /* XNU now owns the host. Any later shim fault/return must reset directly,
+     * never clear an XNU request list or start the shim USB gadget. */
+    if (!oriole_ufsroot_handoff()) return "UFS ownership transfer refused";
+#endif
 
 	/* Everything was written with the MMU and caches off; drop any stale I-cache lines too. */
 	__asm__ volatile("dsb sy; ic iallu; dsb sy; isb" ::: "memory");
