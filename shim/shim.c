@@ -548,7 +548,11 @@ int ufsroot_hw_read(uintptr_t pa,uint32_t *value)
 }
 int oriole_ufsroot_prepare(void)
 {
-    if (!urs_prepare(&ufsroot_active)) return 0;
+    struct urs_diag diag;
+    if (!urs_prepare(&ufsroot_active,&diag)) {
+        con_hex2("UFS PREFLIGHT","code=",diag.code,"value=",diag.value);
+        return 0;
+    }
     con_str("ORIOLE_UFS_ROOT","existing HCE1 DP1 64AS VER300 DBR0 RSR0; no shim UFS writes");
     return 1;
 }

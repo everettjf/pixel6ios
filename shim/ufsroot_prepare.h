@@ -12,6 +12,21 @@
 #define UR_RSR (UR_HCI+0x60)
 int ufsroot_hw_read(uintptr_t pa,uint32_t *value);
 
+/* Diagnostic code 1..8 identifies the check; bit 8 means its MMIO read
+ * faulted. Values are copied only from successful reads. */
+struct urs_diag { uint32_t code, value; };
+
+static inline int urs_checked_read(uintptr_t pa,uint32_t *value,
+                                   struct urs_diag *diag,uint32_t code)
+{
+    diag->code=code|0x100;
+    diag->value=0;
+    if (!ufsroot_hw_read(pa,value)) return 0;
+    diag->code=code;
+    diag->value=*value;
+    return 1;
+}
+
 static inline int urs_quiet(void)
 {
     uint32_t dbr,rsr;
@@ -32,20 +47,23 @@ static inline int urs_stop(volatile unsigned *active)
     return 1;
 }
 
-static inline int urs_prepare(volatile unsigned *active)
+static inline int urs_prepare(volatile unsigned *active,struct urs_diag *diag)
 {
     uint32_t dbr,rsr,hce,hcs,cap,ver;
     /* Refuse stale activity; never write UFS registers in the shim. */
     unsigned prior=*active;
     *active=2; /* attempted but not yet proved safe: reset-only on refusal */
-    if (prior || !ufsroot_hw_read(UR_DBR,&dbr) || dbr ||
-        !ufsroot_hw_read(UR_RSR,&rsr) || (rsr&1)) return 0;
-    if (!(ufsroot_hw_read(UR_HCE,&hce) && (hce&1) &&
-        ufsroot_hw_read(UR_HCS,&hcs) && (hcs&1) &&
-        ufsroot_hw_read(UR_CAP,&cap) && (cap&(1u<<24)) &&
-        ufsroot_hw_read(UR_VER,&ver) && ver==0x300 &&
-        urs_quiet())) return 0;
+    diag->code=0;diag->value=prior;
+    if (prior || !urs_checked_read(UR_DBR,&dbr,diag,1) || dbr ||
+        !urs_checked_read(UR_RSR,&rsr,diag,2) || (rsr&1) ||
+        !urs_checked_read(UR_HCE,&hce,diag,3) || !(hce&1) ||
+        !urs_checked_read(UR_HCS,&hcs,diag,4) || !(hcs&1) ||
+        !urs_checked_read(UR_CAP,&cap,diag,5) || !(cap&(1u<<24)) ||
+        !urs_checked_read(UR_VER,&ver,diag,6) || ver!=0x300 ||
+        !urs_checked_read(UR_DBR,&dbr,diag,7) || dbr ||
+        !urs_checked_read(UR_RSR,&rsr,diag,8) || (rsr&1)) return 0;
     *active=1;
+    diag->code=9;diag->value=0;
     return 1;
 }
 
