@@ -1,0 +1,154 @@
+OBSERVED ON HARDWARE: 2026-10-24, 89404f4, image SHA256 452196b0c34b64d9abf8c083502043d1b53bf75cbb59afb9ffb9b2cbb0db6354
+Bootloader slider-17.0-15199431; USB capture run2. Boot args omitted.
+INVENTORY oriole: headless, no storage access
+ENTRY EL 0000000000000002
+LIVE FDT 000000008A000000
+WDT CL0 WTCON=0001AF39 WTCNT=0000FF8B
+WDT CL0 stopped=0001AF18 disabled=00000000
+WDT CL1 WTCON=00018021 WTCNT=00008000
+WDT CL1 stopped=00018000 disabled=00000000
+CPU MIDR id=00000000 value=412FD050
+MPIDR 0000000081000000
+MMFR0 0000000000101122
+ISAR1 0000000000100001
+PAC APA/API APA=00000000 API=00000000
+PAC GPA/GPI GPA=00000000 GPI=00000000
+CNTFRQ 0000000001770000
+timer freq used 0000000001770000
+FDT memory memory@980000000
+ base 0000000980000000
+ size 0000000080000000
+FDT memory memory@900000000
+ base 0000000900000000
+ size 0000000080000000
+FDT memory memory@880000000
+ base 0000000880000000
+ size 0000000080000000
+FDT memory memory@80000000
+ base 0000000080000000
+ size 0000000080000000
+FDT reserved sec_pt
+ base 00000000E0000000
+ size 0000000002500000
+FDT no-map yes sec_pt
+FDT reserved sec_dram
+ base 00000000B7200000
+ size 0000000008E00000
+FDT no-map yes sec_dram
+FDT reserved ect_binary
+ base 0000000090000000
+ size 000000000003A000
+FDT no-map no ect_binary
+FDT reserved tpu_fw@93000000
+ base 0000000093000000
+ size 0000000001000000
+FDT no-map yes tpu_fw@93000000
+FDT reserved gsa@90200000
+ base 0000000090200000
+ size 0000000000400000
+FDT no-map yes gsa@90200000
+FDT reserved aoc@94000000
+ base 0000000094000000
+ size 0000000003000000
+FDT no-map yes aoc@94000000
+FDT reserved abl@f8800000
+ base 00000000F8800000
+ size 0000000001000000
+FDT no-map yes abl@f8800000
+FDT reserved dss_log_reserved@fd3f0000
+ base 00000000FD3F0000
+ size 000000000000E000
+FDT no-map yes dss_log_reserved@fd3f0000
+FDT reserved debug_kinfo_reserved@fd3fe000
+ base 00000000FD3FE000
+ size 0000000000001000
+FDT no-map yes debug_kinfo_reserved@fd3fe000
+FDT reserved suspend_diag_log_reserved@fd90c000
+ base 00000000FD90C000
+ size 0000000000001000
+FDT no-map yes suspend_diag_log_reserved@fd90c000
+FDT reserved ramoops_mem@fd3ff000
+ base 00000000FD3FF000
+ size 0000000000400000
+FDT no-map no ramoops_mem@fd3ff000
+FDT reserved bldr_log_reserved@fd800000
+ base 00000000FD800000
+ size 0000000000100000
+FDT no-map yes bldr_log_reserved@fd800000
+FDT reserved cp_rmem
+ base 00000000F0000000
+ size 0000000000800000
+FDT no-map no cp_rmem
+FDT reserved cp_msi_rmem
+ base 00000000F6200000
+ size 0000000000001000
+FDT no-map no cp_msi_rmem
+FDT reserved cp_rmem_1
+ base 00000000E8000000
+ size 0000000001C00000
+FDT no-map no cp_rmem_1
+FDT reserved cp_rmem_2
+ base 00000000EE000000
+ size 0000000000400000
+FDT no-map no cp_rmem_2
+FDT reserved header
+ base 00000000D8100000
+ size 0000000000010000
+FDT no-map no header
+FDT reserved log_kevents
+ base 00000000D8110000
+ size 0000000000700000
+FDT no-map no log_kevents
+FDT reserved log_bcm
+ base 00000000DD610000
+ size 0000000000400000
+FDT no-map no log_bcm
+FDT reserved log_s2d
+ base 00000000D8810000
+ size 0000000001800000
+FDT no-map yes log_s2d
+FDT reserved log_array_reset
+ base 00000000DA010000
+ size 0000000000A00000
+FDT no-map no log_array_reset
+FDT reserved log_array_panic
+ base 00000000DAA10000
+ size 0000000000A00000
+FDT no-map no log_array_panic
+FDT reserved log_slcdump
+ base 00000000DB410000
+ size 0000000001100000
+FDT no-map no log_slcdump
+FDT reserved log_preslcdump
+ base 00000000DC510000
+ size 0000000001100000
+FDT no-map no log_preslcdump
+FDT reserved log_itmon
+ base 00000000DDA10000
+ size 0000000000010000
+FDT no-map no log_itmon
+FDT reserved seclog_mem
+ base 00000000C3000000
+ size 0000000000080000
+FDT no-map no seclog_mem
+FDT no-map no vstream
+FDT no-map no vframe
+FDT no-map no vscaler
+FDT no-map no tui
+FDT reserved xhci_dma@97000000
+ base 0000000097000000
+ size 0000000000400000
+FDT no-map yes xhci_dma@97000000
+FDT no-map no faceauth_tpu
+FDT no-map no famodel
+FDT no-map no faimg
+FDT no-map no farawimg
+FDT no-map no faprev
+FDT no-map no mfc_fw
+SECTION USB gadget (live log)
+USB gadget pool 00000000F8D1B000
+USB gadget: running
+USB gadget run tools/usb-log.py capture on the PC
+INVENTORY report complete
+USB EVT reset
+USB EVT conndone speed=0

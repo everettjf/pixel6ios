@@ -1,4 +1,5 @@
-research/
+research/*
+!research/pixelios-kernel/
 private/
 artifacts/
 tools/platform-tools/

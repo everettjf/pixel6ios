@@ -16,4 +16,4 @@ Android 期间完成 OTA，当前为 CP3A.261005.002.A1、Bootloader slider-17.0
 python3 tools/inspect_pixel6.py
 ```
 
-采集器需要恰好一台已授权的 `oriole`，只读取选定硬件信息。输出存入忽略的 `private/`。它不会重启、解锁或刷机。`research/` 下的源码工作树、Platform Tools 和设备信息均未纳入本仓库版本控制。当前源码工作树 `research/pixelios-kernel` 的提交 `579ed5e` 已单独推送到私有仓库 [everettjf/pixelios-kernel-oriole](https://github.com/everettjf/pixelios-kernel-oriole/tree/wip/oriole-bringup)。
+采集器需要恰好一台已授权的 `oriole`，只读取选定硬件信息。输出存入忽略的 `private/`。它不会重启、解锁或刷机。移植源码和补丁现已纳入本仓库的 [research/pixelios-kernel](research/pixelios-kernel)，与原源码提交 `579ed5e` 的 486 个受版本控制文件逐字节一致；原提交历史保存在 `source-history` 分支。源码树中的 `.upstream/`、`shim/out/`、`logs/`、第三方下载，以及根目录的 `artifacts/`、`private/` 和 Platform Tools 仍被忽略。
