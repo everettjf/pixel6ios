@@ -34,15 +34,16 @@ int main(int argc,char **argv) {
  volatile unsigned active=mode==12?1:0;
  if(mode==1)dbr=2;if(mode==2)rsr=1;if(mode==3)hce=0;
  if(mode==4)hcs=0;if(mode==5)cap=0;if(mode==6)ver=0x200;
+ if(mode==13)rsr=2;
  struct urs_diag diag;
  int result=urs_prepare(&active,&diag);
- int expected=!fail_read ? (mode==0 || mode==9 || mode==10 || mode==11) : fail_read>8;
+ int expected=!fail_read ? (mode==0 || mode==2 || mode==9 || mode==10 || mode==11) : fail_read>8;
  assert(result==expected);
  if(result)assert(diag.code==9 && diag.value==0);
  if(!result && fail_read && fail_read<=8)assert(diag.code==(unsigned)(0x100+fail_read));
  if(!result && !fail_read){
-  static const unsigned codes[]={0,1,2,3,4,5,6,7,8,0,0,0,0};
-  static const uint32_t values[]={0,2,1,0,0,0,0x200,2,1,0,0,0,1};
+  static const unsigned codes[]={0,1,0,3,4,5,6,7,8,0,0,0,0,2};
+  static const uint32_t values[]={0,2,0,0,0,0,0x200,2,1,0,0,0,1,2};
   assert(diag.code==codes[mode] && diag.value==values[mode]);
  }
  if(!result){assert(active==2 && !urs_stop(&active));return 0;}
@@ -64,7 +65,7 @@ int main(int argc,char **argv) {
     def tearDownClass(cls):cls.tmp.cleanup()
 
     def test_readonly_preconditions_cleanup_and_handoff(self):
-        for mode in range(13):
+        for mode in range(14):
             with self.subTest(mode=mode):
                 subprocess.run([str(self.exe),str(mode),'0'],check=True,timeout=5)
 
