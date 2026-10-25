@@ -9,12 +9,15 @@ Tags: *observed* = measured on the maintainer's machine (Debian 13, 16 cores, 24
 - *Observed*: the shim builds twice with the same flags differ only in the embedded git hash and in the inode/mtime fields of an empty cpio archive (checked 2026-10-22 on the split trees).
 
 ## XNU kernel (patch stack on pristine xnu-8796.141.3)
-Two ways, same patch stack:
-1. **CI** (`.github/workflows/xnu.yml`): a macOS runner with Xcode 15.0.1, about 4-8 minutes. This is the reference build.
-2. **Local, no Mac** (`tools/xnu-local-build`, `docs/LOCAL-BUILD.md`): Debian clang as a Mach-O cross compiler, a Mach-O cctools tarball, MacOSX14.0.sdk, mig, unifdef and tcsh built from source.
+The supported build path is local. On Linux, use `tools/xnu-local-build` and
+`docs/LOCAL-BUILD.md`: Debian clang as a Mach-O cross compiler, a Mach-O
+cctools tarball, MacOSX14.0.sdk, mig, unifdef and tcsh built from source.
    Host tools: `git curl xz make clang perl python3 m4 autoconf automake gawk rsync dpkg apt-get` (flex/bison are unpacked from `.deb` files if missing, no root).
    Disk about 3.2 GB under `~/pixelios-artifacts/localbuild`; `make -j4` (capped at 4). *Observed*: cold build 71 s, one changed patch 16 s, plus a first run that downloads the SDKs and builds the helper tools.
    All download sources are pinned (git tags/commits, two tarballs checked against sha256); see the table in `docs/LOCAL-BUILD.md`.
+On this Mac, the Pixel 6 framebuffer diagnostic uses the pinned offline relink
+`../../tools/relink-oriole-fbsnap-xnu.py`. It requires the previously audited
+local object archive and Apple clang; it is not a clean full-stack build.
 - `tools/setup-upstream.sh` must be run first: 59 of the 101 patches and the three stagers (`xnu/patches/*.sh`) began as ios-sweet files (no license) and are fetched at the pinned commit; the other 42 are ours and are in this repository. `tools/stack-apply` checks that the whole stack applies to pristine xnu-8796.
 - *Observed*: a kernel built from the generated kernel tree has the same external symbols (24163), the same SWEET symbols (460) and the same strings as the one built from the private monorepo, except the build timestamp and the work-directory path length (the `__cstring` section differs by that); it is not bit-identical.
 

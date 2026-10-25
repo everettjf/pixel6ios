@@ -76,7 +76,10 @@ int main(void) {
                           ['-DORIOLE_UFSROOT', '-DORIOLE_UFSROOT_COW',
                            '-DORIOLE_UFSROOT_COW_TRACE'],
                           ['-DORIOLE_UFSROOT', '-DORIOLE_UFSROOT_COW',
-                           '-DORIOLE_UFSROOT_COW_POOL']):
+                           '-DORIOLE_UFSROOT_COW_POOL'],
+                          ['-DORIOLE_UFSROOT', '-DORIOLE_UFSROOT_COW',
+                           '-DORIOLE_UFSROOT_COW_POOL',
+                           '-DORIOLE_UFSROOT_COW_POOL512_FBSNAP']):
                 text = original
                 if flags == ['-DORIOLE_MD0USB']:
                     text = text.replace('16726576','16727088').replace('16726575','16727087')
@@ -101,6 +104,10 @@ int main(void) {
                     text = (text.replace('p->adt_off=0xfed590;p->adt_size=0x3470;',
                                          'p->adt_off=0xfed6b0;p->adt_size=0x3470;')
                             .replace('16714240','16714528').replace('16714239','16714527'))
+                if '-DORIOLE_UFSROOT_COW_POOL512_FBSNAP' in flags:
+                    text = (text.replace('p->adt_off=0xfed6b0;p->adt_size=0x3470;',
+                                         'p->adt_off=0xfed740;p->adt_size=0x3470;')
+                            .replace('16714528','16714672').replace('16714527','16714671'))
                 c.write_text(text)
                 subprocess.run(['cc','-O1','-Wall','-Wextra','-Werror',*flags,'-I',str(ROOT/'shim'),
                                 str(c),'-o',str(exe)], check=True)

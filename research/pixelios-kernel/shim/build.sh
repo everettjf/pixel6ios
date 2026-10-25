@@ -46,6 +46,7 @@ ufsroot_cow_pool=0
 ufsroot_cow_pool_long=0
 ufsroot_cow_pool512=0
 ufsroot_cow_pool512_long=0
+ufsroot_cow_pool512_fbsnap=0
 preparecheck=0
 coldinit=0
 while [ "$#" -gt 0 ]; do
@@ -63,6 +64,7 @@ while [ "$#" -gt 0 ]; do
 		--xnu-ufsroot-cow-pool-long) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool_long=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-pool512) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-pool512-long) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
+		--xnu-ufsroot-cow-pool512-fbsnap) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-resetcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; resetcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
@@ -126,6 +128,7 @@ if [ "$ramprobe" = 1 ]; then
     [ "$ufsroot_cow_pool_long" = 0 ] || payload_checker=../tools/oriole_ufsroot_cow_pool_long.py
     [ "$ufsroot_cow_pool512" = 0 ] || payload_checker=../tools/oriole_ufsroot_cow_pool512.py
     [ "$ufsroot_cow_pool512_long" = 0 ] || payload_checker=../tools/oriole_ufsroot_cow_pool512_long.py
+    [ "$ufsroot_cow_pool512_fbsnap" = 0 ] || payload_checker=../tools/oriole_ufsroot_cow_pool512_fbsnap.py
     "$PYTHON" "$payload_checker" --check "$payload" || exit 2
 fi
 if [ "$inventory_ufs" = 1 ]; then
@@ -176,6 +179,7 @@ CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
 [ "$ufsroot_cow" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW"
 [ "$ufsroot_cow_trace" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_TRACE"
 [ "$ufsroot_cow_pool" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL"
+[ "$ufsroot_cow_pool512_fbsnap" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL512_FBSNAP"
 [ "$coldinit" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFS_COLDINIT"
 [ "$preparecheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFS_PREPARECHECK"
 [ "$loadcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_LOADCHECK"

@@ -4,7 +4,6 @@
 
 **Apple's XNU kernel and iOS 16 userland on a Google Pixel 6a (Tensor G1).**
 
-[![xnu build](https://github.com/PixOS-Project/pixelios-kernel/actions/workflows/xnu.yml/badge.svg)](https://github.com/PixOS-Project/pixelios-kernel/actions/workflows/xnu.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 PixeliOS is a research port. A small bare-metal **shim** is loaded with a temporary
@@ -64,8 +63,11 @@ fastboot boot shim/out/shim-boot-avb.img
 ```
 
 You need an AArch64 bare-metal GCC, Python 3, `adb`/`fastboot`; see [docs/BUILD.md](docs/BUILD.md).
-The XNU kernel is built by GitHub Actions on a macOS runner ([workflow](.github/workflows/xnu.yml));
-the iOS root image by `tools/build-ios-root.sh` ([docs/BUILD.md](docs/BUILD.md)).
+Build XNU locally with `tools/xnu-local-build` on Linux ([docs/LOCAL-BUILD.md](docs/LOCAL-BUILD.md)).
+The Pixel 6 framebuffer diagnostic has a pinned local image builder at
+`../../tools/build-oriole-fbsnap-local.sh` (see the root repository's
+`docs/UFS-TIMEOUT-DIAG.md`). Build the iOS root with `tools/build-ios-root.sh`
+([docs/BUILD.md](docs/BUILD.md)).
 
 ## How it fits together
 

@@ -1,7 +1,9 @@
 # Local kernel build (`tools/xnu-local-build`)
 
-Builds the patched xnu-8796.141.3 `kernel.development.sweet` on this Linux box, without a Mac, as an alternative to the CI round trip
-(`.github/workflows/xnu.yml`). Tags: *observed* = measured on this machine on 2026-10-22; *read* = read from source; *guess*.
+Builds the patched xnu-8796.141.3 `kernel.development.sweet` locally on Linux.
+Historical comparisons below refer to the former macOS CI reference artifact;
+the workflow is no longer part of this repository. Tags: *observed* = measured
+on this machine on 2026-10-22; *read* = read from source; *guess*.
 
 ## Usage
 
@@ -78,7 +80,7 @@ Compared against CI kernel `xnu-6980340` (same xnu/patches as `main`, verified w
   4. `kalloc_type` allocator hardening: stock clang lacks Apple's type-signature builtins, so the zone segregation hints are an
      approximation (see the header comment in `xnu_clang_compat.h`, generated into `deps/host/inc`). Allocation works; the hardening is weaker.
   5. Code generation differs (clang 19 vs Apple clang 15): different inlining, so a latent undefined-behaviour bug may show up in one
-     and not the other. The local kernel is for fast iteration; boot-test it, and use CI for the kernel you record as a result.
+     and not the other. Boot-test the local kernel and record its exact hash and device result.
   6. **CPU target and instruction set (-mcpu=cortex-a76):** In CI, Apple Clang (`-arch arm64`) targets plain ARMv8.0-A baseline
      (no PAC, no SHA3, no v8.4a features) (*read* from Apple Clang driver). Upstream Debian Clang 19 defaults `-target arm64-apple-macos14.0`
      to `-target-cpu apple-m1` (*read* from Clang driver source and `-###`), which enables ARMv8.4-A, PAC (`FEAT_PAuth`), LRCPC2 (`FEAT_LRCPC2`),

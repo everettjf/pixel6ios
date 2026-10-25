@@ -34,7 +34,7 @@ Review criteria are in `REVIEW.md`.
 | Quality gate (must print `GATE PASS <hash>`) | `tools/check-all.sh` |
 | Build a probe/dump shim | `shim/build.sh --board bluejay --avb --pstore-fast [--usb-gadget] [--udump N_MIB]` |
 | Build an XNU boot image | `tools/mkadt.py` -> `tools/mkpayload.py` -> `shim/build.sh --boot-xnu PAYLOAD` (see `docs/`) |
-| Kernel CI (macOS runner, ~8 min) | `gh workflow run xnu.yml` then `gh run download <id> -n xnu-kernel` |
+| Local Oriole diagnostic image | `../../tools/build-oriole-fbsnap-local.sh` (pinned offline relink, payload and temporary-boot image; see root `docs/UFS-TIMEOUT-DIAG.md`) |
 | Device helper | `tools/pix devices|info|check|build|new-device` |
 | Reverse-engineering container | `tools/rea/rea.sh` (offline) / `tools/rea/rea-phone.sh` (phone access) |
 
@@ -44,7 +44,7 @@ before `fastboot boot`.
 ## Workflow
 
 - Small, reviewable commits; one concern each. Commit completed work; push only after the gate passes.
-- Record milestones in the PR description or an issue: commits, CI run ids, exact results, unfinished work,
+- Record milestones in the PR description or an issue: commits, local build ids, exact results, unfinished work,
   observations vs guesses.
 - Kernel changes are numbered patches in `xnu/patches/` (contiguous, applied in order on xnu-8796). Never edit the
   fetched upstream tree; regenerate the patch.

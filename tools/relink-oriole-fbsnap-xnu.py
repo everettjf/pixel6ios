@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Offline, pinned 0109 framebuffer relink after GitHub macOS CI is unavailable.
+"""Offline, pinned 0109 framebuffer relink for local Pixel 6 builds.
 
 Builds no phone image and touches no device. The result is a candidate, not a
-substitute for CI or a hardware result. All output stays in ignored private/.
+substitute for a hardware result. All output stays in ignored private/.
 """
 import hashlib
 import json
