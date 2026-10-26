@@ -2,7 +2,6 @@
 """Capture one exact-image, bounded Oriole PMIC touch-rail cycle."""
 import argparse
 from datetime import datetime, timezone
-import re
 import subprocess
 import sys
 import time
@@ -13,19 +12,32 @@ from run_touch_inventory import (CAPTURE_PYTHON, PORT_CHECK, ROOT,
 
 def capture_ok(data):
     """Accept only two observed enables and their verified reverse restoration."""
-    if b'ACPM CYCLE both rails enabled and read back' not in data:
-        return False
-    if b'ACPM CYCLE END enabled00000001 restored00000002' not in data:
-        return False
-    if b'FAILED' in data:
-        return False
-    sets = re.findall(rb'ACPM CYCLE SET reg([0-9A-F]{8}) on([0-9A-F]{8})', data)
-    reads = re.findall(rb'ACPM CYCLE READ reg([0-9A-F]{8}) value([0-9A-F]{8})', data)
-    return sets == [(b'0000005C', b'00000001'), (b'0000005D', b'00000001'),
-                    (b'0000005D', b'00000000'), (b'0000005C', b'00000000')] and reads == [
-                        (b'0000005C', b'0000002C'), (b'0000005D', b'0000003C'),
-                        (b'0000005C', b'000000AC'), (b'0000005D', b'000000BC'),
-                        (b'0000005D', b'0000003C'), (b'0000005C', b'0000002C')]
+    expected = [
+        b'ACPM CYCLE READ reg0000005C value0000002C',
+        b'ACPM CYCLE READ rc00000000 want0000002C',
+        b'ACPM CYCLE READ reg0000005D value0000003C',
+        b'ACPM CYCLE READ rc00000000 want0000003C',
+        b'ACPM CYCLE SET reg0000005C on00000001',
+        b'ACPM CYCLE SET rc00000000 published00000001',
+        b'ACPM CYCLE READ reg0000005C value000000AC',
+        b'ACPM CYCLE READ rc00000000 want000000AC',
+        b'ACPM CYCLE SET reg0000005D on00000001',
+        b'ACPM CYCLE SET rc00000000 published00000001',
+        b'ACPM CYCLE READ reg0000005D value000000BC',
+        b'ACPM CYCLE READ rc00000000 want000000BC',
+        b'ACPM CYCLE both rails enabled and read back',
+        b'ACPM CYCLE SET reg0000005D on00000000',
+        b'ACPM CYCLE SET rc00000000 published00000001',
+        b'ACPM CYCLE READ reg0000005D value0000003C',
+        b'ACPM CYCLE READ rc00000000 want0000003C',
+        b'ACPM CYCLE SET reg0000005C on00000000',
+        b'ACPM CYCLE SET rc00000000 published00000001',
+        b'ACPM CYCLE READ reg0000005C value0000002C',
+        b'ACPM CYCLE READ rc00000000 want0000002C',
+        b'ACPM CYCLE END enabled00000001 restored00000002',
+    ]
+    lines = [line.strip() for line in data.splitlines() if line.startswith(b'ACPM CYCLE')]
+    return lines == expected and b'INVENTORY report complete' in data and b'FAILED' not in data
 
 
 def main():
