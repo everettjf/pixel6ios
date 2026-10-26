@@ -7,9 +7,25 @@ import re
 
 
 PINS = ('clk', 'mosi', 'miso', 'cs', 'irq', 'reset', 'mux')
-REQUIRED = ('cmu base', 'cmu_top', 'cmu gates', 'sysreg USI11 mode')
 PREFIX = 'SWEET TOUCH: '
-PIN_RE = re.compile(r'^pin (clk|mosi|miso|cs|irq|reset|mux)\b')
+VALUE = r'(?:0|0x[0-9a-f]+)'
+FIELD = rf'\[{VALUE}\]={VALUE}'
+REQUIRED = {
+    'cmu base': re.compile(rf'^cmu base 0x[0-9a-f]+: OPTION{FIELD} '
+                           rf'usi_mux{FIELD} bus_mux{FIELD} bus_auto{FIELD} '
+                           rf'usi_auto{FIELD} div{FIELD}$'),
+    'cmu_top': re.compile(rf'^cmu_top 0x[0-9a-f]+: PERIC1_IP mux{FIELD} '
+                          rf'div{FIELD} gate{FIELD}$'),
+    'cmu gates': re.compile(rf'^cmu gates: ipclk_4{FIELD} pclk_4{FIELD} '
+                            rf'rstnsync{FIELD} QCH{FIELD}$'),
+    'sysreg USI11 mode': re.compile(rf'^sysreg USI11 mode \(0x[0-9a-f]+\) = {VALUE} '
+                                    rf'\(SPI = {VALUE}, so (?:already SPI|not SPI yet)\)$'),
+}
+PIN_RE = re.compile(r'^pin (clk|mosi|miso|cs|irq|reset|mux)\s+'
+                    rf'bank 0x[0-9a-f]+\[\d+\] func={VALUE} dat=[01] pud={VALUE}$')
+START_RE = re.compile(r'^(?:cmu base|cmu_top|cmu gates:|sysreg USI11 mode|'
+                      r'pin (?:clk|mosi|miso|cs|irq|reset|mux)\b|'
+                      r'diag |unreadable pa=)')
 
 
 def captures(raw):
@@ -31,12 +47,20 @@ def captures(raw):
 
 
 def summarize(lines):
+    # The shim splits long printf messages at spaces into <=82-byte fragments.
+    # Rejoin those fragments before validating every field in the CMU records.
+    messages = []
+    for line in lines:
+        if START_RE.match(line) or not messages:
+            messages.append(line)
+        else:
+            messages[-1] += ' ' + line
     pins = set()
     present = set()
     faults = []
-    for line in lines:
-        for label in REQUIRED:
-            if line.startswith(label):
+    for line in messages:
+        for label, pattern in REQUIRED.items():
+            if pattern.fullmatch(line):
                 present.add(label)
         match = PIN_RE.match(line)
         if match:
@@ -50,19 +74,30 @@ def summarize(lines):
             'missing': missing, 'read_faults': faults, 'touch_lines': lines}
 
 
+def report_from_raw(raw):
+    datasets = [summarize(lines) for lines in captures(raw)]
+    if not datasets:
+        raise ValueError('No SWEET TOUCH lines captured; no hardware conclusion')
+    index = max(range(len(datasets)), key=lambda i: (datasets[i]['complete'],
+                                                   -len(datasets[i]['missing']), i))
+    selected = datasets[index]
+    # A read fault can precede its formatted CMU/pin line. Do not let the
+    # CMU-started capture boundary or a later RAM-log replay discard it.
+    all_faults = [fault for dataset in datasets for fault in dataset['read_faults']]
+    if all_faults:
+        selected = {**selected, 'complete': False, 'read_faults': all_faults}
+    return {'capture_count': len(datasets), 'selected_capture': index + 1, **selected}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('log', type=Path, help='raw USB capture from tools/capture_inventory_usb.py')
     parser.add_argument('--out', type=Path, help='optional private JSON report path')
     args = parser.parse_args()
-    datasets = [summarize(lines) for lines in captures(args.log.read_bytes())]
-    if not datasets:
-        raise SystemExit('No SWEET TOUCH lines captured; no hardware conclusion')
-    # Prefer a complete run over a later partial RAM-log replay. Ties use the latest.
-    index = max(range(len(datasets)), key=lambda i: (datasets[i]['complete'],
-                                                       -len(datasets[i]['missing']), i))
-    report = {'source': str(args.log), 'capture_count': len(datasets),
-              'selected_capture': index + 1, **datasets[index]}
+    try:
+        report = {'source': str(args.log), **report_from_raw(args.log.read_bytes())}
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
     output = json.dumps(report, indent=2) + '\n'
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
