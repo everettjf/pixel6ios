@@ -11,6 +11,12 @@
 | **读源码** | `sweethidtest=1300` 触发定时的 Consumer-page Menu/Home 事件，并在约 100 ms 后释放；这不是 Pixel 6 实体触摸输入。`sweetrestart=1800` 设置正常测试的自动重启时限。 |
 | **未验证** | Pixel 6 实体触摸、点击应用、锁屏密码/解锁交互、Wi-Fi、GPU 加速、音频、相机、蜂窝通信、持续运行稳定性和长期数据持久性。面板采样只能分类界面，不能证明完整交互。 |
 
+## 无软件按键的实体上滑复测
+
+2026-10-25 又在同一台已核对身份的 Pixel 6 上执行一次 `fastboot boot`，镜像 SHA-256 为 `eda072160815f53445d0233d7dd96a39097d61ad457514c959cf05fe38f70610`，使用 `--silent` 配置（无 `sweethidtest`）；未再次刷写任何分区。USB 日志见忽略目录 `private/manual-touch-trial1/udp.log`，SHA-256 为 `6aa4a091e5e7bbb045b0dc19313fadb5929e969ee934753109ed9ee4d22aabfa`。面板采样 #1、#2 仍是苹果进度条；#3 于 Unix 时间 `1792983041.209` 开始，显示 iOS 锁屏；#5 于 `1792983283.994` 开始，仍显示锁屏。用户在看到锁屏后从底部上滑，报告画面没有反应。捕获中有 `exec SpringBoard` 和 `exec backboardd`，但没有 `SWEET TOUCH` 事件或 panic。预设时限结束后，ADB 确认同一设备回到 Android Recovery。
+
+**原因边界：**此 Oriole 根卷配置在 `tools/oriole_ufsroot_cow.py` 中主动从 ADT 删除 `/sweet-touch` 和 `/sweet-keys`，`tools/oriole_ufsroot.py` 的检查器也拒绝它们。内核的 GS101 FTM5 驱动只在 `/sweet-touch` 存在时启动。因此这次实测证明了当前镜像**不能响应实体上滑**，但没有测试控制器、SPI 或驱动本身是否可用。Google Oriole 设备树把触摸控制器列为 FTM5；板级引脚与电源条件仍需对照当前手机的 live FDT 和固件验证，然后做独立的只读识别探测，再逐步启用事件输入。不能仅在现有配置上反复启动或把软件 Home 的主屏结果当作触摸成功。
+
 启动链：`fastboot boot` → GS101 shim → 修补后的 XNU 8796.141.3 → 只读物理 UFS 上的 `userdata` HFSX 根卷 + 512 MiB 易失 RAM 写时复制层 → launchd → SpringBoard 锁屏 → 软件 Home/Menu 事件 → 主屏。iOS 用户态来自 iPhone X 的 iOS 16.7.16（20H392）；启动的是移植版开源 XNU，不是原厂 iPhone kernelcache。
 
 ```mermaid
