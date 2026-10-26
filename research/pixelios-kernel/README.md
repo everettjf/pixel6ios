@@ -74,8 +74,10 @@ Build XNU locally with `tools/xnu-local-build` on Linux ([docs/LOCAL-BUILD.md](d
 The Pixel 6 framebuffer diagnostic has a pinned local image builder at
 `../../tools/build-oriole-fbsnap-local.sh [--silent|--home-test]` (see the root
 repository's `docs/PIXEL6-IOS-HOMESCREEN.md`). It requires pinned private
-Apple/XNU inputs and produces a temporary boot image locally. Build the iOS root with `tools/build-ios-root.sh`
-([docs/BUILD.md](docs/BUILD.md)).
+Apple/XNU inputs and produces a temporary boot image locally. The iOS root
+builder is not included in this repository; see the parent repository's
+[public-install readiness plan](../../docs/PUBLIC-INSTALL-READINESS.md) before
+attempting an independent Pixel 6 installation.
 
 ## How it fits together
 
