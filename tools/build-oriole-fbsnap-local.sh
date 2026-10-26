@@ -3,6 +3,14 @@
 # Produces a temporary-boot image; never contacts or writes to the phone.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+profile=oriole_ufsroot_cow_pool512_fbsnap
+shim_profile=--xnu-ufsroot-cow-pool512-fbsnap
+case "${1:-}" in
+  '') ;;
+  --silent) profile=oriole_ufsroot_cow_pool512_fbsnap_silent; shim_profile=--xnu-ufsroot-cow-pool512-fbsnap-silent ;;
+  --home-test) profile=oriole_ufsroot_cow_pool512_fbsnap_home; shim_profile=--xnu-ufsroot-cow-pool512-fbsnap-home ;;
+  *) printf 'Usage: %s [--silent|--home-test]\n' "$0" >&2; exit 2 ;;
+esac
 
 # Host tests in shim/build.sh use gcc directly and require GCC's noipa
 # attribute. The local tool directory points to Homebrew GCC on this Mac.
@@ -33,11 +41,11 @@ payload=private/fbsnap-work/payload/rebuilt.bin
 image=research/pixelios-kernel/shim/out/shim-boot-avb.img
 "$CROSS_CC" --version >/dev/null
 python3 tools/relink-oriole-fbsnap-xnu.py
-python3 research/pixelios-kernel/tools/oriole_ufsroot_cow_pool512_fbsnap.py \
+python3 "research/pixelios-kernel/tools/$profile.py" \
   --kernel "$kernel" --adt "$adt" --out "$payload"
 research/pixelios-kernel/shim/build.sh --board oriole --avb \
-  --xnu-ufsroot-cow-pool512-fbsnap "$(pwd)/$payload"
-python3 research/pixelios-kernel/tools/oriole_ufsroot_cow_pool512_fbsnap.py \
+  "$shim_profile" "$(pwd)/$payload"
+python3 "research/pixelios-kernel/tools/$profile.py" \
   --check-image "$image"
 python3 research/pixelios-kernel/tools/imgmeta.py check "$image" --expect xnu
 shasum -a 256 "$kernel" "$payload" "$image"
