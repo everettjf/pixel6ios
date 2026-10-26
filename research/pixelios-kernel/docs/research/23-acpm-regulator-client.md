@@ -180,8 +180,10 @@ READ   reg 0x5C : w1 = 0                      -> value is L25M_CTRL    # read-on
 READ   reg 0x5D : w1 = 0                      -> value is L26M_CTRL
 UPDATE reg 0x5C : w1 = 0x00808002             # FUNC_UPDATE, val 0x80, mask 0x80   [src]
 UPDATE reg 0x5D : w1 = 0x00808002
-# order in Linux: DVDD (LDO25M, 1.8 V class, 1.6-1.95 V) before AVDD (LDO26M, 2.5-3.3 V)  [guess: fts_enable_reg order, doc 21 ref fts.c:6156-6181]
-mdelay(~10)                                   # [guess] settle; Linux does regulator enable_time then 10 ms reset pulse
+# order in Google's FTM5 probe: vdd/DVDD (LDO25M) before avdd/AVDD (LDO26M)
+# [src: ftm5/fts.c at 710d3b897ca2a8948f8d7f4639af639da07b9a17, lines 5261-5299, 5685-5709;
+#  gs101-common-touch.dtsi at e454cd09e0e79d26dae1b989c455fddbdb829f48, lines 12-19]
+# no inter-rail mdelay appears in fts_enable_reg; regulator-core/PMIC enable timing remains to be checked
 READ   reg 0x5C and 0x5D again : require (value & 0x80)                                 # verify  [src mask]
 ```
 
