@@ -20,6 +20,8 @@ shim/build.sh --board oriole --avb --usb-gadget --inventory --touch-probe
 
 `check-all.sh` overwrites `shim/out/`, so build the probe again afterwards. Before a temporary `fastboot boot`, verify that exactly one attached device reports `product: oriole`, the bootloader is unlocked, and the image hash matches the freshly built probe. Capture the USB/RAM log and record the CMU, USI mode, seven pad values and any read faults. This phase does not read or write storage and does not modify partitions. No Pixel 6 result is claimed until that capture exists.
 
+The root-level `tools/boot_inventory.py --touch` helper requires the image's touch marker, a separate `inventory-touch` entry **and the exact SHA-256 image hash** in the private firmware baseline (`inventory_touch_image_sha256`). A generic `inventory` allowance or a linked marker alone cannot authorize the profile. The helper refuses firmware or slot drift and boots only the recorded serial. Add the mode and hash to a host's private baseline only after reviewing the exact built image; the helper checks phone identity again before temporary boot.
+
 ## Next gates
 
 1. **Observed hardware:** compare the read-only register dump with the Oriole device tree and the known Bluejay baseline. Check the current touchscreen rail state using a separately reviewed ACPM read path only after its layout gate is satisfied.
