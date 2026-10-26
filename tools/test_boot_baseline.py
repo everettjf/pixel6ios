@@ -1,6 +1,7 @@
 """A pending OTA must not silently become an approved hardware baseline."""
 import unittest
-from boot_inventory import check_firmware, check_touch_image_digest, check_acpm_desc_image_digest
+from boot_inventory import (check_firmware, check_touch_image_digest,
+                            check_acpm_desc_image_digest, check_acpm_rails_image_digest)
 
 
 class BootBaselineTests(unittest.TestCase):
@@ -40,8 +41,21 @@ class BootBaselineTests(unittest.TestCase):
         check_acpm_desc_image_digest(pinned, digest)
         self.assertEqual(check_firmware(self.values.__getitem__, pinned, 'inventory-acpm-desc'), 'a')
 
+    def test_acpm_rails_requires_a_separately_pinned_exact_image(self):
+        digest = 'e' * 64
+        opened = dict(self.baseline, allowed_modes=['inventory', 'inventory-acpm-rails'])
+        with self.assertRaisesRegex(SystemExit, 'not pinned'):
+            check_acpm_rails_image_digest(opened, digest)
+        with self.assertRaisesRegex(SystemExit, 'not pinned'):
+            check_acpm_rails_image_digest(dict(opened, inventory_acpm_rails_image_sha256='wrong'), digest)
+        pinned = dict(opened, inventory_acpm_rails_image_sha256=digest)
+        with self.assertRaisesRegex(SystemExit, 'differs'):
+            check_acpm_rails_image_digest(pinned, 'd' * 64)
+        check_acpm_rails_image_digest(pinned, digest)
+        self.assertEqual(check_firmware(self.values.__getitem__, pinned, 'inventory-acpm-rails'), 'a')
+
     def test_storage_modes_remain_closed_until_explicitly_added(self):
-        for mode in ('inventory-touch', 'inventory-acpm-desc', 'inventory-ufs-ready', 'xnu-ufsroot-loadcheck',
+        for mode in ('inventory-touch', 'inventory-acpm-desc', 'inventory-acpm-rails', 'inventory-ufs-ready', 'xnu-ufsroot-loadcheck',
                      'xnu-ufsroot-preparecheck', 'xnu-ufsroot',
                      'xnu-ufsroot-coldinit', 'xnu-ufsroot-coldinit-preparecheck'):
             with self.assertRaisesRegex(SystemExit,'not validated'):

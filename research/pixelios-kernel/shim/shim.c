@@ -623,9 +623,9 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 #endif
 #ifdef INVENTORY
     inventory_dtb = dtb;
-	/* Oriole first boot: use only the shim's RAM log and the existing,
-	 * live-FDT-validated USB pool. No framebuffer, pstore, UFS, secondary
-	 * CPUs, display trigger, touch, PMIC, DVFS, GPU or WLAN experiments.
+	/* Oriole inventory uses the RAM log and the live-FDT-validated USB pool.
+	 * Optional profiles below explicitly select read-only UFS, touch
+	 * registers, or bounded ACPM PMIC-read requests. No XNU payload here.
 	 * WDT bases are verified in the current fetched vendor_boot DTB;
 	 * the existing reset chain is used after the bounded USB window. */
 	con_set_video(0, 0, 0, 0);
@@ -659,6 +659,11 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 	extern void acpm_desc_dump(void);
 	con_str("INVENTORY", "Oriole ACPM descriptor snapshot");
 	acpm_desc_dump();
+#endif
+#ifdef ORIOLE_ACPM_RAILS_READ
+	extern void acpm_rail_read_dump(void);
+	con_str("INVENTORY", "Oriole ACPM touch rail READ requests");
+	acpm_rail_read_dump();
 #endif
 #ifdef TOUCH_PROBE
 	/* Oriole inventory only permits the phase-1 register dump. build.sh
@@ -1069,7 +1074,7 @@ static void delay_ms(unsigned ms)
 	wait_ticks((counter_freq() / 1000) * ms);
 }
 
-#if defined(TOUCH_PROBE) || defined(GPU_POWER) || defined(GPU_CLK) || defined(GPU_RAILS) || defined(GPU_RAIL_ON) || defined(GPU_JOB) || defined(WLAN_RAILS) || defined(WLAN_LINK_RUN)
+#if defined(TOUCH_PROBE) || defined(ORIOLE_ACPM_RAILS_READ) || defined(GPU_POWER) || defined(GPU_CLK) || defined(GPU_RAILS) || defined(GPU_RAIL_ON) || defined(GPU_JOB) || defined(WLAN_RAILS) || defined(WLAN_LINK_RUN)
 uint64_t touch_ticks(void)	/* touchprobe.c / gpupower.c: bounded waits (CNTPCT) */
 {
 	return now();

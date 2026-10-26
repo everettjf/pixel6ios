@@ -522,6 +522,7 @@ int acpm_pmic_read(const struct acpm_cfg *c, uint32_t reg, uint32_t *val, struct
 	return read1(c, reg, val, t, &t->a);
 }
 
+#ifndef ORIOLE_ACPM_RAILS_READ
 /* S2MPG11 (sub PMIC, speedy channel 1, GPU rails) READ for --gpu-rails (docs/research/27): the same transaction as the S2MPG10 read above
  * (same IPC channel, same xfer(), FUNC_READ only, no PMIC write is expressible here), with CHANNEL = soc.json acpm.s2mpg11.speedy_ch and
  * TYPE = pmic_addr, and only for the registers listed there. Unknown (null) config: the macros are absent and every call refuses. */
@@ -854,6 +855,7 @@ int acpm_dvfs_get(const struct acpm_cfg *c, uint32_t dom, uint32_t *khz, struct 
 
 #endif
 
+#endif /* ORIOLE_ACPM_RAILS_READ: omit every unrelated ACPM client API */
 #endif /* !ORIOLE_ACPM_DESC_ONLY: no IPC request or MMIO writer in descriptor inventory */
 #else	/* no ACPM on this SoC */
 
