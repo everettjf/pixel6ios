@@ -1,0 +1,44 @@
+Pixel 6 (oriole), 2026-10-26 11:04 PDT, observed on hardware.
+Temporary fastboot boot of Oriole inventory ACPM-descriptor-only image.
+Image SHA-256: 6a32af9f9ecf6c9ec1b0415b56270082d22b739205c9d6ce6c89362c8609d500
+Source commit at build: 8df8364. USB log received; automatic return to authorized Android ADB confirmed.
+No ACPM request, PMIC access, touch SPI write, or storage access in this profile.
+Private raw capture: private/acpm-desc-inventory/20261026T180410463065Z/usb.log
+
+ACPM DESC rc00000000 why00000000
+ACPM INIT n0000000F tab00009210
+ACPM INIT WORD index00000000 value00008DB8
+ACPM INIT WORD index00000001 value00000008
+ACPM INIT WORD index00000002 value00009210
+ACPM INIT WORD index00000003 value00000026
+ACPM INIT WORD index00000004 value00000000
+ACPM INIT WORD index00000005 value00000008
+ACPM INIT WORD index00000006 value0000000F
+ACPM INIT WORD index00000007 value00000000
+ACPM CH index00000002 length00000005
+ACPM DESC WORD index00000000 value00000002
+ACPM DESC WORD index00000001 value00000004
+ACPM DESC WORD index00000002 value00000008
+ACPM DESC WORD index00000003 value00000001
+ACPM DESC WORD index00000004 value000382E8
+ACPM DESC WORD index00000005 value000382EC
+ACPM DESC WORD index00000006 value000382F0
+ACPM DESC WORD index00000007 value00000000
+ACPM DESC WORD index00000008 value00000000
+ACPM DESC WORD index00000009 value00000000
+ACPM DESC WORD index0000000A value00038288
+ACPM DESC WORD index0000000B value0003828C
+ACPM DESC WORD index0000000C value00038290
+ACPM DESC WORD index0000000D value00000005
+ACPM DESC WORD index0000000E value00000010
+ACPM DESC WORD index0000000F value00000002
+ACPM DESC WORD index00000010 valueA7600000
+ACPM DESC WORD index00000011 value00000001
+ACPM REQ IDX rear00000003 front00000003
+ACPM RSP IDX rear00000003 front00000003
+ACPM ELEM raw00000010 bytes00000010
+INVENTORY report complete
+
+Interpretation: channel 2 descriptor validated; request and response queues both empty at
+3/3, five elements each, 16 bytes per element. This does not prove that an ACPM IPC
+request will succeed or reveal either touchscreen rail state.
