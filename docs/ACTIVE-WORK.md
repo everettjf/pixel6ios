@@ -1,4 +1,12 @@
-**Current update — 2026-10-25 00:12 UTC (local October 24)**
+**Current update — 2026-10-25 PDT: iOS home screen observed on Pixel 6**
+
+Observed on hardware: exact local AVB image `6ffe8c3a53f928d00d556bf223ec745c33509932771dbf0a82493403ce109adf` temporarily booted the verified `oriole`, mounted the iOS HFSX root, ran launchd/SpringBoard, showed the lock screen, and reached the home screen after a synthetic Home/Menu event. Two complete physical-panel rolling samples about two minutes apart showed icons, page dots and Dock. The 1800-second trial returned to Android Recovery. Physical touch and app launching remain unverified. The current `userdata` contains the iOS root, so Android cannot boot without restoration; do not choose Recovery's factory reset while preserving it. Local code is on `main`, GitHub CI has been removed, and the build uses pinned local inputs. See [PIXEL6-IOS-HOMESCREEN.md](PIXEL6-IOS-HOMESCREEN.md) for exact hashes, timestamps, build steps and limitations.
+
+**Historical work log follows.** Its dated “current”, “latest” and “next” statements describe the state *at that time* and are superseded by the milestone above.
+
+---
+
+**Earlier update — 2026-10-25 00:12 UTC (local October 24)**
 
 Observed on hardware: the user unlocked the Mac and returned to the computer. Fresh native RAMUSB boot at source8fe7690 (runtime equivalent to gated0c4ea1c) reached the custom PID1 repeatedly. USB en9 was registered; only the verified Sweet iOS USB Ethernet service was configured to192.168.7.1/24 without a gateway. Received11 PID1 banners and11 syscall-sleep-completed messages,1264bytes overUDP; logSHA93f12716b64953419359702da19fdf0da4d54e56f8f0761d15a5a5dbd045476f. The user's photograph independently shows these messages on the Pixel display. This establishes native XNU, framebuffer output and minimal userspace/syscalls. It does not establish Apple's launchd, SpringBoard or fulliOS. Exact kernel4724585fffd9e85144cb86b6c8e91a5131253a25cf341879c17368000007867b, payload5139a045c73e0a605a431216bfa131cd38442ce1e98b9617a16e611044a6761b, image8f9b46db8b302769c81214498c0df86b79a8681b6720344c4631c26556cbc647. Evidence private/native-usb2 and md0usb-native-observed2/return2 JSON. Android returned on sameCP3A/slotb.
 

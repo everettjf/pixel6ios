@@ -2,6 +2,13 @@
 
 # PixeliOS: kernel and shim
 
+> **Local Pixel 6 (`oriole`) result, 2026-10-25 PDT:** this repository's
+> Pixel 6 branch reached the iOS 16.7.16 lock screen and, after an injected
+> software Home/Menu event, the home screen in a temporary boot. Physical
+> touch and app launch are unverified on Pixel 6. See the parent repository's
+> [hardware milestone and local build record](../../docs/PIXEL6-IOS-HOMESCREEN.md).
+> The Pixel 6a results below are the upstream project's separate observations.
+
 **Apple's XNU kernel and iOS 16 userland on a Google Pixel 6a (Tensor G1).**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -65,8 +72,9 @@ fastboot boot shim/out/shim-boot-avb.img
 You need an AArch64 bare-metal GCC, Python 3, `adb`/`fastboot`; see [docs/BUILD.md](docs/BUILD.md).
 Build XNU locally with `tools/xnu-local-build` on Linux ([docs/LOCAL-BUILD.md](docs/LOCAL-BUILD.md)).
 The Pixel 6 framebuffer diagnostic has a pinned local image builder at
-`../../tools/build-oriole-fbsnap-local.sh` (see the root repository's
-`docs/UFS-TIMEOUT-DIAG.md`). Build the iOS root with `tools/build-ios-root.sh`
+`../../tools/build-oriole-fbsnap-local.sh [--silent|--home-test]` (see the root
+repository's `docs/PIXEL6-IOS-HOMESCREEN.md`). It requires pinned private
+Apple/XNU inputs and produces a temporary boot image locally. Build the iOS root with `tools/build-ios-root.sh`
 ([docs/BUILD.md](docs/BUILD.md)).
 
 ## How it fits together

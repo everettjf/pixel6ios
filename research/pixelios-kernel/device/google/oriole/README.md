@@ -1,5 +1,15 @@
 # Pixel 6 (oriole): experimental bring-up
 
+**Current hardware milestone, 2026-10-25 PDT:** a pinned local `fastboot boot`
+image mounted the iOS 16.7.16 root, ran launchd and SpringBoard, displayed the
+lock screen, then displayed the iOS home screen after a synthetic Home/Menu
+event. Two physical-panel rolling samples about two minutes apart showed the
+icon grid, page dots and Dock. This does **not** prove physical touch, app
+launching or a usable daily system. The trial returned to Android Recovery at
+its configured 1800-second limit; `userdata` still contains the iOS root.
+See the repository-root [milestone and local reproduction record](../../../../../docs/PIXEL6-IOS-HOMESCREEN.md).
+The dated observations below are historical and retain their original scope.
+
 **Observed on hardware, 2026-10-24:** inventory builds through a2687bc
 returned automatically to Android with USB logs. The current device is GS101,
 unlocked, Android 17 CP3A.261005.002.A1, slider-17.0-15681480, slot b.

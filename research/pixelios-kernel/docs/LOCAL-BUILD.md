@@ -5,6 +5,14 @@ Historical comparisons below refer to the former macOS CI reference artifact;
 the workflow is no longer part of this repository. Tags: *observed* = measured
 on this machine on 2026-10-22; *read* = read from source; *guess*.
 
+**Pixel 6 hardware milestone (observed 2026-10-25 PDT):** the local `oriole`
+temporary-boot profile reached the iOS home screen after a synthetic Home/Menu
+event. Run `tools/build-oriole-fbsnap-local.sh --home-test` from the parent
+repository root; it relinks pinned private objects and
+is distinct from the Linux full-source build documented here. See the parent
+[milestone and reproducibility record](../../../docs/PIXEL6-IOS-HOMESCREEN.md)
+for exact hashes, input requirements and unverified features.
+
 ## Usage
 
 ```

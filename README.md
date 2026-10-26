@@ -1,19 +1,18 @@
-**Pixel 6 / oriole iOS 移植研究**
+# Pixel 6 / oriole iOS 移植研究
 
-已通过真机 USB 日志验证内存、显示寄存器、只读 UFS/GPT，以及 XNU 加载器的段复制和启动参数构造。真机屏幕照片和 USB 日志已确认 XNU 启动 RAM 用户进程 PID1，完成睡眠系统调用；完整 iOS 主屏尚未验证。
+**真机里程碑（2026-10-25 PDT）：**在已解锁的 Pixel 6 上，通过 `fastboot boot` 临时启动移植版 XNU 和 iPhone X 的 iOS 16.7.16 用户态，已观察到 iOS 锁屏。随后，一个定时注入的**软件 Home/Menu 按键事件**使画面进入 iOS 主屏；两次相隔约两分钟的物理面板采样均显示图标网格、分页点和 Dock。证据、构建哈希及观察边界见[真机里程碑与复现记录](docs/PIXEL6-IOS-HOMESCREEN.md)。这不是可日用的 iOS 安装：Pixel 6 的实体触摸、打开应用、无线网络、GPU、音频、相机和蜂窝通信仍未验证。
 
-Pixel 6 当前固件为 CP3A.261005.002.A1、Bootloader slider-17.0-15681480、槽 b。经用户分别确认，两版 iOS 16.7.16 HFSX 根镜像先后刷入 `userdata`；其余分区未刷写。第一版真机启动已由 USB 日志证明 XNU 找到 `ufsroot0`，但只读 UFS 拒绝 HFS 日志写入，根目录未挂载。第二版移除 HFS 日志标志，已在真机**只读挂载 iOSRoot**；随后加载 `/sbin/launchd` 时因执行平台不匹配而 panic。完整 iOS 和主屏尚未启动。详见[真机诊断记录](docs/UFS-TIMEOUT-DIAG.md)。
+当前实验将 iOS 根镜像放在 `userdata`；这已经清空了原 Android 本机数据。每轮 iOS 启动仍使用临时 `fastboot boot`，不刷写启动分区。测试计时结束后手机返回 Android Recovery，提示无法加载 Android，因为 `userdata` 已不是 Android 文件系统。若要保留当前 iOS 根镜像，**不要在 Recovery 中选择 Factory data reset**。
 
-- [调研报告与分阶段开发方案](docs/PIXEL6-IOS-FEASIBILITY.md)
+推荐基线为 iPhone X 的 iOS 16.7.16（20H392）用户态，配合 PixeliOS 的 XNU 8796.141.3 / GS101 补丁栈。代码、补丁、测试和本地构建工具在本仓库；Apple 镜像、设备原始日志、固件和私有构建输入不会提交到 Git。
+
+- [当前真机结果、构建方法与注意事项](docs/PIXEL6-IOS-HOMESCREEN.md)
+- [逐次存储与启动诊断记录](docs/UFS-TIMEOUT-DIAG.md)
+- [最初调研与方案（历史快照）](docs/PIXEL6-IOS-FEASIBILITY.md)
+- [开发交接与历史工作记录](docs/ACTIVE-WORK.md)
 - [源码版本与下载文件校验记录](docs/source-manifest.json)
-- [本机只读采集器](tools/inspect_pixel6.py)
-- [实际开发状态与继续工作的记录](docs/ACTIVE-WORK.md)
-- [相对固定上游版本的本地补丁](patches/)
+- [Pixel 6 移植源码](research/pixelios-kernel/)
 
-推荐基线：iPhone X 的 iOS 16.7.16（20H392）用户态 + PixeliOS 的 XNU 8796.141.3 / GS101 补丁栈。
+本地质量门禁为 `research/pixelios-kernel/tools/check-all.sh`；Pixel 6 的固定离线诊断构建入口为 `tools/build-oriole-fbsnap-local.sh [--silent|--home-test]`。构建依赖已校验的本机私有 XNU 对象和 Apple ADT；刚克隆的公开仓库不能凭空生成这些专有输入。构建脚本不会接触手机，须在确认设备身份和镜像哈希后才由操作者另行执行临时启动。GitHub 构建 CI 已移除，本项目以本机门禁和构建为准。
 
-```sh
-python3 tools/inspect_pixel6.py
-```
-
-采集器需要恰好一台已授权的 `oriole`，只读取选定硬件信息。输出存入忽略的 `private/`。它不会重启、解锁或刷机。移植源码和补丁现已纳入本仓库的 [research/pixelios-kernel](research/pixelios-kernel)，与原源码提交 `579ed5e` 的 486 个受版本控制文件逐字节一致；原提交历史保存在 `source-history` 分支。源码树中的 `.upstream/`、`shim/out/`、`logs/`、第三方下载，以及根目录的 `artifacts/`、`private/` 和 Platform Tools 仍被忽略。
+只读硬件信息采集器可用 `python3 tools/inspect_pixel6.py` 运行；它要求恰好一台已授权的 `oriole`，不会重启、解锁或刷机。输出保存到忽略的 `private/`。移植源码原始快照为提交 `579ed5e`，原提交历史保存在 `source-history` 分支。
