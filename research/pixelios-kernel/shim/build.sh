@@ -148,7 +148,10 @@ if [ "$inventory" = 1 ]; then
 	case "${USB_WINDOW:-30}" in ''|*[!0-9]*) echo "inventory USB_WINDOW must be 1..60" >&2; exit 2 ;; esac
 	[ "${USB_WINDOW:-30}" -ge 1 ] && [ "${USB_WINDOW:-30}" -le 60 ] || { echo "inventory USB_WINDOW must be 1..60" >&2; exit 2; }
 	USB_WINDOW=${USB_WINDOW:-30}
-	[ "$boot_xnu:$udump_mib:$touch_probe:$gpu_probe:$wlan_probe:$pstore_fast:$qrlog" = 0:0:0:0:0:0:0 ] && [ -z "$payload$dvfs_khz" ] || {
+	# Oriole may add the phase-1 touch register dump to the existing read-only
+	# inventory. No run options, ACPM transactions, or XNU payload are allowed.
+	[ "$boot_xnu:$udump_mib:$gpu_probe:$wlan_probe:$pstore_fast:$qrlog" = 0:0:0:0:0:0 ] &&
+		[ -z "$payload$dvfs_khz$touch_opts" ] || {
 		echo "--inventory cannot run payload, storage, power or peripheral experiments" >&2; exit 2;
 	}
 fi

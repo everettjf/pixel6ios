@@ -653,6 +653,12 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 	extern void gs101_display_inventory(void);
 	gs101_display_inventory();
 #endif
+#ifdef TOUCH_PROBE
+	/* Oriole inventory only permits the phase-1 register dump. build.sh
+	 * rejects every touch run/rail option for this profile. */
+	con_str("INVENTORY", "read-only touch register dump");
+	touch_probe_dump();
+#endif
 	con_str("INVENTORY", "report complete");
 	usb_gadget_finish();
 #endif
