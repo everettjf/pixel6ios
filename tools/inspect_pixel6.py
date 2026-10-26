@@ -26,6 +26,8 @@ QUERIES = {
     'display_size': ['wm', 'size'],
     'partitions': ['cat', '/proc/partitions'],
     'input': ['cat', '/proc/bus/input/devices'],
+    'input_capabilities': ['getevent', '-lp'],
+    'input_sysfs_links': ['ls', '-l', '/sys/class/input'],
     'block_names': ['ls', '-l', '/dev/block/by-name'],
     'block_sizes': ['sh', '-c', 'for d in /sys/class/block/sd?; do echo "$d"; cat "$d/size" "$d/queue/logical_block_size"; done'],
     'touch_devices': ['sh', '-c', 'for d in /sys/bus/spi/devices/*; do echo "$d"; cat "$d/modalias" "$d/uevent"; readlink "$d/driver"; done'],

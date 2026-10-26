@@ -9,6 +9,7 @@ Updated 2026-10-26 PDT. This is a staged hardware investigation, not an installa
 - **Read from Google device-tree source, unverified on this Pixel 6:** Oriole lists an STMicro FTM5 controller on SPI11, with `36 48` as the expected ID. `device/google/oriole/board.json` holds the source-derived pins and coordinates. Bluejay probe results do not establish Oriole rail or pin state.
 - **Observed on Pixel 6, 2026-10-26:** a complete read-only inventory boot (image SHA-256 `adaedfa98ce3b8e09390a00ae1a59214b198b5ea434a1a60869aa2efb603188c`) found USI11 mode `0` rather than SPI mode `2`; all four SPI pads, reset and mux were function `0`. No read faults occurred. See [the sanitized capture](../research/pixelios-kernel/device/google/oriole/hardware/touch-inventory-2026-10-26.txt). The probe deliberately did not read SPI engine registers in mode `0`. Controller identity, rails and event FIFO remain unknown.
 - **Observed on Pixel 6, 2026-10-26:** after an Android factory reset, the phone boots to Android initial setup. The earlier iOS HFSX root in `userdata` was erased by that reset. The read-only touch inventory ran from Fastboot and then returned to Android setup; an iOS interaction test will require a separately verified root-image reflash.
+- **Observed on Pixel 6, 2026-10-26:** authorized, non-root Android ADB reports a direct multitouch input device named `fts` under `spi11.0`, with X coordinates 0–1079 and Y coordinates 0–2399. See [the sanitized Android record](../research/pixelios-kernel/device/google/oriole/hardware/android-touch-2026-10-26.txt). Android denies reads of the SPI driver link and live device-tree property values; this observation confirms the Android input path, not the bare-metal chip ID or iOS touch.
 
 ## Safe first measurement
 
@@ -30,7 +31,7 @@ On macOS, `tools/run_touch_inventory.py --seconds 180` arms the CDC-ACM log rece
 
 ## Next gates
 
-1. **Next measurement:** compare the new USI11/pad handoff state with the Oriole device tree and known Bluejay baseline. Check the current touchscreen rail state using a separately reviewed ACPM read path only after its layout gate is satisfied.
+1. **Next measurement:** compare the new USI11/pad handoff state with the Oriole device tree and known Bluejay baseline. Android has now confirmed `fts` input under SPI11 on this phone. Check the current touchscreen rail state using a separately reviewed ACPM read path only after its layout gate is satisfied.
 2. **Observed hardware:** identify `36 48` on this Pixel 6 with a bounded, reviewed SPI/clock/reset probe. The existing `touchprobe.c` has these writer paths, but Oriole still forbids them; do not bypass the inventory guard or assume the Bluejay sequence is safe here.
 3. **Implementation:** only after a successful chip-ID and event-FIFO measurement, add an Oriole touch ADT node and a separate iOS boot profile. Preserve the existing no-touch profile as a fallback. Start with identify-only mode, then one-finger events.
 4. **Observed iOS behavior:** verify touch down/up and coordinate scaling in the USB log, then a physical swipe from lock screen to home screen, then tap Settings and return Home. A visible app launch and matching input logs are required before claiming interaction works.

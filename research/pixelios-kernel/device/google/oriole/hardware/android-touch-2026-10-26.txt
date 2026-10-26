@@ -1,0 +1,20 @@
+OBSERVED ON HARDWARE: Pixel 6 (oriole), 2026-10-26 PDT, stock Android 17 after factory reset.
+Collected through an authorized, non-root ADB shell. No writes, reboot or firmware change.
+Private full collector JSON is not committed; this excerpt excludes serial and account data.
+
+ro.product.device = oriole; ro.board.platform = gs101
+Android input capabilities (`getevent -lp`):
+  /dev/input/event3 name = "fts", INPUT_PROP_DIRECT, BTN_TOUCH
+  ABS_MT_SLOT 0..9
+  ABS_MT_POSITION_X 0..1079
+  ABS_MT_POSITION_Y 0..2399
+Android input sysfs links:
+  event3 -> .../platform/10d40000.spi/spi_master/spi11/spi11.0/input/input3/event3
+SPI device listing includes /sys/bus/spi/devices/spi11.0.
+The non-root shell cannot read spi11.0/driver, modalias, uevent or the live touch
+device-tree property values (Permission denied). /proc/bus/input/devices is also denied.
+
+Observed conclusion: Android creates a direct multitouch input device called "fts"
+under SPI11 on this specific phone, with coordinates matching the source-derived
+Oriole touch dimensions. This does not establish the bare-metal controller ID,
+rail state, SPI transactions or working input in XNU/iOS.
