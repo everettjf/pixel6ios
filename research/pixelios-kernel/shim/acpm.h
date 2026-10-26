@@ -145,6 +145,9 @@ int acpm_describe(const struct acpm_cfg *c, struct acpm_chan *h);	/* reads only 
 int acpm_chan_id(const struct acpm_cfg *c, const struct acpm_chan *h, uint32_t idx, uint32_t *id);	/* after why == ACPM_W_NOCH: table[idx].id */
 int acpm_qword(const struct acpm_cfg *c, const struct acpm_chan *h, int rsp, uint32_t i, uint32_t *v);
 int acpm_pmic_read(const struct acpm_cfg *c, uint32_t reg, uint32_t *val, struct acpm_trace *t);
+/* Oriole-only experiment: exact observed off VSEL, bit-7 UPDATE only. `on=0`
+ * restores an enabled rail. Built only in the isolated rail-cycle profile. */
+int acpm_oriole_touch_rail_set(const struct acpm_cfg *c, uint32_t reg, int on, struct acpm_trace *t);
 /* S2MPG11 register read (soc.json acpm.s2mpg11 only; refuses a register not listed there or an unknown config), for --gpu-rails */
 int acpm_s11_read(const struct acpm_cfg *c, uint32_t reg, uint32_t *val, struct acpm_trace *t);
 /* S2MPG10 register read of the four PCIe-PHY LDO control registers of soc.json wlan (s10_l16m..l19m_ctrl only), for --wlan-rails (docs/research/29); no PMIC write is expressible */

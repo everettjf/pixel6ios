@@ -36,6 +36,7 @@ inventory_ufs=0
 inventory_ufs_ready=0
 inventory_acpm_desc=0
 inventory_acpm_rails=0
+inventory_acpm_rail_cycle=0
 ramprobe=0
 loadcheck=0
 resetcheck=0
@@ -82,6 +83,7 @@ while [ "$#" -gt 0 ]; do
 		--inventory-display) inventory=1; inventory_display=1; usb_gadget=1; shift ;;
 		--inventory-acpm-desc) inventory=1; inventory_acpm_desc=1; usb_gadget=1; shift ;;
 		--inventory-acpm-rails) inventory=1; inventory_acpm_rails=1; usb_gadget=1; shift ;;
+		--inventory-acpm-rail-cycle) inventory=1; inventory_acpm_rail_cycle=1; usb_gadget=1; shift ;;
 		--avb) avb=1; shift ;;
 		--pstore-fast) pstore_fast=1; shift ;;
 		--usb-gadget) usb_gadget=1; shift ;;
@@ -152,8 +154,13 @@ if [ "$inventory_acpm_desc" = 1 ]; then
 	}
 fi
 if [ "$inventory_acpm_rails" = 1 ]; then
-	[ "$board:$inventory_ufs:$inventory_display:$inventory_acpm_desc:$touch_probe:$touch_rails:$touch_dvfs" = oriole:0:0:0:0:0:0 ] || {
+	[ "$board:$inventory_ufs:$inventory_display:$inventory_acpm_desc:$inventory_acpm_rail_cycle:$touch_probe:$touch_rails:$touch_dvfs" = oriole:0:0:0:0:0:0:0 ] || {
 		echo "--inventory-acpm-rails requires plain oriole inventory" >&2; exit 2;
+	}
+fi
+if [ "$inventory_acpm_rail_cycle" = 1 ]; then
+	[ "$board:$inventory_ufs:$inventory_display:$inventory_acpm_desc:$inventory_acpm_rails:$touch_probe:$touch_rails:$touch_dvfs" = oriole:0:0:0:0:0:0:0 ] || {
+		echo "--inventory-acpm-rail-cycle requires plain oriole inventory" >&2; exit 2;
 	}
 fi
 if [ "$inventory" = 1 ]; then
@@ -367,6 +374,8 @@ for f in start.S shim.c console.c ramlog.c mmu.c fdt.c pstore.c loader.c payload
 		"$CC" $CFLAGS -DORIOLE_ACPM_DESC_ONLY -c "$f" -o "out/${f%.*}.o"
 	elif [ "$f" = shim.c ] && [ "$inventory_acpm_rails" = 1 ]; then
 		"$CC" $CFLAGS -DORIOLE_ACPM_RAILS_READ -c "$f" -o "out/${f%.*}.o"
+	elif [ "$f" = shim.c ] && [ "$inventory_acpm_rail_cycle" = 1 ]; then
+		"$CC" $CFLAGS -DORIOLE_ACPM_RAIL_CYCLE -c "$f" -o "out/${f%.*}.o"
 	else
 		"$CC" $CFLAGS -c "$f" -o "out/${f%.*}.o"
 	fi
@@ -448,6 +457,9 @@ if [ "$gs101" = 1 ]; then
 	"$CC" $CFLAGS -DORIOLE_ACPM_RAILS_READ -fno-tree-switch-conversion -fno-jump-tables -c acpm.c -o out/acpm_rails.o
 	"$CC" $CFLAGS -DORIOLE_ACPM_RAILS_READ -c acpmrailread.c -o out/acpmrailread.o
 	"$PYTHON" ../tools/test-oriole-acpm-rails.py --nm "$NM" --client out/acpm_rails.o --entry out/acpmrailread.o
+	"$CC" $CFLAGS -DORIOLE_ACPM_RAILS_READ -DORIOLE_ACPM_RAIL_CYCLE -fno-tree-switch-conversion -fno-jump-tables -c acpm.c -o out/acpm_rail_cycle.o
+	"$CC" $CFLAGS -DORIOLE_ACPM_RAIL_CYCLE -c acpmrailcycle.c -o out/acpmrailcycle.o
+	"$PYTHON" ../tools/test-oriole-acpm-rail-cycle.py --nm "$NM" --client out/acpm_rail_cycle.o --entry out/acpmrailcycle.o
 fi
 acpm_desc_objs=""
 if [ "$inventory_acpm_desc" = 1 ]; then
@@ -464,6 +476,9 @@ acpm_rail_objs=""
 if [ "$inventory_acpm_rails" = 1 ]; then
 	# This profile links a separate ACPM client with all unrelated APIs removed.
 	acpm_rail_objs="out/acpmrailread.o out/acpm_rails.o"
+fi
+if [ "$inventory_acpm_rail_cycle" = 1 ]; then
+	acpm_rail_objs="out/acpmrailcycle.o out/acpm_rail_cycle.o"
 fi
 qr_objs=
 if [ "$qrlog" = 1 ]; then
@@ -615,6 +630,7 @@ $GRO -DGATE_TEST -DGATE_UNIT -Iout -include out/board_config_u0.h -o out/gpurail
 $GRO -DNULL_TEST -Iout -include out/board_config_n0.h -o out/gpurailon_null_host_test gpurailon_host_test.c && ./out/gpurailon_null_host_test
 gcc -O1 -Wall -Wextra -Werror -I. -Iout -include out/board_config.h -o out/touch_host_test touch_host_test.c && ./out/touch_host_test
 gcc -O1 -Wall -Wextra -Werror -DTOUCH_RAILS_WRITE -I. -Iout -include out/board_config.h -o out/acpm_host_test acpm_host_test.c && ./out/acpm_host_test
+gcc -O1 -Wall -Wextra -Werror -I. -Iout -include out/board_config.h -o out/oriole_touch_rail_cycle_host_test oriole_touch_rail_cycle_host_test.c && ./out/oriole_touch_rail_cycle_host_test
 for v in 0 1; do gcc -O1 -Wall -Wextra -Werror -DRT_VERIFIED=$v -I. -Iout -include out/board_config.h -o out/rails_host_test$v rails_host_test.c && ./out/rails_host_test$v; done
 # ACPM DVFS client (docs/research/25): the fake channel-1 APM; the read-only build has no request tests (no acpm_dvfs_set there).
 # Every check below FAILS the build (a plain `a && b && echo PASS` chain only skips the PASS line under set -e: review dvfs-1 M1).

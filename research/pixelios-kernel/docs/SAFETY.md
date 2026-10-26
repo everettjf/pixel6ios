@@ -2,13 +2,14 @@
 
 > **Pixel 6 (`oriole`) readers:** the bluejay-specific commands and assurances
 > below are historical upstream guidance, not an Oriole installation manual.
-> The current Oriole experiment has already replaced `userdata` with an iOS
-> root; Android therefore enters Recovery. The iOS boot image is loaded with
-> `fastboot boot`, and physical UFS writes are disabled in its tested profile.
+> An earlier Oriole experiment replaced `userdata` with an iOS root, causing
+> Android to enter Recovery. A factory reset on 2026-10-26 erased that root;
+> the phone then reached Android initial setup. The iOS boot image is loaded
+> with `fastboot boot`, and physical UFS writes are disabled in its tested profile.
 > Before any new device write, verify the exact `oriole` identity and current
 > firmware/slot, preserve a compatible recovery path, and obtain confirmation
 > for that particular step. Do not copy the bluejay restore commands or select
-> Recovery's Factory data reset if preserving the iOS root. See the parent
+> Recovery's Factory data reset if preserving a future iOS root. See the parent
 > [public-install readiness plan](../../../docs/PUBLIC-INSTALL-READINESS.md).
 
 Hard rule from the user: the Pixel 6a must always be restorable to stock Android with

@@ -522,6 +522,45 @@ int acpm_pmic_read(const struct acpm_cfg *c, uint32_t reg, uint32_t *val, struct
 	return read1(c, reg, val, t, &t->a);
 }
 
+#ifdef ORIOLE_ACPM_RAIL_CYCLE
+/* Pixel 6 handoff values measured 2026-10-26: LDO25M=0x2c,
+ * LDO26M=0x3c. Google's S2MPG10 regulator driver updates enable bit 7
+ * under mask 0x80; the VSEL bits are unchanged (docs/research/23).
+ * This deliberately cannot address another PMIC register or voltage.
+ */
+int acpm_oriole_touch_rail_set(const struct acpm_cfg *c, uint32_t reg, int on, struct acpm_trace *t)
+{
+	uint32_t off, cur = 0;
+	int e;
+
+	t->n = 0;
+	acpm_xfer_zero(&t->a);
+	acpm_xfer_zero(&t->b);
+	if (c->ch_id != 2 || c->pmic_addr != 1 || c->speedy != 0 ||
+	    c->layout_verified != 1 || c->elem_unit_verified != 1 ||
+	    c->rail[0].reg != 0x5cu || c->rail[1].reg != 0x5du ||
+	    c->rail[0].vsel_known != 1 || c->rail[1].vsel_known != 1 ||
+	    c->rail[0].vsel_min > 0x2cu || c->rail[0].vsel_max < 0x2cu ||
+	    c->rail[1].vsel_min > 0x3cu || c->rail[1].vsel_max < 0x3cu ||
+	    (reg != 0x5cu && reg != 0x5du) || (on != 0 && on != 1))
+		return refuse(&t->a, ACPM_E_UNSURE, ACPM_W_ARG);
+	off = reg == 0x5cu ? 0x2cu : 0x3cu;
+	e = read1(c, reg, &cur, t, &t->a);
+	if (e)
+		return e;
+	t->n = 2;
+	/* A restore accepts an already-off rail after an uncertain enable reply.
+	 * Every other unexpected state is refused before a PMIC UPDATE. */
+	if (!on && cur == off)
+		return ACPM_E_ON;
+	if (cur != (off | (on ? 0u : 0x80u)))
+		return refuse(&t->b, ACPM_E_RAIL, ACPM_W_VSELOUT);
+	return xfer(c, XM_PMIC, pmic_w0(c, reg),
+		    FUNC_UPDATE | ((on ? 0x80u : 0u) << 8) | (0x80u << 16),
+		    0, 0, t, &t->b);
+}
+#endif
+
 #ifndef ORIOLE_ACPM_RAILS_READ
 /* S2MPG11 (sub PMIC, speedy channel 1, GPU rails) READ for --gpu-rails (docs/research/27): the same transaction as the S2MPG10 read above
  * (same IPC channel, same xfer(), FUNC_READ only, no PMIC write is expressible here), with CHANNEL = soc.json acpm.s2mpg11.speedy_ch and

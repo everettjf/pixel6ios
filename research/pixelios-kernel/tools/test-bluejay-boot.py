@@ -46,6 +46,7 @@ import json
 import os
 import pathlib
 import re
+import hashlib
 import shutil
 import struct
 import subprocess
@@ -1979,8 +1980,14 @@ def check_acpm_s11_writer_source(src: str, name: str = "acpm.c") -> None:
         raise AssertionError(f"{name}: acpm_s11_rail_set must contain exactly one update: {_RAILSET_UPDATE}")
     if "val=on?ACPM_S11_ON_VAL_ON:ACPM_S11_ON_VAL_OFF;" not in body:
         raise AssertionError(f"{name}: the written value must be VAL_ON or VAL_OFF only")
-    if len(re.findall(r"\bFUNC_UPDATE\b", code)) != 3:	# the #define, acpm_pmic_update (S2MPG10 rails) and acpm_s11_rail_set
-        raise AssertionError(f"{name}: FUNC_UPDATE may appear only in its #define, acpm_pmic_update (S2MPG10 rails) and acpm_s11_rail_set")
+    if len(re.findall(r"\bFUNC_UPDATE\b", code)) != 4:	# the #define and three independently pinned clients
+        raise AssertionError(f"{name}: unexpected number of PMIC UPDATE sites")
+    ca, cb = _c_function_span(code, "acpm_oriole_touch_rail_set")
+    cycle_body = code[ca:cb]
+    # This new profile may update only bit 7 of exactly the two observed Oriole
+    # touch LDOs. Pin the complete helper until its independent review is done.
+    if hashlib.sha256(cycle_body.encode()).hexdigest() != "f4d390c26ba2522f3545aa62d354d7bda2a396a8de7ddcaea18ec35cc2c56763":
+        raise AssertionError(f"{name}: Oriole touch-rail writer changed without re-review")
     for need in ("e=xfer(c,XM_PMIC,s11_w0(ACPM_S11_ON_REG),FUNC_READ,0,0,t,&t->a);if(e)returne;",
                  "if((cur&ACPM_S11_ON_MASK)!=0)returnrefuse(&t->b,ACPM_E_ON,ACPM_W_ON);",
                  "e=xfer(c,XM_PMIC,s11_w0(ACPM_S11_ON_OUT1),FUNC_READ,0,0,t,&xo);",
@@ -4130,6 +4137,12 @@ def main() -> None:
     n_stores = check_touchprobe_object(repo_root / "shim" / "out" / "acpm.o", _ACPM_ALLOWED_UNDEF)
     print(f"PASS acpm object audit: try_write32 referenced only by a bl inside w32; {n_stores} stores outside w32, "
           "all stack/argument based; undef subset; no banned instructions")
+    n_stores = check_touchprobe_object(repo_root / "shim" / "out" / "acpm_rail_cycle.o", _ACPM_ALLOWED_UNDEF)
+    print(f"PASS Oriole rail-cycle ACPM client object: {n_stores} stores outside w32, all stack/argument based")
+    n_stores = check_touchprobe_object(repo_root / "shim" / "out" / "acpmrailcycle.o",
+                                       {"acpm_cfg_init", "acpm_describe", "acpm_oriole_touch_rail_set",
+                                        "acpm_pmic_read", "con_hex2", "con_str"})
+    print(f"PASS Oriole rail-cycle entry object: {n_stores} stores, all stack/argument based; no direct MMIO")
     udump_object_selftest()
     n_stores = check_udump_object(repo_root / "shim" / "out" / "udump.o")
     print(f"PASS udump object audit: {n_stores} stores, all stack/argument-"

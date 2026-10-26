@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CHECKOUT = ROOT / 'research/pixelios-kernel'
 
 
-KNOWN_MODES = frozenset(('inventory', 'inventory-touch', 'inventory-acpm-desc', 'inventory-acpm-rails', 'inventory-display', 'inventory-ufs',
+KNOWN_MODES = frozenset(('inventory', 'inventory-touch', 'inventory-acpm-desc', 'inventory-acpm-rails', 'inventory-acpm-rail-cycle', 'inventory-display', 'inventory-ufs',
                          'inventory-ufs-ready',
                          'xnu-ramprobe', 'xnu-loadcheck', 'xnu-resetcheck',
                          'xnu-md0usb', 'xnu-md0usb-loadcheck',
@@ -87,6 +87,15 @@ def check_acpm_rails_image_digest(baseline, digest):
         raise SystemExit('ACPM rail-read image differs from the reviewed exact build')
 
 
+def check_acpm_rail_cycle_image_digest(baseline, digest):
+    """The PMIC writer requires an independent exact-image pin."""
+    pinned = baseline.get('inventory_acpm_rail_cycle_image_sha256') if isinstance(baseline, dict) else None
+    if not isinstance(pinned, str) or not re.fullmatch(r'[0-9a-f]{64}', pinned):
+        raise SystemExit('ACPM rail-cycle image hash is not pinned in the firmware baseline')
+    if digest != pinned:
+        raise SystemExit('ACPM rail-cycle image differs from the reviewed exact build')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     group = ap.add_mutually_exclusive_group()
@@ -103,6 +112,7 @@ def main():
     group.add_argument('--touch', action='store_true', help='read-only Oriole touch inventory only')
     group.add_argument('--acpm-desc', action='store_true', help='Oriole ACPM descriptor snapshot; no IPC request')
     group.add_argument('--acpm-rails', action='store_true', help='Oriole ACPM touch rail read via bounded IPC')
+    group.add_argument('--acpm-rail-cycle', action='store_true', help='Oriole PMIC touch-rail bit-7 cycle; exact pinned image only')
     ap.add_argument('--image', type=Path, default=CHECKOUT / 'shim/out/shim-boot-avb.img')
     args = ap.parse_args()
     md0profile = args.md0usb or args.md0usb_loadcheck
@@ -137,6 +147,9 @@ def main():
     rail_marker = b'Oriole ACPM touch rail READ requests'
     if (rail_marker in kernel) != args.acpm_rails:
         raise SystemExit('ACPM rail-read image requires an explicit --acpm-rails selection')
+    cycle_marker = b'ACPM CYCLE END'
+    if (cycle_marker in kernel) != args.acpm_rail_cycle:
+        raise SystemExit('ACPM rail-cycle image requires an explicit --acpm-rail-cycle selection')
     if args.touch and any(marker in kernel for marker in
                           (b'RDMA channel', b'UFS INVENTORY', b'UFS READY-HOST')):
         raise SystemExit('Touch inventory cannot include display or UFS experiments')
@@ -146,6 +159,10 @@ def main():
     if args.acpm_rails and any(marker in kernel for marker in
                                (b'RDMA channel', b'UFS INVENTORY', b'UFS READY-HOST', touch_marker)):
         raise SystemExit('ACPM rail-read inventory cannot include touch, display or UFS experiments')
+    if args.acpm_rail_cycle and any(marker in kernel for marker in
+                                   (b'RDMA channel', b'UFS INVENTORY', b'UFS READY-HOST',
+                                    touch_marker, rail_marker, acpm_marker)):
+        raise SystemExit('ACPM rail-cycle inventory cannot include other experiments')
     if ramprofile:
         subprocess.run([str(ROOT / 'artifacts/build-venv/bin/python'),
                         str(CHECKOUT / ('tools/oriole_ufsroot.py' if ufsprofile else 'tools/oriole_md0usb.py' if md0profile else 'tools/oriole_ramprobe.py')), '--check-image', str(image)], check=True)
@@ -180,7 +197,7 @@ def main():
     if (fastboot_value(getvar('product'), 'product') != 'oriole' or
             fastboot_value(getvar('unlocked'), 'unlocked') != 'yes'):
         raise SystemExit('Target must be unlocked oriole')
-    mode = ('inventory-acpm-rails' if args.acpm_rails else 'inventory-acpm-desc' if args.acpm_desc else 'inventory-touch' if args.touch else 'xnu-ufsroot-coldinit-preparecheck' if args.ufsroot_coldinit_preparecheck else 'xnu-ufsroot-coldinit' if args.ufsroot_coldinit else 'xnu-ufsroot-preparecheck' if args.ufsroot_preparecheck else 'xnu-ufsroot-loadcheck' if args.ufsroot_loadcheck else 'xnu-ufsroot' if args.ufsroot else 'xnu-md0usb-loadcheck' if args.md0usb_loadcheck else 'xnu-md0usb' if args.md0usb else 'xnu-resetcheck' if args.resetcheck else 'xnu-loadcheck' if args.loadcheck else 'xnu-ramprobe' if args.ramprobe else 'inventory-ufs-ready' if b'UFS READY-HOST' in kernel else 'inventory-ufs' if b'UFS INVENTORY' in kernel else
+    mode = ('inventory-acpm-rail-cycle' if args.acpm_rail_cycle else 'inventory-acpm-rails' if args.acpm_rails else 'inventory-acpm-desc' if args.acpm_desc else 'inventory-touch' if args.touch else 'xnu-ufsroot-coldinit-preparecheck' if args.ufsroot_coldinit_preparecheck else 'xnu-ufsroot-coldinit' if args.ufsroot_coldinit else 'xnu-ufsroot-preparecheck' if args.ufsroot_preparecheck else 'xnu-ufsroot-loadcheck' if args.ufsroot_loadcheck else 'xnu-ufsroot' if args.ufsroot else 'xnu-md0usb-loadcheck' if args.md0usb_loadcheck else 'xnu-md0usb' if args.md0usb else 'xnu-resetcheck' if args.resetcheck else 'xnu-loadcheck' if args.loadcheck else 'xnu-ramprobe' if args.ramprobe else 'inventory-ufs-ready' if b'UFS READY-HOST' in kernel else 'inventory-ufs' if b'UFS INVENTORY' in kernel else
             'inventory-display' if b'RDMA channel' in kernel else 'inventory')
     baseline = json.loads((ROOT / 'private/boot-baseline.json').read_text())
     if args.touch:
@@ -189,6 +206,8 @@ def main():
         check_acpm_desc_image_digest(baseline, digest)
     if args.acpm_rails:
         check_acpm_rails_image_digest(baseline, digest)
+    if args.acpm_rail_cycle:
+        check_acpm_rail_cycle_image_digest(baseline, digest)
     slot = check_firmware(getvar, baseline, mode)
     if len(blob) != 0x4000000:
         raise SystemExit('Expected audited 64 MiB AVB-footed temporary image')

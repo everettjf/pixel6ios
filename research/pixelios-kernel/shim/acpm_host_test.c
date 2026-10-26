@@ -41,11 +41,13 @@ static uint32_t sram[SRAMSZ / 4];
 static uint32_t mbox[MBOXSZ / 4];
 static uint32_t pmic[256];
 static int fail_upd, ignore_upd, bump_out1, fail_r16;	/* gpurailon_host_test: UPDATE answers with an error (not applied) / is acknowledged but not applied / also changes register 0x16 */
+static int fail_upd_reg;	/* -1: disabled; fail a single register's UPDATE for rail-cycle rollback tests */
 static struct { uintptr_t pa; uint32_t v; } wlog[256];
 static unsigned nw, stray, nbell;
 static uintptr_t bad_rpa, bad_wpa;	/* a read of / the next write to this address faults */
 static int wfaults;			/* faults left for bad_wpa */
 static int poll_fault, time_frozen;
+static int update_mode, update_front_fault, update_bell_fault, update_reply_fault;
 static uint64_t now, fake_freq;
 /* M_OK answers after apm_delay polls; M_NEVER never completes (the request stays pending); M_NOREPLY takes the request but sends no reply */
 enum { M_OK, M_NEVER, M_NOREPLY, M_RET, M_BADSEQ } mode;
@@ -83,11 +85,11 @@ static void apm_complete(void)	/* the APM finishes its transaction: only now doe
 	val = (apm_w[1] >> 8) & 0xff;
 	mask = (apm_w[1] >> 16) & 0xff;
 	r0 = apm_w[0] + (mode == M_BADSEQ ? (1u << 16) : 0);
-	if (fn == 2 && !fail_upd && !ignore_upd)
+	if (fn == 2 && !fail_upd && (int)reg != fail_upd_reg && !ignore_upd)
 		pmic[reg] = (pmic[reg] & ~mask) | (val & mask);
 	if (fn == 2 && bump_out1)
 		pmic[0x16]++;
-	r1 = (fn == 0 ? pmic[reg] << 8 : 0) | (mode == M_RET || (fn == 2 && fail_upd) || (fn == 0 && reg == 0x16 && fail_r16) ? 2u << 24 : 0);
+	r1 = (fn == 0 ? pmic[reg] << 8 : 0) | (mode == M_RET || (fn == 2 && (fail_upd || (int)reg == fail_upd_reg)) || (fn == 0 && reg == 0x16 && fail_r16) ? 2u << 24 : 0);
 	setS(RSP_BASE_O + ESZ * sf + 0, r0);
 	setS(RSP_BASE_O + ESZ * sf + 4, r1);
 	setS(RSP_FRONT_O, (sf + 1) % QLEN);
@@ -126,6 +128,10 @@ static void apm_doorbell(void)	/* the doorbell was rung: the APM reads front, la
 	apm_slot_o = REQ_BASE_O + ESZ * rear;
 	for (i = 0; i < 4; i++)
 		apm_w[i] = S(apm_slot_o + 4 * i);
+	if ((apm_w[1] & 0xffu) == 2) {
+		if (update_mode) mode = update_mode;
+		if (update_reply_fault) bad_rpa = SRAM + RSP_FRONT_O;
+	}
 	if (mode == M_NEVER)
 		return;
 	apm_busy = 1;
@@ -135,6 +141,10 @@ static void apm_doorbell(void)	/* the doorbell was rung: the APM reads front, la
 int try_write32(uintptr_t pa, uint32_t v)
 {
 	uint32_t *c = cell(pa);
+	uint32_t front = S(REQ_FRONT_O);
+	int update_pending = front < QLEN && (S(REQ_BASE_O + ESZ * front + 4) & 0xffu) == 2;
+	uint32_t prior = (front + QLEN - 1) % QLEN;
+	int update_published = (S(REQ_BASE_O + ESZ * prior + 4) & 0xffu) == 2;
 
 	if (!c) {
 		stray++;
@@ -144,6 +154,9 @@ int try_write32(uintptr_t pa, uint32_t v)
 		wfaults--;
 		return 0;
 	}
+	if ((update_front_fault && update_pending && pa == SRAM + REQ_FRONT_O) ||
+	    (update_bell_fault && update_published && pa == MBOX + ACPM_INTGR1))
+		return 0;
 	if (apm_busy && (pa == SRAM + REQ_FRONT_O || (pa >= SRAM + apm_slot_o && pa < SRAM + apm_slot_o + ESZ)))
 		busy_writes++;	/* the APM is working on that request: nothing may touch the slot or the front now */
 	assert(nw < 256);
@@ -169,8 +182,10 @@ static void setup(uint32_t q_elem_size)	/* the descriptor's q_elem_size as the A
 	memset(wlog, 0, sizeof(wlog));
 	nw = stray = nbell = 0;
 	fail_upd = ignore_upd = bump_out1 = fail_r16 = 0;
+	fail_upd_reg = -1;
 	bad_rpa = bad_wpa = 0;
 	wfaults = poll_fault = time_frozen = 0;
+	update_mode = update_front_fault = update_bell_fault = update_reply_fault = 0;
 	mode = M_OK;
 	now = 1000;
 	fake_freq = 24576000ull;
