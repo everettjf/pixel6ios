@@ -56,6 +56,7 @@
 #define UPD_VAL_MASK	0x80u	/* only bit 7 (enable) of the two rails, set never clear (doc 23 section 5) */
 
 /* The ONLY writes: see the header comment. Zero guard = nothing allowed. */
+#ifndef ORIOLE_ACPM_DESC_ONLY
 struct wguard {
 	int armed;
 	int slot_ok;				/* request slot + front writes: open until the front write was attempted (published) */
@@ -92,12 +93,14 @@ __attribute__((noinline)) static int w32(uintptr_t pa, uint32_t v, const struct 
 		return -2;
 	return try_write32(pa, v) ? 0 : -1;
 }
+#endif
 
 static int r32(uintptr_t pa, uint32_t *v)
 {
 	return try_read32(pa, v);
 }
 
+#ifndef ORIOLE_ACPM_DESC_ONLY
 static int put(uintptr_t pa, uint32_t v, const struct wguard *g, struct acpm_xfer *x)
 {
 	int e = w32(pa, v, g);
@@ -106,6 +109,7 @@ static int put(uintptr_t pa, uint32_t v, const struct wguard *g, struct acpm_xfe
 		x->n++;
 	return e;
 }
+#endif
 
 void acpm_cfg_init(struct acpm_cfg *c)
 {
@@ -225,6 +229,8 @@ int acpm_describe(const struct acpm_cfg *c, struct acpm_chan *h)
 	uint32_t i, j, id = 0, off, bytes;
 
 	h->n = h->tab = h->idx = h->have_desc = 0;
+	for (i = 0; i < 8; i++)
+		h->init[i] = 0;
 	for (i = 0; i < ACPM_DESC_WORDS; i++)
 		h->d[i] = 0;
 	h->qlen = h->esz = h->esz_w = h->esz_b = h->ap_poll = 0;
@@ -323,6 +329,7 @@ int acpm_qword(const struct acpm_cfg *c, const struct acpm_chan *h, int rsp, uin
 	return r32(c->sram_base + off + 4u * i, v);
 }
 
+#ifndef ORIOLE_ACPM_DESC_ONLY
 static int fail(struct acpm_xfer *x, int e, uint32_t why)
 {
 	x->err = e;
@@ -847,6 +854,7 @@ int acpm_dvfs_get(const struct acpm_cfg *c, uint32_t dom, uint32_t *khz, struct 
 
 #endif
 
+#endif /* !ORIOLE_ACPM_DESC_ONLY: no IPC request or MMIO writer in descriptor inventory */
 #else	/* no ACPM on this SoC */
 
 int acpm_describe(const struct acpm_cfg *c, struct acpm_chan *h)

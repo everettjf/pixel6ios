@@ -653,6 +653,13 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 	extern void gs101_display_inventory(void);
 	gs101_display_inventory();
 #endif
+#ifdef ORIOLE_ACPM_DESC_ONLY
+	/* Read SRAM descriptor and queue indices only. The linked ACPM object
+	 * lacks IPC request functions and any try_write32 reference. */
+	extern void acpm_desc_dump(void);
+	con_str("INVENTORY", "Oriole ACPM descriptor snapshot");
+	acpm_desc_dump();
+#endif
 #ifdef TOUCH_PROBE
 	/* Oriole inventory only permits the phase-1 register dump. build.sh
 	 * rejects every touch run/rail option for this profile. */

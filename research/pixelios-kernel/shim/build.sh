@@ -34,6 +34,7 @@ inventory=0
 inventory_display=0
 inventory_ufs=0
 inventory_ufs_ready=0
+inventory_acpm_desc=0
 ramprobe=0
 loadcheck=0
 resetcheck=0
@@ -78,6 +79,7 @@ while [ "$#" -gt 0 ]; do
 		--inventory-ufs) inventory=1; inventory_ufs=1; usb_gadget=1; shift ;;
 		--inventory-ufs-ready) inventory=1; inventory_ufs=1; inventory_ufs_ready=1; usb_gadget=1; shift ;;
 		--inventory-display) inventory=1; inventory_display=1; usb_gadget=1; shift ;;
+		--inventory-acpm-desc) inventory=1; inventory_acpm_desc=1; usb_gadget=1; shift ;;
 		--avb) avb=1; shift ;;
 		--pstore-fast) pstore_fast=1; shift ;;
 		--usb-gadget) usb_gadget=1; shift ;;
@@ -141,6 +143,11 @@ if [ "$inventory_ufs" = 1 ]; then
     [ "$board:$inventory_display" = oriole:0 ] && [ -z "${UFS_DMA_HI_BASE:-}${UFS_ATTEMPTS:-}${XNU_UFS:-}${REBOOT_BL:-}" ] || {
         echo "--inventory-ufs requires oriole and forbids overrides/display/reset experiments" >&2; exit 2;
     }
+fi
+if [ "$inventory_acpm_desc" = 1 ]; then
+	[ "$board:$inventory_ufs:$inventory_display:$touch_probe:$touch_rails:$touch_dvfs" = oriole:0:0:0:0:0 ] || {
+		echo "--inventory-acpm-desc requires plain oriole inventory" >&2; exit 2;
+	}
 fi
 if [ "$inventory" = 1 ]; then
 	[ "$gs101" = 1 ] || { echo "--inventory needs gs101" >&2; exit 2; }
@@ -349,7 +356,11 @@ rm -f out/shim-boot-avb.img.meta.json
 "$PYTHON" ../tools/boards.py "$board" out/board_config.h
 [ "$gs101" = 1 ] && "$PYTHON" ../tools/boards.py "$board" out/wlan_seq.h --wlan-seq
 for f in start.S shim.c console.c ramlog.c mmu.c fdt.c pstore.c loader.c payload.c ufs.c usbprobe.c; do
-	"$CC" $CFLAGS -c "$f" -o "out/${f%.*}.o"
+	if [ "$inventory_acpm_desc" = 1 ] && [ "$f" = shim.c ]; then
+		"$CC" $CFLAGS -DORIOLE_ACPM_DESC_ONLY -c "$f" -o "out/${f%.*}.o"
+	else
+		"$CC" $CFLAGS -c "$f" -o "out/${f%.*}.o"
+	fi
 done
 # SoC-specific UFS code lives with the SoC (soc/<vendor>/<soc>/shim); same object names as before.
 socshim=../$("$PYTHON" ../tools/boards.py "$board" --get soc_dir)/shim
@@ -424,6 +435,17 @@ NOJOB_CFLAGS="${CFLAGS//-DGPU_JOB/}"	# the plain / stack gpupower objects never 
 "$CC" $CFLAGS -fno-tree-switch-conversion -fno-jump-tables -c touchprobe.c -o out/touchprobe.o
 # Same for acpm.c (ACPM client for the touch rails); only LINKED with --touch-probe=railsr|rails. Its writes go through one allowlisted helper (audited).
 "$CC" $CFLAGS -fno-tree-switch-conversion -fno-jump-tables -c acpm.c -o out/acpm.o
+acpm_desc_objs=""
+if [ "$inventory_acpm_desc" = 1 ]; then
+	"$CC" $CFLAGS -DORIOLE_ACPM_DESC_ONLY -c acpm.c -o out/acpm_desc.o
+	"$CC" $CFLAGS -DORIOLE_ACPM_DESC_ONLY -c acpmdesc.c -o out/acpmdesc.o
+	# The descriptor-only object must contain no ACPM transaction entry point
+	# and no reference to the MMIO writer. Fail before linking on either.
+	if "$NM" out/acpm_desc.o | grep -Eq ' (T|t|U) (acpm_pmic_read|acpm_pmic_update|acpm_s10_read|acpm_s11_read|acpm_dvfs_get|acpm_dvfs_set|try_write32)$'; then
+		echo "descriptor-only ACPM object contains an IPC or write path" >&2; exit 1
+	fi
+	acpm_desc_objs="out/acpmdesc.o out/acpm_desc.o"
+fi
 qr_objs=
 if [ "$qrlog" = 1 ]; then
 	for f in qrlog qrcodegen qrlog_libc; do
@@ -482,7 +504,8 @@ fi
 if [ "$touch_rails" = 1 ] || [ "$touch_dvfs" = 1 ] || [ "$gpu_clk" = 1 ] || [ "$gpu_rails" = 1 ] || [ "$wlan_rails" = 1 ]; then
 	usb_objs="$usb_objs out/acpm.o"
 fi
-abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $qr_objs $display_objs $reset_objs | grep -c ABS64 || true)
+usb_objs="$usb_objs $acpm_desc_objs"
+abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $acpm_desc_objs $qr_objs $display_objs $reset_objs | grep -c ABS64 || true)
 [ "$abs" = 0 ] || { echo "error: $abs absolute relocations in C objects" >&2; exit 1; }
 "$CC" $CFLAGS -static -T shim.ld -Wl,--build-id=none -Wl,--no-warn-rwx-segments -Wl,-N \
 	out/start.o out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbpool.o $usb_objs $qr_objs $display_objs $reset_objs -o out/shim.elf
