@@ -1,0 +1,29 @@
+Pixel 6 (oriole) ACPM S2MPG10 touch-rail inventory
+2026-10-26 PDT; observed on hardware. Serial and full USB log kept private.
+
+Source commit: abd858d
+Temporary boot image SHA-256: f67f549bb83bc67ddd2de426ca3170063d9bafcb7f34b587474605699389bc18
+Profile: --inventory-acpm-rails, USB_WINDOW=45; exact image pinned in the private firmware baseline.
+Quality gate: GATE PASS 66b010a+dirty (the reviewed changes, before the commit).
+Independent different-family review: PASS for the exact Oriole profile.
+
+ACPM RAIL DESC rc00000000 why00000000
+ACPM RAIL READ reg0000005C rc00000000
+ACPM RAIL RESULT raw0000002C why00000000
+ACPM RAIL IPC published00000002 reply00000001
+ACPM RAIL STATE ret00000000 writes00000008
+ACPM RAIL READ reg0000005D rc00000000
+ACPM RAIL RESULT raw0000003C why00000000
+ACPM RAIL IPC published00000002 reply00000001
+ACPM RAIL STATE ret00000000 writes00000008
+INVENTORY report complete
+
+Observed: both bounded FUNC_READ requests completed with replies, zero return codes,
+and no retry. No PMIC UPDATE request was sent. The phone automatically returned to
+authorized Android ADB after the temporary boot.
+
+Read from source: for these S2MPG10 LDO controls, bit 7 is the enable bit (see
+docs/research/23-acpm-regulator-client.md). Both observed values have bit 7 clear.
+Thus the touch rails were disabled at this ABL/shim handoff. The lower VSEL fields
+were 0x2C and 0x3C. The successful read does not establish the voltage at the
+touch IC, chip identity, or that enabling the rails is sufficient for SPI touch.
