@@ -1,0 +1,26 @@
+OBSERVED ON HARDWARE: Pixel 6 (oriole), 2026-10-26 PDT, read-only inventory-touch boot.
+Temporary image SHA256 adaedfa98ce3b8e09390a00ae1a59214b198b5ea434a1a60869aa2efb603188c
+Image source commit 69afd8f. Private USB capture was complete (one touch dump, no read faults).
+No serial number, raw boot log, partition contents or account data are included here.
+
+SWEET TOUCH: cmu base 0x10c00000: OPTION[0x800]=0xf1000000 usi_mux[0x640]=0x10
+SWEET TOUCH: bus_mux[0x600]=0x10 bus_auto[0x604]=0 usi_auto[0x644]=0 div[0x180c]=0
+SWEET TOUCH: cmu_top 0x1e080000: PERIC1_IP mux[0x10e8]=0x1 div[0x18e0]=0
+SWEET TOUCH: gate[0x2104]=0x200000
+SWEET TOUCH: cmu gates: ipclk_4[0x202c]=0x200000 pclk_4[0x204c]=0x200000
+SWEET TOUCH: rstnsync[0x2068]=0x200000 QCH[0x302c]=0x3f0002
+SWEET TOUCH: sysreg USI11 mode (0x10c2100c) = 0 (SPI = 0x2, so not SPI yet)
+SWEET TOUCH: pin clk   bank 0x10c40060[0] func=0 dat=0 pud=0x1
+SWEET TOUCH: pin mosi  bank 0x10c40060[1] func=0 dat=0 pud=0x1
+SWEET TOUCH: pin miso  bank 0x10c40060[2] func=0 dat=0 pud=0x1
+SWEET TOUCH: pin cs    bank 0x10c40060[3] func=0 dat=0 pud=0x1
+SWEET TOUCH: pin irq   bank 0x174d00c0[0] func=0 dat=0 pud=0
+SWEET TOUCH: pin reset bank 0x10c400c0[0] func=0 dat=0 pud=0x1
+SWEET TOUCH: pin mux   bank 0x10c400c0[1] func=0 dat=0 pud=0x1
+SWEET TOUCH: diag before: skipped: usi mode=0 (the USI/SPI registers are not read unless
+SWEET TOUCH: the mode is SPI)
+
+Observed conclusion: this ABL handoff does not configure USI11 as SPI or the touch pads as their SPI function.
+The SPI engine registers were intentionally not read in this mode. The chip ID, power rails, reset behavior,
+event FIFO and physical touch operation remain unmeasured. These register values alone do not prove that the
+controller is unpowered or faulty.
