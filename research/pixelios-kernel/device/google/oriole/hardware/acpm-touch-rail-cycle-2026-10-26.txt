@@ -1,0 +1,41 @@
+Pixel 6 (oriole) ACPM S2MPG10 touch-rail enable/restore measurement
+2026-10-26 PDT; observed on hardware. Serial and full USB log kept private.
+
+Source commit: 62ad4b5
+Temporary boot image SHA-256: 3ebd4cbb0b5f051c204da99f493ed4b7a604923ee96349d8ffc1259205d461fc
+Profile: --inventory-acpm-rail-cycle; exact image pinned in the private firmware baseline.
+The image had no SPI, XNU, UFS, touch-pad, or persistent-storage path.
+
+ACPM CYCLE READ reg0000005C value0000002C
+ACPM CYCLE READ rc00000000 want0000002C
+ACPM CYCLE READ reg0000005D value0000003C
+ACPM CYCLE READ rc00000000 want0000003C
+ACPM CYCLE SET reg0000005C on00000001
+ACPM CYCLE SET rc00000000 published00000002
+ACPM CYCLE READ reg0000005C value000000AC
+ACPM CYCLE READ rc00000000 want000000AC
+ACPM CYCLE SET reg0000005D on00000001
+ACPM CYCLE SET rc00000000 published00000002
+ACPM CYCLE READ reg0000005D value000000BC
+ACPM CYCLE READ rc00000000 want000000BC
+ACPM CYCLE both rails enabled and read back
+ACPM CYCLE SET reg0000005D on00000000
+ACPM CYCLE SET rc00000000 published00000002
+ACPM CYCLE READ reg0000005D value0000003C
+ACPM CYCLE READ rc00000000 want0000003C
+ACPM CYCLE SET reg0000005C on00000000
+ACPM CYCLE SET rc00000000 published00000002
+ACPM CYCLE READ reg0000005C value0000002C
+ACPM CYCLE READ rc00000000 want0000002C
+ACPM CYCLE END enabled00000001 restored00000002
+INVENTORY report complete
+
+Observed: LDO25M (0x5C) then LDO26M (0x5D) accepted the bit-7 enable
+request, each returned the expected enabled value. LDO26M then LDO25M
+accepted restoration, each returned its original disabled value. All
+request return codes were zero. "published00000002" means the ACPM IPC
+doorbell was rung, as defined in shim/acpm.h; it is not a request count.
+The host capture script initially rejected this successful log because its
+new parser incorrectly expected published00000001; the parser was corrected
+and the complete captured log then passed. This test did not read the FTM5
+chip ID, produce touch events, or establish an iOS touch path.
