@@ -82,8 +82,11 @@ gesture or app interaction.
 adds a CMU, SPI and pad snapshot only after a completed but unmatched Oriole
 chip-ID read. The first ID transaction therefore retains the 0112 ordering
 and timing. A different model family independently reviewed the source and
-the pinned local build profile. The exact temporary-boot image SHA-256 is
-`24c3ba9ea91371ca9964478e7deedd1c7b98bf3a32c003980d89b9d71a22c1a7`.
+the pinned local build profile. The kernel SHA-256 is
+`075e96ae749269b0b067ca0cdf78f0f8146d0427813640adf6657438ddf0026a`;
+the payload SHA-256 is
+`006a69f04e03482b025e10ec41ec638d669d2f1bde4b5c03f7dcb1422183047d`.
+The exact temporary-boot image hash will be recorded with its hardware result.
 It cannot measure the XNU-time PMIC rail state, and it cannot claim touch
 support without a subsequent physical event capture.
 
