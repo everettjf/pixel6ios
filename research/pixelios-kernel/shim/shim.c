@@ -670,6 +670,12 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 	con_str("INVENTORY", "Oriole ACPM touch rail enable/restore");
 	acpm_rail_cycle_run();
 #endif
+#ifdef ORIOLE_TOUCH_ID_HW
+	extern char _head[], _end[];
+	extern int oriole_touch_id_run(uintptr_t dtb, uint64_t image_base, uint64_t image_size);
+	con_str("INVENTORY", "Oriole one-shot touch ID and restore");
+	(void)oriole_touch_id_run(dtb, (uintptr_t)_head, (uintptr_t)_end - (uintptr_t)_head);
+#endif
 #ifdef TOUCH_PROBE
 	/* Oriole inventory only permits the phase-1 register dump. build.sh
 	 * rejects every touch run/rail option for this profile. */
@@ -1079,7 +1085,7 @@ static void delay_ms(unsigned ms)
 	wait_ticks((counter_freq() / 1000) * ms);
 }
 
-#if defined(TOUCH_PROBE) || defined(ORIOLE_ACPM_RAILS_READ) || defined(ORIOLE_ACPM_RAIL_CYCLE) || defined(GPU_POWER) || defined(GPU_CLK) || defined(GPU_RAILS) || defined(GPU_RAIL_ON) || defined(GPU_JOB) || defined(WLAN_RAILS) || defined(WLAN_LINK_RUN)
+#if defined(TOUCH_PROBE) || defined(ORIOLE_ACPM_RAILS_READ) || defined(ORIOLE_ACPM_RAIL_CYCLE) || defined(ORIOLE_TOUCH_ID_HW) || defined(GPU_POWER) || defined(GPU_CLK) || defined(GPU_RAILS) || defined(GPU_RAIL_ON) || defined(GPU_JOB) || defined(WLAN_RAILS) || defined(WLAN_LINK_RUN)
 uint64_t touch_ticks(void)	/* touchprobe.c / gpupower.c: bounded waits (CNTPCT) */
 {
 	return now();

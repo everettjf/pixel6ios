@@ -1,6 +1,8 @@
 # Oriole touch ID probe: implementation gate
 
-Status: design only, 2026-10-26 PDT. No SPI writer for Pixel 6 has passed review or run on hardware.
+Status: local work in progress, 2026-10-26 PDT. A candidate SPI writer, fake-hardware test, isolated `--inventory-touch-id` image profile, and pinned source/object/image audit exist on `wip/oriole-touch-id-hw`. The profile builds locally, but the revised writer has **not** had its required second independent review or run on Pixel 6. The physical phone remains available in Fastboot; no touch-ID image has been booted.
+
+The first independent review identified missing live-FDT/RAM gates and incomplete restoration around USI reset. The candidate now requires the live root compatible token `google,GS101 Oriole` and a live `/memory` range containing the image, and refuses a non-default SPI engine before reset. It also marks all captured engine fields for restoration before reset and checks the untouched engine words remain zero. Host tests exercise these failures and a reset that clears fake SPI registers. This is **not** yet proof of real reset semantics: the second independent review and a physical measurement remain required. Google's [Oriole device-tree overlay](https://android.googlesource.com/kernel/devices/google/raviole/+/refs/tags/android-16.0.0_r0.9/dts/gs101-oriole.dts) is the source for the compatible string.
 
 ## Evidence and target
 

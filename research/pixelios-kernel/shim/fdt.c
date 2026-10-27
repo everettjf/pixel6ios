@@ -308,6 +308,34 @@ int fdt_memory_contains(uintptr_t fdt, uint64_t base, uint64_t size)
 	return ctx.found;
 }
 
+struct compatible_ctx { const char *want; };
+
+static int root_compatible_prop(struct fdt_walk_state *st, const char *prop,
+				uintptr_t val, uint32_t len, void *ctx)
+{
+	struct compatible_ctx *c = ctx;
+	uint32_t i = 0, j;
+	if (st->depth != 1 || !streq(prop, "compatible")) return 0;
+	while (i < len) {
+		j = 0;
+		while (i + j < len && c->want[j] &&
+		       ((const char *)val)[i + j] == c->want[j]) j++;
+		if (!c->want[j] && i + j < len && ((const char *)val)[i + j] == 0)
+			return 1;
+		while (i < len && ((const char *)val)[i] != 0) i++;
+		if (i == len) return 0;
+		i++;
+	}
+	return 0;
+}
+
+int fdt_root_compatible(uintptr_t fdt, const char *compatible)
+{
+	struct compatible_ctx ctx = { compatible };
+	struct fdt_ops ops = { .prop = root_compatible_prop };
+	return compatible && fdt_walk(fdt, &ops, &ctx) == 1;
+}
+
 struct collect_ctx {
 	struct fdt_memmap *mm;
 	unsigned rsv_node_start;	/* first reserved entry of the current node */

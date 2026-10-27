@@ -42,6 +42,25 @@ static void test_original_case(void)
 	assert(!fdt_memory_contains(0, 0x880000000ULL, 0x1000));
 }
 
+static void test_root_compatible(void)
+{
+	struct fdt_builder b;
+	const char names[] = "google,GS101 Oriole\0google,GS101\0";
+	b_init(&b);
+	b_begin_node(&b, "");
+	b_prop(&b, "compatible", names, sizeof(names) - 1);
+	b_begin_node(&b, "child");
+	b_prop(&b, "compatible", "google,GS101 Raven", 19);
+	b_end_node(&b);
+	b_end_node(&b);
+	uintptr_t fdt = b_finish(&b);
+	assert(fdt_root_compatible(fdt, "google,GS101 Oriole"));
+	assert(fdt_root_compatible(fdt, "google,GS101"));
+	assert(!fdt_root_compatible(fdt, "google,GS101 Raven"));
+	assert(!fdt_root_compatible(fdt, "GS101 Oriole"));
+	assert(!fdt_root_compatible(0, "google,GS101 Oriole"));
+}
+
 /* 1. 4x12-byte #size-cells=<1> memory case (gs101 layout: #address-cells=<2>, #size-cells=<1>) */
 static void test_gs101_memory_cells(void)
 {
@@ -360,6 +379,7 @@ static void test_collect_reserved_overflow(void)
 int main(void)
 {
 	test_original_case();
+	test_root_compatible();
 	test_gs101_memory_cells();
 	test_reserved_memory_cells();
 	test_framebuffer_sibling_leak();

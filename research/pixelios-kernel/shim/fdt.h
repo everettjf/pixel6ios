@@ -33,6 +33,8 @@ int fdt_collect_memmap(uintptr_t fdt, struct fdt_memmap *out);
 /* Read a u32/u64 (cell-size agnostic) property of /chosen. Returns 0 if absent. */
 int fdt_chosen_u64(uintptr_t fdt, const char *prop, uint64_t *out);
 int fdt_memory_contains(uintptr_t fdt, uint64_t base, uint64_t size);
+/* Exact NUL-delimited root compatible token; rejects substring matches. */
+int fdt_root_compatible(uintptr_t fdt, const char *compatible);
 
 /* Ramoops node: a /reserved-memory child whose compatible contains
  * "ramoops" or whose node name starts with "ramoops" (the GS101 rmem

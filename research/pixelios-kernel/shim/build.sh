@@ -37,6 +37,7 @@ inventory_ufs_ready=0
 inventory_acpm_desc=0
 inventory_acpm_rails=0
 inventory_acpm_rail_cycle=0
+inventory_touch_id=0
 ramprobe=0
 loadcheck=0
 resetcheck=0
@@ -84,6 +85,7 @@ while [ "$#" -gt 0 ]; do
 		--inventory-acpm-desc) inventory=1; inventory_acpm_desc=1; usb_gadget=1; shift ;;
 		--inventory-acpm-rails) inventory=1; inventory_acpm_rails=1; usb_gadget=1; shift ;;
 		--inventory-acpm-rail-cycle) inventory=1; inventory_acpm_rail_cycle=1; usb_gadget=1; shift ;;
+		--inventory-touch-id) inventory=1; inventory_touch_id=1; usb_gadget=1; shift ;;
 		--avb) avb=1; shift ;;
 		--pstore-fast) pstore_fast=1; shift ;;
 		--usb-gadget) usb_gadget=1; shift ;;
@@ -159,8 +161,13 @@ if [ "$inventory_acpm_rails" = 1 ]; then
 	}
 fi
 if [ "$inventory_acpm_rail_cycle" = 1 ]; then
-	[ "$board:$inventory_ufs:$inventory_display:$inventory_acpm_desc:$inventory_acpm_rails:$touch_probe:$touch_rails:$touch_dvfs" = oriole:0:0:0:0:0:0:0 ] || {
+	[ "$board:$inventory_ufs:$inventory_display:$inventory_acpm_desc:$inventory_acpm_rails:$inventory_touch_id:$touch_probe:$touch_rails:$touch_dvfs" = oriole:0:0:0:0:0:0:0:0 ] || {
 		echo "--inventory-acpm-rail-cycle requires plain oriole inventory" >&2; exit 2;
+	}
+fi
+if [ "$inventory_touch_id" = 1 ]; then
+	[ "$board:$inventory_ufs:$inventory_display:$inventory_acpm_desc:$inventory_acpm_rails:$inventory_acpm_rail_cycle:$touch_probe:$touch_rails:$touch_dvfs" = oriole:0:0:0:0:0:0:0:0 ] || {
+		echo "--inventory-touch-id requires isolated oriole inventory" >&2; exit 2;
 	}
 fi
 if [ "$inventory" = 1 ]; then
@@ -363,6 +370,7 @@ fi
 [ "$inventory_ufs" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_UFS"
 [ "$inventory_ufs_ready" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_UFS_READY"
 [ "$inventory_display" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_DISPLAY"
+[ "$inventory_touch_id" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_TOUCH_ID_HW"
 mkdir -p out
 # Invalidate provenance before every build, including failed/non-AVB builds.
 # Previous bytes may remain for inspection but cannot be boot-authorized.
@@ -480,6 +488,12 @@ fi
 if [ "$inventory_acpm_rail_cycle" = 1 ]; then
 	acpm_rail_objs="out/acpmrailcycle.o out/acpm_rail_cycle.o"
 fi
+touch_id_objs=""
+if [ "$inventory_touch_id" = 1 ]; then
+	"$CC" $CFLAGS -fno-tree-switch-conversion -fno-jump-tables -c orioletouchid_hw.c -o out/orioletouchid_hw.o
+	"$CC" $CFLAGS -c orioletouchid_flow.c -o out/orioletouchid_flow.o
+	touch_id_objs="out/orioletouchid_hw.o out/orioletouchid_flow.o out/acpm_rail_cycle.o"
+fi
 qr_objs=
 if [ "$qrlog" = 1 ]; then
 	for f in qrlog qrcodegen qrlog_libc; do
@@ -538,11 +552,18 @@ fi
 if [ "$touch_rails" = 1 ] || [ "$touch_dvfs" = 1 ] || [ "$gpu_clk" = 1 ] || [ "$gpu_rails" = 1 ] || [ "$wlan_rails" = 1 ]; then
 	usb_objs="$usb_objs out/acpm.o"
 fi
-usb_objs="$usb_objs $acpm_desc_objs $acpm_rail_objs"
-abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $acpm_desc_objs $acpm_rail_objs $qr_objs $display_objs $reset_objs | grep -c ABS64 || true)
+usb_objs="$usb_objs $acpm_desc_objs $acpm_rail_objs $touch_id_objs"
+abs=$("$READELF" -r out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbproto.o out/usbgadget.o out/usbpool.o out/udump.o out/wlanprobe.o out/wlanrails.o out/wlanen.o out/wlansmc.o out/wlansmc_iso.o out/wlansmc_link.o out/wlanlink.o out/gpuprobe.o out/gpupower.o out/gpupower_stack.o out/gpupower_job.o out/gpujob.o out/gpuclk.o out/gpus2mpu.o out/gpurails.o out/gpurailon.o out/acpm_railon.o out/touchprobe.o out/acpm.o $acpm_desc_objs $acpm_rail_objs $touch_id_objs $qr_objs $display_objs $reset_objs | grep -c ABS64 || true)
 [ "$abs" = 0 ] || { echo "error: $abs absolute relocations in C objects" >&2; exit 1; }
 "$CC" $CFLAGS -static -T shim.ld -Wl,--build-id=none -Wl,--no-warn-rwx-segments -Wl,-N \
 	out/start.o out/shim.o out/console.o out/ramlog.o out/mmu.o out/fdt.o out/pstore.o out/loader.o out/payload.o out/ufs.o out/ufsdiag.o out/ufsinit.o out/usbprobe.o out/usbpool.o $usb_objs $qr_objs $display_objs $reset_objs -o out/shim.elf
+if [ "$inventory_touch_id" = 1 ]; then
+	"$PYTHON" ../tools/test-oriole-touch-id.py --nm "$NM" --objdump "${CROSS_OBJDUMP:-${prefix}objdump}" \
+		--hw out/orioletouchid_hw.o --flow out/orioletouchid_flow.o --image out/shim.elf
+	gcc -std=c11 -O1 -Wall -Wextra -Werror -I. -Iout -include out/board_config.h \
+		-o out/orioletouchid_hw_host_test orioletouchid_hw_host_test.c
+	./out/orioletouchid_hw_host_test
+fi
 "$PYTHON" ../tools/audit_oriole_resetcheck.py --enabled "$resetcheck" --object out/shim.o --elf out/shim.elf --objdump "${CROSS_OBJDUMP:-${prefix}objdump}"
 "$OBJCOPY" -O binary out/shim.elf out/Image
 size_hex=$("$NM" out/shim.elf | awk '$3=="_end"{print $1}')
