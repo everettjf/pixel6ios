@@ -19,6 +19,9 @@
 #define CMU TOUCH_CMU_BASE
 #define TOP TOUCH_CMUTOP_BASE
 #define POLL_MAX 2000000u
+/* ABL's manual-burst sequence writes bit 0 at USI_OPTION.  The Linux
+ * controller driver uses bit 1; this profile follows the ABL path. */
+#define OTI_USI_OPTION_ABL 1u
 
 enum shared_reg {
 	S_SPI_CON, S_SPI_DAT, S_SPI_PUD, S_CTRL_CON, S_CTRL_DAT,
@@ -68,7 +71,7 @@ static uint32_t allowed_mask(uintptr_t pa)
 	if (pa == CMU + TOUCH_CMU_GATE_IPCLK || pa == CMU + TOUCH_CMU_GATE_PCLK ||
 	    pa == CMU + TOUCH_CMU_GATE_RSTN) return TP_GATE_CHECK_MASK;
 	if (pa == USI + TP_USI_CON) return TP_USI_CON_RESET;
-	if (pa == USI + TP_USI_OPTION) return TP_USI_OPT_CLKREQ;
+	if (pa == USI + TP_USI_OPTION) return OTI_USI_OPTION_ABL;
 	if (pa == SPI + TP_SPI_CH_CFG) return TP_CH_SW_RST | TP_CH_RXCH_ON | TP_CH_TXCH_ON;
 	if (pa == SPI + TP_SPI_CS_REG) return 1u;
 	if (pa == SPI + TP_SPI_PACKET_CNT) return TP_PKT_CNT_EN | 0xffffu;
@@ -209,6 +212,7 @@ static int rail_read(void *p, uint32_t reg, uint32_t *v)
 	t.seq = h->seq;
 	rc = acpm_pmic_read(&h->acpm, reg, v, &t);
 	h->seq = t.seq;
+	if (!rc) con_hex2("ORIOLE TOUCH RAIL", "reg", reg, "value", *v);
 	return rc;
 }
 
@@ -250,7 +254,7 @@ static int engine_snapshot(void *p)
 	if (rd(TOUCH_USI_MODE_REG, &mode) ||
 	    (mode & TOUCH_USI_MODE_MASK) != TOUCH_USI_MODE_SPI) return -1;
 	init_cell(&h->e[E_USI_CON], USI + TP_USI_CON, TP_USI_CON_RESET);
-	init_cell(&h->e[E_USI_OPTION], USI + TP_USI_OPTION, TP_USI_OPT_CLKREQ);
+	init_cell(&h->e[E_USI_OPTION], USI + TP_USI_OPTION, OTI_USI_OPTION_ABL);
 	init_cell(&h->e[E_CH], SPI + TP_SPI_CH_CFG, TP_CH_SW_RST | TP_CH_RXCH_ON | TP_CH_TXCH_ON);
 	init_cell(&h->e[E_CS], SPI + TP_SPI_CS_REG, 1u);
 	init_cell(&h->e[E_PKT], SPI + TP_SPI_PACKET_CNT, TP_PKT_CNT_EN | 0xffffu);
@@ -259,9 +263,18 @@ static int engine_snapshot(void *p)
 	/* Fail closed on a live or non-default engine.  There is no defensible
 	 * way to restore unknown out-of-mask bits after USI reset. */
 	for (i = 0; i < E_COUNT; i++)
-		if (h->e[i].old != (i == E_CS ? 1u : 0u)) return -1;
+		if (h->e[i].old != (i == E_CS ? 1u : 0u)) {
+			con_hex2("ORIOLE TOUCH ENGINE REFUSE", "pa", h->e[i].pa,
+			         "value", h->e[i].old);
+			return -1;
+		}
 	for (i = 0; i < sizeof(quiet_offsets) / sizeof(quiet_offsets[0]); i++)
-		if (rd(SPI + quiet_offsets[i], &v) || v != 0) return -1;
+		if (rd(SPI + quiet_offsets[i], &v)) return -1;
+		else if (v != 0) {
+			con_hex2("ORIOLE TOUCH ENGINE REFUSE", "pa", SPI + quiet_offsets[i],
+			         "value", v);
+			return -1;
+		}
 	return 0;
 }
 
@@ -291,7 +304,7 @@ static int spi_prepare(void *p)
 	    set(&h->s[S_SPI_CON], func) ||
 	    set(&h->e[E_USI_CON], TP_USI_CON_RESET) ||
 	    engine_quiet() ||
-	    set(&h->e[E_USI_OPTION], TP_USI_OPT_CLKREQ) ||
+	    set(&h->e[E_USI_OPTION], OTI_USI_OPTION_ABL) ||
 	    set(&h->e[E_FB], 1u) ||
 	    set(&h->e[E_USI_CON], 0) ||
 	    engine_quiet() ||
@@ -304,7 +317,7 @@ static int spi_prepare(void *p)
 	        (1u << (TOUCH_PIN_MUX_NR * 4u))) ||
 	    bounded_delay(10000u) ||
 	    set(&h->s[S_CTRL_DAT], 1u << TOUCH_PIN_RESET_NR) ||
-	    bounded_delay(1000u)) return -1;
+	    bounded_delay(100000u)) return -1;
 	return 0;
 }
 
@@ -365,12 +378,14 @@ static int spi_identify(void *p, uint8_t id[4])
 	const uint8_t cmd[5] = { 0xfbu, 0x20u, 0, 0, 0 };
 	uint8_t reply[5];
 	int bad = 0;
-	unsigned i;
 	if (set(&h->s[S_SPI_DAT], 0) || set(&h->e[E_CS], 0) || bounded_delay(1u))
 		bad = 1;
 	if (!bad && burst(h, cmd, 0)) bad = 1;
 	if (!bad && burst(h, 0, reply)) bad = 1;
-	if (!bad) for (i = 0; i < 4; i++) id[i] = reply[i + 1];
+	if (!bad) {
+		id[0] = reply[1]; id[1] = reply[2];
+		id[2] = reply[3]; id[3] = reply[4];
+	}
 	if (bounded_delay(TP_FTM5_SPI_DELAY_CS_US)) bad = 1;
 	if (set(&h->s[S_SPI_DAT], 1u << TOUCH_PIN_CS_NR)) bad = 1;
 	if (set(&h->e[E_CS], 1u)) bad = 1;

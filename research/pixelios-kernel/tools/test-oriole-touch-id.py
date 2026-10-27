@@ -2,13 +2,14 @@
 """Pin the one-shot Oriole SPI writer before it can enter a boot image."""
 import argparse
 import hashlib
+import importlib.util
 from pathlib import Path
 import re
 import subprocess
 
 SHIM = Path(__file__).resolve().parents[1] / "shim"
 PINS = {
-    "orioletouchid_hw.c": "dc53a66f0441561cf7b045c03a649bf57256bf46ec8e641c5e0afad5b8196fba",
+    "orioletouchid_hw.c": "c990de771033ed173a9d4f0376ef4bf5af4d1e5b6a19a4ed6f260897ba87fe21",
     "orioletouchid_flow.c": "ebf428bc6b25217bb0954a87bdae25e700c35d39b9e6c3f1945d23841edadd15",
 }
 HW_U = frozenset(("acpm_cfg_init", "acpm_describe", "acpm_oriole_touch_rail_set",
@@ -76,6 +77,18 @@ def check_disasm(raw):
         raise AssertionError(f"try_write32 callers drifted: {sites}")
 
 
+def check_stores(raw, sections, names):
+    """Prove every store stays on stack/argument data, including the gate."""
+    spec = importlib.util.spec_from_file_location(
+        "bluejay_audit", Path(__file__).with_name("test-bluejay-boot.py"))
+    audit = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(audit)
+    return audit.check_usb_object_text(
+        raw, names, set(HW_U), sections, "orioletouchid_hw.o",
+        allowed_undef=set(HW_U), trusted_args=frozenset(f"x{i}" for i in range(8)),
+        allow_adrp=False, require_clean_data=True)
+
+
 def expect_reject(fn, *args):
     try:
         fn(*args)
@@ -95,15 +108,30 @@ def main():
     flow = subprocess.check_output([a.nm, "-g", a.flow], text=True)
     image = subprocess.check_output([a.nm, "-g", a.image], text=True)
     disasm = subprocess.check_output([a.objdump, "-dr", a.hw], text=True)
+    sections = subprocess.check_output([a.objdump, "-h", a.hw], text=True)
+    local_names = {parts[2] for line in subprocess.check_output([a.nm, a.hw], text=True).splitlines()
+                   if len(parts := line.split()) == 3 and parts[1] in ("t", "T")}
     check_symbols(hw, flow, image)
     check_disasm(disasm)
+    stores = check_stores(disasm, sections, local_names)
     bad = dict(texts)
     bad["orioletouchid_hw.c"] = bad["orioletouchid_hw.c"].replace("0x20u", "0x21u", 1)
     expect_reject(check_pins, bad)
     expect_reject(check_symbols, hw + "\n00000000 T extra_writer", flow, image)
     expect_reject(check_disasm, disasm + "\n0000000000002000 <evil>:\n"
                   "  2000: R_AARCH64_CALL26 try_write32\n")
-    print("PASS Oriole touch-ID source, object, image and mutation audits")
+    bad_store = ("\n0000000000ffff00 <evil>:\n"
+                 "  ffff00:\td2a22229 \tmovz\tx9, #0x1111, lsl #16\n"
+                 "  ffff04:\tb9000120 \tstr\tw0, [x9]\n"
+                 "  ffff08:\td65f03c0 \tret\n")
+    expect_reject(check_stores, disasm + bad_store, sections, local_names | {"evil"})
+    bad_branch = ("\n0000000000ffff00 <evil>:\n"
+                  "  ffff00:\tb4000040 \tcbz\tx0, ffff08 <evil+0x8>\n"
+                  "  ffff04:\td2a22229 \tmovz\tx9, #0x1111, lsl #16\n"
+                  "  ffff08:\tb9000120 \tstr\tw0, [x9]\n"
+                  "  ffff0c:\td65f03c0 \tret\n")
+    expect_reject(check_stores, disasm + bad_branch, sections, local_names | {"evil"})
+    print(f"PASS Oriole touch-ID source, object ({stores} checked stores), image and mutation audits")
 
 
 if __name__ == "__main__":

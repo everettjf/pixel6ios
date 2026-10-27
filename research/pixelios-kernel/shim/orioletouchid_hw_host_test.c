@@ -12,7 +12,8 @@
 
 struct reg { uintptr_t pa; uint32_t val; };
 static struct reg regs[32];
-static unsigned nr, writes, fail_write_at, forbidden_reads, tx_n, burst_n, rx_pos;
+static unsigned nr, writes, reads, fail_write_at, apply_fail_write_at;
+static unsigned fail_read_at, forbidden_reads, tx_n, burst_n, rx_pos, reset_n;
 static uint8_t tx_bytes[12];
 static uint32_t rail25, rail26;
 static uint64_t ticks;
@@ -37,7 +38,8 @@ static uint32_t value(uintptr_t pa) { return reg(pa)->val; }
 
 static void reset_fake(void)
 {
-	nr = writes = fail_write_at = forbidden_reads = tx_n = burst_n = rx_pos = 0;
+	nr = writes = reads = fail_write_at = apply_fail_write_at = fail_read_at = 0;
+	forbidden_reads = tx_n = burst_n = rx_pos = reset_n = 0;
 	force_timeout = uncertain_enable26 = restore_error25 = 0;
 	disturb_engine_on_reset = 1; corrupt_quiet_on_reset = 0;
 	live_board_ok = live_ram_ok = 1;
@@ -81,6 +83,8 @@ static int burst_ready(void)
 
 int try_read32(uintptr_t pa, uint32_t *v)
 {
+	reads++;
+	if (reads == fail_read_at) return 0;
 	if ((pa >= SPI && pa < SPI + 0x30u) || (pa >= USI && pa < USI + 0x10u)) {
 		if ((value(TOUCH_USI_MODE_REG) & TOUCH_USI_MODE_MASK) != TOUCH_USI_MODE_SPI) {
 			forbidden_reads++;
@@ -121,13 +125,15 @@ int try_write32(uintptr_t pa, uint32_t v)
 		assert(tx_n + burst_n * 5u < sizeof(tx_bytes));
 		tx_bytes[tx_n + burst_n * 5u] = (uint8_t)v;
 		tx_n++;
-		return 1;
+		return writes == apply_fail_write_at ? 0 : 1;
 	}
 	if (pa == SPI + TP_SPI_CH_CFG && (v & TP_CH_SW_RST)) {
-		if (rx_pos == 5u) { burst_n++; tx_n = rx_pos = 0; }
+		reset_n++;
+		/* RX consumption advances the burst; reset drains any remaining FIFO. */
+		rx_pos = 0;
 	}
 	seed(pa, v);
-	return 1;
+	return writes == apply_fail_write_at ? 0 : 1;
 }
 
 uint64_t touch_ticks(void) { ticks += 1000u; return ticks; }
@@ -214,18 +220,36 @@ static void assert_restored(void)
 
 int main(void)
 {
-	unsigned step, baseline_writes;
+	unsigned step, baseline_writes, baseline_reads;
 	reset_fake();
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) == 0);
 	assert(reported_first == OTI_OK && reported_cleanup == OTI_OK);
 	assert(burst_n == 2 && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
 	assert_restored();
 	baseline_writes = writes;
+	baseline_reads = reads;
+	assert(reset_n >= 3);
 	/* Fail each possible MMIO write once.  A failure before a mode switch
 	 * must never cause an unsafe SPI read, and cleanup keeps both rails off. */
 	for (step = 1; step <= baseline_writes; step++) {
 		reset_fake();
 		fail_write_at = step;
+		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+		assert(rail25 == 0x2c && rail26 == 0x3c && forbidden_reads == 0);
+		if (reported_cleanup == OTI_OK) assert_restored();
+	}
+	/* A bus fault may be reported after the write reached the controller.
+	 * The uncertain value must still be restored or reported as a failure. */
+	for (step = 1; step <= baseline_writes; step++) {
+		reset_fake();
+		apply_fail_write_at = step;
+		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+		assert(rail25 == 0x2c && rail26 == 0x3c && forbidden_reads == 0);
+		if (reported_cleanup == OTI_OK) assert_restored();
+	}
+	for (step = 1; step <= baseline_reads; step++) {
+		reset_fake();
+		fail_read_at = step;
 		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
 		assert(rail25 == 0x2c && rail26 == 0x3c && forbidden_reads == 0);
 		if (reported_cleanup == OTI_OK) assert_restored();
