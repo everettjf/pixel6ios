@@ -17,7 +17,7 @@ Use a **new, explicit Oriole inventory profile**, separate from `--inventory-acp
 
 The bounded run should:
 
-1. Validate the same live FDT, RAM, ACPM channel, empty queues, rail registers and exact disabled values as the successful rail-cycle image. Refuse with zero writes on a mismatch.
+1. Validate the same live FDT, RAM, ACPM channel, empty queues, rail registers and exact disabled values as the successful rail-cycle image. Refuse with zero **rail-update, SPI, pad and clock writes** on a mismatch. ACPM `FUNC_READ` itself writes the transport SRAM and mailbox, so a literal zero-MMIO-write claim would be false; its existing bounded transport audit still applies.
 2. Snapshot all readable shared state that the SPI probe will modify before the first write: the AP/AOC mux GPIO, four SPI pads, reset GPIO, USI11 mode, CMU_TOP gate, USI11 CMU mux/divider and gates. Do not read USI/SPI engine registers until the USI mode is SPI. Log each snapshot and abort before writing if one fails.
 3. Enable LDO25M then LDO26M via the existing gated ACPM client and verify both readbacks. Track publication of *each* request, including uncertain replies, so every possibly enabled rail receives a reverse-order restore attempt.
 4. Configure only the source-backed ABL/Linux SPI11 path: AP bus ownership, bounded CMU mux/divider waits at a rate no greater than the device-tree limit, USI SPI mode, pad functions, manual CS and one controller reset pulse. Use the existing five-byte FTM5 hardware-register request. Cap all polls and log the exact first failure.
