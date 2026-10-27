@@ -1,0 +1,15 @@
+Observed on Pixel 6 (oriole), 2026-10-27 PDT, after the previous temporary
+XNU boot returned to Android. Read-only ADB `getevent -lp` inventory; device
+identity was checked with `ro.product.device=oriole` before the read.
+The /dev/input/event3 number is assigned by Android and may change.
+
+Input device: "fts" (INPUT_PROP_DIRECT)
+ABS_MT_SLOT: min 0, max 9
+ABS_MT_POSITION_X: min 0, max 1079
+ABS_MT_POSITION_Y: min 0, max 2399
+ABS_MT_PRESSURE: min 0, max 127
+KEY: BTN_TOUCH
+
+This confirms the Android driver's exposed contact count and coordinate
+range on this physical unit. It does not prove XNU can identify the SPI
+controller, receive FIFO events, deliver HID touches, or open iOS apps.
