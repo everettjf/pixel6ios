@@ -27,6 +27,7 @@ static int reset_input_high_active;
 static int reset_output_stuck_high;
 static int reset_dat_one_read_lag, reset_dat_lag_pending;
 static int reset_release_stuck_low;
+static int reset_restore_stuck_high;
 static uint32_t reset_dat_lag_value;
 static uint32_t release_sample[3], assert_sample;
 static unsigned release_samples, assert_samples;
@@ -61,6 +62,7 @@ static void reset_fake(void)
 	reset_output_stuck_high = 0;
 	reset_dat_one_read_lag = reset_dat_lag_pending = 0;
 	reset_release_stuck_low = 0;
+	reset_restore_stuck_high = 0;
 	reset_dat_lag_value = 0;
 	release_samples = assert_samples = 0;
 	memset(release_sample, 0, sizeof(release_sample));
@@ -136,6 +138,10 @@ int try_read32(uintptr_t pa, uint32_t *v)
 	           reset_release_stuck_low &&
 	           (value(TOUCH_PIN_RESET_BANK) & 0xfu) == 1u) {
 		*v = value(pa) & ~(1u << TOUCH_PIN_RESET_NR);
+	} else if (pa == TOUCH_PIN_RESET_BANK + 4u &&
+	           reset_restore_stuck_high && burst_n >= 2u &&
+	           (value(TOUCH_PIN_RESET_BANK) & 0xfu) == 1u) {
+		*v = value(pa) | (1u << TOUCH_PIN_RESET_NR);
 	} else if (pa == TOUCH_PIN_RESET_BANK + 4u &&
 	           reset_output_stuck_high &&
 	           (value(TOUCH_PIN_RESET_BANK) & 0xfu) == 1u) {
@@ -375,6 +381,21 @@ int main(void)
 	assert(reported_first == OTI_OK && reported_cleanup == OTI_OK);
 	assert(burst_n == 2 && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
 	assert_restored();
+#ifdef ORIOLE_TOUCH_ID_RESET_SETTLE
+	reset_fake(); reset_dat_one_read_lag = 1;
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) == 0);
+	assert(reported_first == OTI_OK && reported_cleanup == OTI_OK);
+	assert(burst_n == 2 && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
+	assert_restored();
+	reset_fake(); reset_release_stuck_low = 1;
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+	assert(reported_first == OTI_SPI_PREPARE && failed_prep_step == 17u);
+	assert(tx_n == 0 && burst_n == 0 && rail25 == 0x2c && rail26 == 0x3c);
+	reset_fake(); reset_restore_stuck_high = 1;
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+	assert(reported_first == OTI_OK && reported_cleanup == OTI_SHARED_RESTORE);
+	assert(burst_n == 2 && rail25 == 0x2c && rail26 == 0x3c);
+#endif
 	reset_fake(); reset_input_high_after_pud_clear = 1;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) == 0);
 	assert(reset_input_high_active && reported_first == OTI_OK &&

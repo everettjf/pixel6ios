@@ -370,7 +370,7 @@ fi
 [ "$inventory_ufs" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_UFS"
 [ "$inventory_ufs_ready" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_UFS_READY"
 [ "$inventory_display" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_DISPLAY"
-[ "$inventory_touch_id" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_TOUCH_ID_HW -DORIOLE_TOUCH_ID_RESET_OBSERVE"
+[ "$inventory_touch_id" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_TOUCH_ID_HW -DORIOLE_TOUCH_ID_RESET_SETTLE"
 mkdir -p out
 # Invalidate provenance before every build, including failed/non-AVB builds.
 # Previous bytes may remain for inspection but cannot be boot-authorized.
@@ -567,6 +567,10 @@ if [ "$inventory_touch_id" = 1 ]; then
 		-I. -Iout -include out/board_config.h \
 		-o out/orioletouchid_hw_diag_host_test orioletouchid_hw_host_test.c
 	./out/orioletouchid_hw_diag_host_test
+	gcc -std=c11 -O1 -Wall -Wextra -Werror -DORIOLE_TOUCH_ID_RESET_SETTLE \
+		-I. -Iout -include out/board_config.h \
+		-o out/orioletouchid_hw_settle_host_test orioletouchid_hw_host_test.c
+	./out/orioletouchid_hw_settle_host_test
 fi
 "$PYTHON" ../tools/audit_oriole_resetcheck.py --enabled "$resetcheck" --object out/shim.o --elf out/shim.elf --objdump "${CROSS_OBJDUMP:-${prefix}objdump}"
 "$OBJCOPY" -O binary out/shim.elf out/Image

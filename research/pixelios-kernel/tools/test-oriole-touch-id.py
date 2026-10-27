@@ -9,7 +9,7 @@ import subprocess
 
 SHIM = Path(__file__).resolve().parents[1] / "shim"
 PINS = {
-    "orioletouchid_hw.c": "d9a0805e1140b2cd7291f7daefab761da5d25c5ee3f1415fcf51b48570496db3",
+    "orioletouchid_hw.c": "2ef035540cd7698e84c8b683c06f95ba4814e56a501372ee0f48d3cb31359498",
     "orioletouchid_flow.c": "ebf428bc6b25217bb0954a87bdae25e700c35d39b9e6c3f1945d23841edadd15",
 }
 HW_U = frozenset(("acpm_cfg_init", "acpm_describe", "acpm_oriole_touch_rail_set",
@@ -38,9 +38,9 @@ def check_pins(texts):
 
 
 def check_diagnostic_build(text):
-    marker = '[ "$inventory_touch_id" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_TOUCH_ID_HW -DORIOLE_TOUCH_ID_RESET_OBSERVE"'
+    marker = '[ "$inventory_touch_id" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_TOUCH_ID_HW -DORIOLE_TOUCH_ID_RESET_SETTLE"'
     if text.count(marker) != 1:
-        raise AssertionError("Oriole touch-ID build lost the stop-before-SPI diagnostic macro")
+        raise AssertionError("Oriole touch-ID build lost the bounded reset-settle macro")
 
 
 def symbols(raw):

@@ -217,6 +217,50 @@ static int bounded_delay(unsigned usec)
 	return -1;
 }
 
+#ifdef ORIOLE_TOUCH_ID_RESET_SETTLE
+/* Eighth Oriole capture: reset DAT follows both output transitions after a
+ * bounded wait, although the immediate read can show the previous level.
+ * Keep the same pin/bit allowlist and require a matching read by 10 ms. */
+static int reset_readback_after_settle(uintptr_t pa, uint32_t mask, uint32_t want)
+{
+	uint32_t sample;
+	if (bounded_delay(1000u) || rd(pa, &sample)) return -1;
+	if ((sample & mask) == (want & mask)) return 0;
+	if (bounded_delay(9000u) || rd(pa, &sample)) return -1;
+	if ((sample & mask) != (want & mask)) {
+		con_hex2("ORIOLE TOUCH RESET SETTLE MISMATCH", "pa", pa, "got", sample);
+		con_hex2("ORIOLE TOUCH RESET SETTLE EXPECTED", "pa", pa, "want", want);
+		return -1;
+	}
+	return 0;
+}
+
+static int release_reset_verified(struct cell *dat)
+{
+	uint32_t con, now, want;
+	if (dat->pa != TOUCH_PIN_RESET_BANK + 4u || dat->mask != 0x3u ||
+	    rd(TOUCH_PIN_RESET_BANK, &con) ||
+	    ((con >> (TOUCH_PIN_RESET_NR * 4u)) & 0xfu) != 1u ||
+	    rd(dat->pa, &now)) return -1;
+	want = (now & ~dat->mask) | (1u << TOUCH_PIN_RESET_NR);
+	dat->changed = 1;
+	if (guarded_write(dat->pa, now, want, dat->mask)) return -1;
+	return reset_readback_after_settle(dat->pa, dat->mask, want);
+}
+
+static int restore_reset_verified(struct cell *dat)
+{
+	uint32_t now, want;
+	if (dat->pa != TOUCH_PIN_RESET_BANK + 4u || dat->mask != 0x3u ||
+	    rd(dat->pa, &now)) return -1;
+	want = (now & ~dat->mask) | (dat->old & dat->mask);
+	if (guarded_write(dat->pa, now, want, dat->mask)) return -1;
+	if (reset_readback_after_settle(dat->pa, dat->mask, want)) return -1;
+	dat->changed = 0;
+	return 0;
+}
+#endif
+
 #ifdef ORIOLE_TOUCH_ID_RESET_OBSERVE
 /* Seventh Oriole run: reset DAT read 0 immediately after release (1), then
  * 1 immediately after restoring assertion (0).  Observe the already
@@ -446,6 +490,9 @@ static int spi_prepare(void *p)
 	PREP_STEP(16u, bounded_delay(10000u));
 #ifdef ORIOLE_TOUCH_ID_RESET_OBSERVE
 	PREP_STEP(17u, observe_reset_release(&h->s[S_CTRL_DAT]));
+#elif defined(ORIOLE_TOUCH_ID_RESET_SETTLE)
+	PREP_STEP(17u, release_reset_verified(&h->s[S_CTRL_DAT]));
+	PREP_STEP(18u, bounded_delay(100000u));
 #else
 	PREP_STEP(17u, set(&h->s[S_CTRL_DAT], 1u << TOUCH_PIN_RESET_NR));
 	PREP_STEP(18u, bounded_delay(100000u));
@@ -597,7 +644,11 @@ static int shared_restore(void *p)
 	if (rd(h->s[S_CTRL_CON].pa, &con)) bad = 1;
 	else if (((con >> (TOUCH_PIN_RESET_NR * 4u)) & 0xfu) == 1u) {
 		if (h->s[S_CTRL_DAT].changed) {
+#ifdef ORIOLE_TOUCH_ID_RESET_SETTLE
+			if (restore_reset_verified(&h->s[S_CTRL_DAT])) bad = 1;
+#else
 			if (restore(&h->s[S_CTRL_DAT])) bad = 1;
+#endif
 #ifdef ORIOLE_TOUCH_ID_RESET_OBSERVE
 			if (bounded_delay(10000u) || rd(h->s[S_CTRL_DAT].pa, &sample))
 				bad = 1;
