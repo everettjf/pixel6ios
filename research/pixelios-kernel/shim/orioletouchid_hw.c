@@ -46,6 +46,7 @@ struct hw {
 	uint32_t seq;
 	uintptr_t dtb;
 	uint64_t image_base, image_size;
+	int engine_armed;
 	struct cell s[S_COUNT], e[E_COUNT];
 };
 
@@ -120,6 +121,36 @@ static int set(struct cell *c, uint32_t bits)
 	if ((after & c->mask) != (want & c->mask)) {
 		con_hex2("ORIOLE TOUCH SET MISMATCH", "pa", c->pa, "got", after);
 		con_hex2("ORIOLE TOUCH SET EXPECTED", "pa", c->pa, "want", want);
+		return -1;
+	}
+	return 0;
+}
+
+/* Samsung's gpio_direction_output() writes DAT before changing CON to
+ * output.  The fourth Oriole run observed that DAT's CS bit still read low
+ * while CON was input (0x30 after a write of 0x38).  Do not infer that the
+ * latch accepted the write; verify the CS bit only after CON is output.
+ * A missing/uncertain write remains marked for the common restore path. */
+static int prime_cs_high(struct cell *dat)
+{
+	uint32_t now, want;
+	if (dat->pa != TOUCH_PIN_CLK_BANK + 4u ||
+	    dat->mask != 1u << TOUCH_PIN_CS_NR ||
+	    rd(dat->pa, &now)) return -1;
+	want = now | dat->mask;
+	dat->changed = 1;
+	if (guarded_write(dat->pa, now, want, dat->mask)) return -1;
+	return 0;
+}
+
+static int verify_cs_high(const struct cell *dat)
+{
+	uint32_t con, val;
+	if (rd(TOUCH_PIN_CLK_BANK, &con) ||
+	    ((con >> (TOUCH_PIN_CS_NR * 4u)) & 0xfu) != 1u ||
+	    rd(dat->pa, &val)) return -1;
+	if ((val & dat->mask) != dat->mask) {
+		con_hex2("ORIOLE TOUCH CS HIGH MISMATCH", "pa", dat->pa, "got", val);
 		return -1;
 	}
 	return 0;
@@ -335,10 +366,12 @@ static int spi_prepare(void *p)
 #define PREP_STEP(N, EXPR) do { if ((EXPR)) { \
 	con_hex2("ORIOLE TOUCH PREP FAILED", "step", (N), "pa", 0u); return -1; \
 } } while (0)
-	PREP_STEP(1u, set(&h->s[S_SPI_DAT], 1u << TOUCH_PIN_CS_NR));
+	PREP_STEP(1u, prime_cs_high(&h->s[S_SPI_DAT]));
 	PREP_STEP(2u, set(&h->s[S_SPI_PUD], 0));
 	PREP_STEP(3u, set(&h->s[S_CTRL_PUD], 0));
 	PREP_STEP(4u, set(&h->s[S_SPI_CON], func));
+	PREP_STEP(4u, verify_cs_high(&h->s[S_SPI_DAT]));
+	h->engine_armed = 1;
 	PREP_STEP(5u, set(&h->e[E_USI_CON], TP_USI_CON_RESET));
 	PREP_STEP(6u, engine_quiet());
 	PREP_STEP(7u, set(&h->e[E_USI_OPTION], OTI_USI_OPTION_ABL));
@@ -436,6 +469,15 @@ static int engine_restore(void *p)
 	unsigned i;
 	uint32_t v;
 	int bad = 0;
+	/* spi_prepare may have failed before its first engine write.  In that
+	 * case the snapshot is sufficient: do not issue an unrelated SW_RST. */
+	if (!h->engine_armed) {
+		for (i = 0; i < E_COUNT; i++) {
+			if (rd(h->e[i].pa, &v) || v != h->e[i].old) bad = 1;
+		}
+		if (engine_quiet()) bad = 1;
+		return bad ? -1 : 0;
+	}
 	/* Attempt all restores even if disabling channels or the FIFO reset
 	 * fails.  TX_DATA has no readable snapshot; SW_RST drains it. */
 	if (set(&h->e[E_CH], 0)) bad = 1;
@@ -473,9 +515,25 @@ static int shared_restore(void *p)
 {
 	struct hw *h = p;
 	unsigned i;
+	uint32_t con;
 	int bad = 0;
-	for (i = S_COUNT; i > 0; i--)
+	for (i = S_COUNT; i > 0; i--) {
+		/* Return each GPIO to input before restoring its original DAT
+		 * latch, avoiding a transient active-low CS or reset pulse. */
+		if (i - 1 == S_SPI_DAT || i - 1 == S_CTRL_DAT) continue;
 		if (restore(&h->s[i - 1])) bad = 1;
+	}
+	/* If CON restoration failed, writing the old low DAT latch would
+	 * actively assert CS/reset.  Leave the deasserted latch in place and
+	 * report incomplete restoration instead. */
+	if (rd(h->s[S_CTRL_CON].pa, &con) ||
+	    (con & h->s[S_CTRL_CON].mask) !=
+	    (h->s[S_CTRL_CON].old & h->s[S_CTRL_CON].mask)) bad = 1;
+	else if (restore(&h->s[S_CTRL_DAT])) bad = 1;
+	if (rd(h->s[S_SPI_CON].pa, &con) ||
+	    (con & h->s[S_SPI_CON].mask) !=
+	    (h->s[S_SPI_CON].old & h->s[S_SPI_CON].mask)) bad = 1;
+	else if (restore(&h->s[S_SPI_DAT])) bad = 1;
 	return bad ? -1 : 0;
 }
 
@@ -488,6 +546,7 @@ int oriole_touch_id_run(uintptr_t dtb, uint64_t image_base, uint64_t image_size)
 	h.dtb = dtb;
 	h.image_base = image_base;
 	h.image_size = image_size;
+	h.engine_armed = 0;
 	/* Build this table on the stack: the freestanding image forbids ABS64
 	 * relocations from a static function-pointer initializer. */
 	ops.preflight = preflight;

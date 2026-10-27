@@ -13,7 +13,7 @@
 struct reg { uintptr_t pa; uint32_t val; };
 static struct reg regs[32];
 static unsigned nr, writes, reads, fail_write_at, apply_fail_write_at;
-static unsigned fail_read_at, forbidden_reads, tx_n, burst_n, rx_pos, reset_n;
+static unsigned fail_read_at, forbidden_reads, engine_writes, tx_n, burst_n, rx_pos, reset_n;
 static uint8_t tx_bytes[12];
 static uint32_t rail25, rail26;
 static uint64_t ticks;
@@ -21,7 +21,9 @@ static int force_timeout, uncertain_enable26, restore_error25;
 static int disturb_engine_on_reset;
 static int corrupt_quiet_on_reset;
 static int ignore_engine_writes_in_usi_reset;
+static int ignore_cs_latch_write;
 static int live_board_ok, live_ram_ok;
+static int spi_con_restore_seen, ctrl_con_restore_seen, unsafe_cleanup_dat_low;
 static enum oti_stage reported_first, reported_cleanup;
 static uint32_t failed_prep_step;
 static uintptr_t first_set_mismatch_pa, last_set_mismatch_pa;
@@ -42,16 +44,18 @@ static uint32_t value(uintptr_t pa) { return reg(pa)->val; }
 static void reset_fake(void)
 {
 	nr = writes = reads = fail_write_at = apply_fail_write_at = fail_read_at = 0;
-	forbidden_reads = tx_n = burst_n = rx_pos = reset_n = 0;
+	forbidden_reads = engine_writes = tx_n = burst_n = rx_pos = reset_n = 0;
 	force_timeout = uncertain_enable26 = restore_error25 = 0;
 	disturb_engine_on_reset = 1; corrupt_quiet_on_reset = 0;
 	ignore_engine_writes_in_usi_reset = 0;
+	ignore_cs_latch_write = 0;
 	live_board_ok = live_ram_ok = 1;
+	spi_con_restore_seen = ctrl_con_restore_seen = unsafe_cleanup_dat_low = 0;
 	rail25 = 0x2c; rail26 = 0x3c; ticks = 1;
 	reported_first = reported_cleanup = OTI_OK;
 	failed_prep_step = 0; first_set_mismatch_pa = last_set_mismatch_pa = 0;
 	seed(TOUCH_PIN_CLK_BANK, 0);
-	seed(TOUCH_PIN_CLK_BANK + 4u, 0);
+	seed(TOUCH_PIN_CLK_BANK + 4u, 0x30u);
 	seed(TOUCH_PIN_CLK_BANK + 8u, 0x1111u);
 	seed(TOUCH_PIN_RESET_BANK, 0);
 	seed(TOUCH_PIN_RESET_BANK + 4u, 0);
@@ -104,6 +108,11 @@ int try_read32(uintptr_t pa, uint32_t *v)
 		static const uint8_t reply[5] = { 0, 0x36, 0x48, 0, 0 };
 		*v = burst_n == 1 ? reply[rx_pos] : 0;
 		if (++rx_pos == 5) { burst_n++; tx_n = rx_pos = 0; }
+	} else if (pa == TOUCH_PIN_CLK_BANK + 4u &&
+	           ((value(TOUCH_PIN_CLK_BANK) >> (4u * TOUCH_PIN_CS_NR)) & 0xfu) == 0) {
+		/* Model the fourth phone capture: the input pin reads low even
+		 * after its high output latch is primed. */
+		*v = value(pa) & ~(1u << TOUCH_PIN_CS_NR);
 	} else {
 		*v = value(pa);
 	}
@@ -113,6 +122,19 @@ int try_read32(uintptr_t pa, uint32_t *v)
 int try_write32(uintptr_t pa, uint32_t v)
 {
 	writes++;
+	if ((pa >= SPI && pa < SPI + 0x30u) ||
+	    (pa >= USI && pa < USI + 0x10u)) engine_writes++;
+	if (pa == TOUCH_PIN_CLK_BANK && (value(pa) & 0xffffu) && !(v & 0xffffu))
+		spi_con_restore_seen = 1;
+	if (pa == TOUCH_PIN_RESET_BANK && (value(pa) & 0xffu) && !(v & 0xffu))
+		ctrl_con_restore_seen = 1;
+	if (pa == TOUCH_PIN_CLK_BANK + 4u && spi_con_restore_seen &&
+	    !(v & (1u << TOUCH_PIN_CS_NR)) &&
+	    ((value(TOUCH_PIN_CLK_BANK) >> (4u * TOUCH_PIN_CS_NR)) & 0xfu) == 1u)
+		unsafe_cleanup_dat_low++;
+	if (pa == TOUCH_PIN_RESET_BANK + 4u && ctrl_con_restore_seen &&
+	    !(v & 1u) && ((value(TOUCH_PIN_RESET_BANK) & 0xfu) == 1u))
+		unsafe_cleanup_dat_low++;
 	if (writes == fail_write_at) return 0;
 	if (pa == USI + TP_USI_CON && (v & TP_USI_CON_RESET) && disturb_engine_on_reset) {
 		/* Model a destructive USI reset.  Untouched engine words must
@@ -134,6 +156,9 @@ int try_write32(uintptr_t pa, uint32_t v)
 		tx_n++;
 		return writes == apply_fail_write_at ? 0 : 1;
 	}
+	if (pa == TOUCH_PIN_CLK_BANK + 4u && ignore_cs_latch_write &&
+	    (v & (1u << TOUCH_PIN_CS_NR)))
+		return writes == apply_fail_write_at ? 0 : 1;
 	if (pa == SPI + TP_SPI_CH_CFG && (v & TP_CH_SW_RST)) {
 		reset_n++;
 		/* RX consumption advances the burst; reset drains any remaining FIFO. */
@@ -221,6 +246,7 @@ static void assert_restored(void)
 	assert((value(CMU + TOUCH_CMU_MUX_USI) & 0x10u) == 0x10u);
 	assert((value(CMU + TOUCH_CMU_DIV) & 0xfu) == 0);
 	assert(value(TOUCH_PIN_CLK_BANK + 8u) == 0x1111u);
+	assert(value(TOUCH_PIN_CLK_BANK + 4u) == 0x30u);
 	assert(value(TOUCH_PIN_RESET_BANK + 8u) == 0x11u);
 	assert(value(SPI + TP_SPI_CH_CFG) == 0);
 	assert(value(USI + TP_USI_CON) == 1);
@@ -250,6 +276,13 @@ int main(void)
 	baseline_writes = writes;
 	baseline_reads = reads;
 	assert(reset_n >= 3);
+	reset_fake(); ignore_cs_latch_write = 1;
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+	assert(reported_first == OTI_SPI_PREPARE && reported_cleanup == OTI_OK);
+	assert(failed_prep_step == 4u && burst_n == 0 && tx_n == 0);
+	assert(rail25 == 0x2c && rail26 == 0x3c && engine_writes == 0);
+	assert(unsafe_cleanup_dat_low == 0);
+	assert_restored();
 	/* Fail each possible MMIO write once.  A failure before a mode switch
 	 * must never cause an unsafe SPI read, and cleanup keeps both rails off. */
 	for (step = 1; step <= baseline_writes; step++) {
@@ -257,6 +290,7 @@ int main(void)
 		fail_write_at = step;
 		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
 		assert(rail25 == 0x2c && rail26 == 0x3c && forbidden_reads == 0);
+		assert(unsafe_cleanup_dat_low == 0);
 		if (reported_cleanup == OTI_OK) assert_restored();
 	}
 	/* A bus fault may be reported after the write reached the controller.
@@ -266,6 +300,7 @@ int main(void)
 		apply_fail_write_at = step;
 		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
 		assert(rail25 == 0x2c && rail26 == 0x3c && forbidden_reads == 0);
+		assert(unsafe_cleanup_dat_low == 0);
 		if (reported_cleanup == OTI_OK) assert_restored();
 	}
 	for (step = 1; step <= baseline_reads; step++) {
