@@ -25,6 +25,11 @@ static int ignore_cs_latch_write;
 static int reset_input_high_after_pud_clear;
 static int reset_input_high_active;
 static int reset_output_stuck_high;
+static int reset_dat_one_read_lag, reset_dat_lag_pending;
+static int reset_release_stuck_low;
+static uint32_t reset_dat_lag_value;
+static uint32_t release_sample[3], assert_sample;
+static unsigned release_samples, assert_samples;
 static int live_board_ok, live_ram_ok;
 static int spi_con_restore_seen, ctrl_con_restore_seen, unsafe_cleanup_dat_low;
 static enum oti_stage reported_first, reported_cleanup;
@@ -54,6 +59,12 @@ static void reset_fake(void)
 	ignore_cs_latch_write = 0;
 	reset_input_high_after_pud_clear = reset_input_high_active = 0;
 	reset_output_stuck_high = 0;
+	reset_dat_one_read_lag = reset_dat_lag_pending = 0;
+	reset_release_stuck_low = 0;
+	reset_dat_lag_value = 0;
+	release_samples = assert_samples = 0;
+	memset(release_sample, 0, sizeof(release_sample));
+	assert_sample = 0;
 	live_board_ok = live_ram_ok = 1;
 	spi_con_restore_seen = ctrl_con_restore_seen = unsafe_cleanup_dat_low = 0;
 	rail25 = 0x2c; rail26 = 0x3c; ticks = 1;
@@ -118,6 +129,13 @@ int try_read32(uintptr_t pa, uint32_t *v)
 		/* Model the fourth phone capture: the input pin reads low even
 		 * after its high output latch is primed. */
 		*v = value(pa) & ~(1u << TOUCH_PIN_CS_NR);
+	} else if (pa == TOUCH_PIN_RESET_BANK + 4u && reset_dat_lag_pending) {
+		*v = reset_dat_lag_value;
+		reset_dat_lag_pending = 0;
+	} else if (pa == TOUCH_PIN_RESET_BANK + 4u &&
+	           reset_release_stuck_low &&
+	           (value(TOUCH_PIN_RESET_BANK) & 0xfu) == 1u) {
+		*v = value(pa) & ~(1u << TOUCH_PIN_RESET_NR);
 	} else if (pa == TOUCH_PIN_RESET_BANK + 4u &&
 	           reset_output_stuck_high &&
 	           (value(TOUCH_PIN_RESET_BANK) & 0xfu) == 1u) {
@@ -189,6 +207,11 @@ int try_write32(uintptr_t pa, uint32_t v)
 	if (pa == TOUCH_PIN_RESET_BANK + 8u &&
 	    reset_input_high_after_pud_clear && !(v & 0xfu))
 		reset_input_high_active = 1;
+	if (pa == TOUCH_PIN_RESET_BANK + 4u && reset_dat_one_read_lag &&
+	    (value(TOUCH_PIN_RESET_BANK) & 0xfu) == 1u) {
+		reset_dat_lag_value = value(pa);
+		reset_dat_lag_pending = 1;
+	}
 	seed(pa, v);
 	return writes == apply_fail_write_at ? 0 : 1;
 }
@@ -252,6 +275,17 @@ void con_hex2(const char *tag, const char *a, uint32_t av, const char *b, uint32
 		if (!first_set_mismatch_pa) first_set_mismatch_pa = av;
 		last_set_mismatch_pa = av;
 	}
+	if (strcmp(tag, "ORIOLE TOUCH RELEASE") == 0) {
+		assert(release_samples < 3);
+		assert(av == (release_samples == 0 ? 0u :
+		              release_samples == 1 ? 1000u : 10000u));
+		release_sample[release_samples++] = bv;
+	}
+	if (strcmp(tag, "ORIOLE TOUCH ASSERT") == 0) {
+		assert(av == 10000u && assert_samples == 0);
+		assert_sample = bv;
+		assert_samples++;
+	}
 }
 void con_str(const char *tag, const char *s) { (void)tag; (void)s; }
 
@@ -283,6 +317,56 @@ static void assert_restored(void)
 	assert(forbidden_reads == 0);
 }
 
+#ifdef ORIOLE_TOUCH_ID_RESET_OBSERVE
+int main(void)
+{
+	unsigned step, baseline_writes, baseline_reads;
+	reset_fake();
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+	assert(reported_first == OTI_SPI_PREPARE && failed_prep_step == 17u);
+	assert(reported_cleanup == OTI_OK && release_samples == 3 &&
+	       release_sample[0] == 1 && release_sample[1] == 1 &&
+	       release_sample[2] == 1 && assert_samples == 1 && assert_sample == 0);
+	assert(tx_n == 0 && burst_n == 0);
+	assert_restored();
+	reset_fake();
+	reset_dat_one_read_lag = 1;
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+	assert(reported_first == OTI_SPI_PREPARE && failed_prep_step == 17u);
+	assert(reported_cleanup == OTI_SHARED_RESTORE);
+	assert(release_samples == 3 && release_sample[0] == 0 &&
+	       release_sample[1] == 1 && release_sample[2] == 1);
+	assert(assert_samples == 1 && assert_sample == 0);
+	assert(tx_n == 0 && burst_n == 0 && rail25 == 0x2c && rail26 == 0x3c);
+	assert(value(TOUCH_PIN_RESET_BANK + 4u) == 0);
+	baseline_writes = writes;
+	baseline_reads = reads;
+	reset_fake(); reset_release_stuck_low = 1;
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+	assert(reported_first == OTI_SPI_PREPARE && failed_prep_step == 17u);
+	assert(release_samples == 3 && release_sample[0] == 0 &&
+	       release_sample[1] == 0 && release_sample[2] == 0);
+	assert(tx_n == 0 && burst_n == 0 && rail25 == 0x2c && rail26 == 0x3c);
+	for (step = 1; step <= baseline_writes; step++) {
+		reset_fake(); fail_write_at = step;
+		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+		assert(tx_n == 0 && burst_n == 0 && rail25 == 0x2c && rail26 == 0x3c);
+		if (reported_cleanup == OTI_OK) assert_restored();
+		reset_fake(); apply_fail_write_at = step;
+		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+		assert(tx_n == 0 && burst_n == 0 && rail25 == 0x2c && rail26 == 0x3c);
+		if (reported_cleanup == OTI_OK) assert_restored();
+	}
+	for (step = 1; step <= baseline_reads; step++) {
+		reset_fake(); fail_read_at = step;
+		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+		assert(tx_n == 0 && burst_n == 0 && rail25 == 0x2c && rail26 == 0x3c);
+		if (reported_cleanup == OTI_OK) assert_restored();
+	}
+	puts("oriole reset-release diagnostic: fake GPIO/ACPM passed; zero SPI commands");
+	return 0;
+}
+#else
 int main(void)
 {
 	unsigned step, baseline_writes, baseline_reads;
@@ -405,3 +489,4 @@ int main(void)
 	puts("oriole touch ID hardware backend: fake MMIO/ACPM passed");
 	return 0;
 }
+#endif

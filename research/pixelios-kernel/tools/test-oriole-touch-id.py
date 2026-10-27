@@ -9,7 +9,7 @@ import subprocess
 
 SHIM = Path(__file__).resolve().parents[1] / "shim"
 PINS = {
-    "orioletouchid_hw.c": "0c2244b07fa6ccd917c00fcd837220ff570e34ba75ab93b2f9e0327e2b4bde28",
+    "orioletouchid_hw.c": "d9a0805e1140b2cd7291f7daefab761da5d25c5ee3f1415fcf51b48570496db3",
     "orioletouchid_flow.c": "ebf428bc6b25217bb0954a87bdae25e700c35d39b9e6c3f1945d23841edadd15",
 }
 HW_U = frozenset(("acpm_cfg_init", "acpm_describe", "acpm_oriole_touch_rail_set",
@@ -35,6 +35,12 @@ def check_pins(texts):
        flow.count("o->rail_set(ctx, OTI_LDO26M, 0") != 1 or \
        flow.count("o->rail_set(ctx, OTI_LDO25M, 0") != 1:
         raise AssertionError("touch-ID rail sequence drifted")
+
+
+def check_diagnostic_build(text):
+    marker = '[ "$inventory_touch_id" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_TOUCH_ID_HW -DORIOLE_TOUCH_ID_RESET_OBSERVE"'
+    if text.count(marker) != 1:
+        raise AssertionError("Oriole touch-ID build lost the stop-before-SPI diagnostic macro")
 
 
 def symbols(raw):
@@ -104,6 +110,7 @@ def main():
     a = ap.parse_args()
     texts = {name: (SHIM / name).read_text() for name in PINS}
     check_pins(texts)
+    check_diagnostic_build((SHIM / "build.sh").read_text())
     hw = subprocess.check_output([a.nm, "-g", a.hw], text=True)
     flow = subprocess.check_output([a.nm, "-g", a.flow], text=True)
     image = subprocess.check_output([a.nm, "-g", a.image], text=True)
@@ -117,6 +124,7 @@ def main():
     bad = dict(texts)
     bad["orioletouchid_hw.c"] = bad["orioletouchid_hw.c"].replace("0x20u", "0x21u", 1)
     expect_reject(check_pins, bad)
+    expect_reject(check_diagnostic_build, "")
     expect_reject(check_symbols, hw + "\n00000000 T extra_writer", flow, image)
     expect_reject(check_disasm, disasm + "\n0000000000002000 <evil>:\n"
                   "  2000: R_AARCH64_CALL26 try_write32\n")

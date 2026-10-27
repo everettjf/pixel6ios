@@ -217,6 +217,32 @@ static int bounded_delay(unsigned usec)
 	return -1;
 }
 
+#ifdef ORIOLE_TOUCH_ID_RESET_OBSERVE
+/* Seventh Oriole run: reset DAT read 0 immediately after release (1), then
+ * 1 immediately after restoring assertion (0).  Observe the already
+ * allowlisted transition at bounded intervals, but deliberately stop before
+ * the SPI ID command even if every sample matches.  This image only measures
+ * whether the pin-level readback settles; it does not authorize transmission. */
+static int observe_reset_release(struct cell *dat)
+{
+	uint32_t con, now, want, sample;
+	if (dat->pa != TOUCH_PIN_RESET_BANK + 4u || dat->mask != 0x3u ||
+	    rd(TOUCH_PIN_RESET_BANK, &con) ||
+	    ((con >> (TOUCH_PIN_RESET_NR * 4u)) & 0xfu) != 1u ||
+	    rd(dat->pa, &now)) return -1;
+	want = (now & ~dat->mask) | (1u << TOUCH_PIN_RESET_NR);
+	dat->changed = 1;
+	if (guarded_write(dat->pa, now, want, dat->mask)) return -1;
+	if (rd(dat->pa, &sample)) return -1;
+	con_hex2("ORIOLE TOUCH RELEASE", "us", 0u, "dat", sample);
+	if (bounded_delay(1000u) || rd(dat->pa, &sample)) return -1;
+	con_hex2("ORIOLE TOUCH RELEASE", "us", 1000u, "dat", sample);
+	if (bounded_delay(9000u) || rd(dat->pa, &sample)) return -1;
+	con_hex2("ORIOLE TOUCH RELEASE", "us", 10000u, "dat", sample);
+	return -1; /* diagnostic-only profile: never enter spi_identify */
+}
+#endif
+
 static int wait_idle(uintptr_t pa)
 {
 	uint64_t f = counter_freq(), start = touch_ticks();
@@ -418,8 +444,12 @@ static int spi_prepare(void *p)
 	        (1u << (TOUCH_PIN_MUX_NR * 4u))));
 	PREP_STEP(15u, verify_reset_low(&h->s[S_CTRL_DAT]));
 	PREP_STEP(16u, bounded_delay(10000u));
+#ifdef ORIOLE_TOUCH_ID_RESET_OBSERVE
+	PREP_STEP(17u, observe_reset_release(&h->s[S_CTRL_DAT]));
+#else
 	PREP_STEP(17u, set(&h->s[S_CTRL_DAT], 1u << TOUCH_PIN_RESET_NR));
 	PREP_STEP(18u, bounded_delay(100000u));
+#endif
 #undef PREP_STEP
 	return 0;
 }
@@ -550,6 +580,9 @@ static int shared_restore(void *p)
 	struct hw *h = p;
 	unsigned i;
 	uint32_t con;
+#ifdef ORIOLE_TOUCH_ID_RESET_OBSERVE
+	uint32_t sample;
+#endif
 	int bad = 0;
 	for (i = S_COUNT; i > 0; i--) {
 		/* Restore CS as an input before its DAT latch.  The reset DAT
@@ -563,7 +596,19 @@ static int shared_restore(void *p)
 	 * the external high level while the touch rails are still on. */
 	if (rd(h->s[S_CTRL_CON].pa, &con)) bad = 1;
 	else if (((con >> (TOUCH_PIN_RESET_NR * 4u)) & 0xfu) == 1u) {
-		if (restore(&h->s[S_CTRL_DAT])) bad = 1;
+		if (h->s[S_CTRL_DAT].changed) {
+			if (restore(&h->s[S_CTRL_DAT])) bad = 1;
+#ifdef ORIOLE_TOUCH_ID_RESET_OBSERVE
+			if (bounded_delay(10000u) || rd(h->s[S_CTRL_DAT].pa, &sample))
+				bad = 1;
+			else {
+				con_hex2("ORIOLE TOUCH ASSERT", "us", 10000u, "dat", sample);
+				if ((sample & h->s[S_CTRL_DAT].mask) !=
+				    (h->s[S_CTRL_DAT].old & h->s[S_CTRL_DAT].mask)) bad = 1;
+			}
+			/* A delayed sample cannot erase an earlier restore uncertainty. */
+#endif
+		}
 	} else if (h->s[S_CTRL_DAT].changed) {
 		/* The input level cannot verify its hidden output latch. */
 		bad = 1;
