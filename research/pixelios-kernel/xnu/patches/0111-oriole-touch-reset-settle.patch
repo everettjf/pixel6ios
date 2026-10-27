@@ -1,0 +1,51 @@
+diff --git a/bsd/dev/sweet_touch_gs101.c b/bsd/dev/sweet_touch_gs101.c
+index d55106d..218621b 100644
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -166,6 +166,7 @@ static struct {
+ 	int clk_mode, var, cs_abl;
+ 	bool oriole_spi_order;
+ 	bool reset_done;   /* tg_reset_and_ready already ran (sweettouchcs=1 does it before the identify) */
++	bool reset_release_failed; /* Oriole-only fatal readback after the measured 100 ms settle */
+ 	char poke[POKE_MAX_LEN + 16];   /* sweettouchpoke boot-arg (empty = none) */
+ 	uint32_t last_st, last_ch;   /* STATUS / CH_CFG at the last burst timeout */
+ 	int mode, mux_force;
+@@ -1055,6 +1056,18 @@ tg_reset_and_ready(unsigned *logged)
+ 	tg_pin_set_func(&tg.reset, PIN_FUNC_OUTPUT);
+ 	tg_sleep_ms(10);
+ 	tg_pin_put(&tg.reset, 1);
++	if (tg.oriole_spi_order) {
++		/* The successful isolated Oriole ID probe waits 100 ms after reset
++		 * release before its first FIFO or ID command. Keep the other GS101
++		 * path unchanged; this is still identify-only when sweettouch=1. */
++		tg_sleep_ms(100);
++		tg_pin_report("reset released", &tg.reset);
++		if (tg_pin_func(&tg.reset) != PIN_FUNC_OUTPUT || tg_pin_get(&tg.reset) != 1) {
++			tg.reset_release_failed = true;
++			printf("SWEET TOUCH: reset release readback failed; refusing further touch SPI\n");
++			return false;
++		}
++	}
+ 	t0 = tg_now_us();
+ 	while (tg_now_us() - t0 < 1500000u) {   /* GENERAL_TIMEOUT is not known: 1.5 s, GUESS */
+ 		uint8_t e[FTM5_EVENT_SIZE];
+@@ -1122,6 +1135,9 @@ tg_run(void)
+ 		printf("SWEET TOUCH: sweettouchcs=1: pads PUD := 0, reset pulse before the identify\n");
+ 		tg.reset_done = tg_reset_and_ready(&logged);
+ 		printf("SWEET TOUCH: reset before identify: %s\n", tg.reset_done ? "controller-ready event seen" : "no ready event");
++		if (tg.reset_release_failed) {
++			return;
++		}
+ 	}
+ 	ok = tg_identify();
+ 	for (unsigned n = 0; !ok && tg.var && n < 5; n++) {
+@@ -1142,6 +1158,9 @@ tg_run(void)
+ 	}
+ 	printf("SWEET TOUCH: phase 2: reset pulse, scan enable, poll\n");
+ 	if (!tg.reset_done && !tg_reset_and_ready(&logged)) {
++		if (tg.reset_release_failed) {
++			return;
++		}
+ 		printf("SWEET TOUCH: no controller-ready event after the reset pulse (GUESS: continuing)\n");
+ 	}
+ 	if (!tg_enable_scan()) {
