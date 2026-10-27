@@ -1,0 +1,31 @@
+# Observed on hardware: Pixel 6 (oriole), Android build CP3A.261005.002.A1,
+# 2026-10-27 PDT. One temporary fastboot boot; no partition flash.
+# Probe source commit: 09f70f5
+# Exact 64 MiB boot image SHA-256:
+# d2ba3c760bbfcbc8deec793c040317c3727fb8ad230112eaa81bbcacf781d990
+# Selected lines from a complete USB capture. Serial, host USB metadata,
+# full FDT and unrelated debug lines omitted. Raw capture remains private.
+
+INVENTORY Oriole one-shot touch ID and restore
+INVENTORY Oriole one-shot touch FIFO and restore
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value000000AC
+ORIOLE TOUCH RAIL reg0000005D value000000BC
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH ID first00000000 cleanup00000000
+ORIOLE TOUCH ID id000000036 id100000048
+ORIOLE TOUCH ID attempts00000001 restored00000002
+ORIOLE TOUCH FIFO attempts00000001 event000000003
+ORIOLE TOUCH FIFO b100000000 b200000000
+ORIOLE TOUCH FIFO b300000000 b400000000
+ORIOLE TOUCH FIFO b500000000 b600000000
+ORIOLE TOUCH FIFO b700000000 cleanup00000000
+ORIOLE TOUCH ID PASS 36 48 AND RESTORED
+INVENTORY report complete
+
+# Local parser: complete=true, chip_id_verified_by_probe=true,
+# fifo_read_succeeded=true, event_bytes=[3,0,0,0,0,0,0,0],
+# rails_restored_by_probe=true, ios_touch_or_gestures_verified=false.
+# A single 0x03 ready event after reset does not demonstrate a touch event.
