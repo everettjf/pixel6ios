@@ -164,9 +164,9 @@ int try_write32(uintptr_t pa, uint32_t v)
 		/* RX consumption advances the burst; reset drains any remaining FIFO. */
 		rx_pos = 0;
 	}
-	/* Hypothetical hardware behavior: a bus write ACKs while USI reset is
-	 * asserted, but the SPI engine ignores the new value.  Keep this opt-in;
-	 * the real Oriole diagnostic has not identified the failed register yet. */
+	/* The fifth physical run observed FB_CLK ignored while USI reset was
+	 * asserted.  Model the corresponding register-gating hypothesis; the
+	 * candidate must release reset before it writes FB_CLK or CH_CFG. */
 	if (ignore_engine_writes_in_usi_reset &&
 	    (value(USI + TP_USI_CON) & TP_USI_CON_RESET) &&
 	    (pa == SPI + TP_SPI_FB_CLK || pa == SPI + TP_SPI_CH_CFG))
@@ -326,11 +326,10 @@ int main(void)
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
 	assert(reported_cleanup == OTI_ENGINE_RESTORE && rail25 == 0x2c && rail26 == 0x3c);
 	reset_fake(); ignore_engine_writes_in_usi_reset = 1;
-	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
-	assert(reported_first == OTI_SPI_PREPARE && reported_cleanup == OTI_ENGINE_RESTORE);
-	assert(failed_prep_step == 8u && first_set_mismatch_pa == SPI + TP_SPI_FB_CLK);
-	assert(last_set_mismatch_pa == SPI + TP_SPI_CH_CFG);
-	assert(rail25 == 0x2c && rail26 == 0x3c && tx_n == 0 && burst_n == 0);
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) == 0);
+	assert(reported_first == OTI_OK && reported_cleanup == OTI_OK);
+	assert(burst_n == 2 && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
+	assert_restored();
 	reset_fake(); live_board_ok = 0;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0 &&
 	       reported_first == OTI_PREFLIGHT && writes == 0);

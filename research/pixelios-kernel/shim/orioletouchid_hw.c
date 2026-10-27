@@ -375,8 +375,12 @@ static int spi_prepare(void *p)
 	PREP_STEP(5u, set(&h->e[E_USI_CON], TP_USI_CON_RESET));
 	PREP_STEP(6u, engine_quiet());
 	PREP_STEP(7u, set(&h->e[E_USI_OPTION], OTI_USI_OPTION_ABL));
-	PREP_STEP(8u, set(&h->e[E_FB], 1u));
-	PREP_STEP(9u, set(&h->e[E_USI_CON], 0));
+	/* The live Oriole ignored FB_CLK while USI_CON.RESET was high.  Google's
+	 * SPI transfer path programs FB_CLK with the wrapper out of reset; ABL
+	 * instead programs it before release on another USI bus.  Release and
+	 * verify the wrapper first, then verify the feedback delay on this bus. */
+	PREP_STEP(8u, set(&h->e[E_USI_CON], 0));
+	PREP_STEP(9u, set(&h->e[E_FB], 1u));
 	PREP_STEP(10u, engine_quiet());
 	PREP_STEP(11u, set(&h->e[E_CH], 0));
 	PREP_STEP(12u, set(&h->e[E_PKT], 0));
