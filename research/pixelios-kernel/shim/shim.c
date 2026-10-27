@@ -28,6 +28,9 @@
 #include "gpus2mpu.h"
 #include "gpujob.h"
 #include "touchprobe.h"
+#ifdef ORIOLE_ACPM_TOUCH_HOLD
+#include "acpmrailhold.h"
+#endif
 #ifdef BOOT_XNU
 #include "loader.h"
 #endif
@@ -756,12 +759,33 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 		pstore_save();
 	}
 #endif
+#ifdef ORIOLE_ACPM_TOUCH_HOLD
+	/* Only the hash-pinned Oriole touch-ID payload reaches this path.  XNU
+	 * has no ACPM client, so retain the measured rails across loader_boot().
+	 * A refused/uncertain enable must not enter XNU; restore on every return. */
+	{
+		struct acpm_touch_hold_state hold = {0};
+		if (acpm_touch_hold_start(&hold) == 0) {
+			const char *why;
+			pstore_save();
+			why = loader_boot(dtb);
+			con_str("BOOT XNU failed", why ? why : "?");
+			if (acpm_touch_hold_restore(&hold) != 0)
+				con_str("TOUCH HOLD", "RESTORE FAILED after loader return");
+		} else {
+			con_str("BOOT XNU", "touch-rail preflight refused; XNU not entered");
+		}
+		pstore_save();
+		delay_ms(3000);
+	}
+#else
 	{
 		const char *why = loader_boot(dtb);
 		con_str("BOOT XNU failed", why ? why : "?");
 		pstore_save();
 		delay_ms(3000);
 	}
+#endif
 #endif
 #ifdef USB_GADGET
 	usb_gadget_start(dtb);		/* live log from here on */
@@ -1088,7 +1112,7 @@ static void delay_ms(unsigned ms)
 	wait_ticks((counter_freq() / 1000) * ms);
 }
 
-#if defined(TOUCH_PROBE) || defined(ORIOLE_ACPM_RAILS_READ) || defined(ORIOLE_ACPM_RAIL_CYCLE) || defined(ORIOLE_TOUCH_ID_HW) || defined(GPU_POWER) || defined(GPU_CLK) || defined(GPU_RAILS) || defined(GPU_RAIL_ON) || defined(GPU_JOB) || defined(WLAN_RAILS) || defined(WLAN_LINK_RUN)
+#if defined(TOUCH_PROBE) || defined(ORIOLE_ACPM_RAILS_READ) || defined(ORIOLE_ACPM_RAIL_CYCLE) || defined(ORIOLE_ACPM_TOUCH_HOLD) || defined(ORIOLE_TOUCH_ID_HW) || defined(GPU_POWER) || defined(GPU_CLK) || defined(GPU_RAILS) || defined(GPU_RAIL_ON) || defined(GPU_JOB) || defined(WLAN_RAILS) || defined(WLAN_LINK_RUN)
 uint64_t touch_ticks(void)	/* touchprobe.c / gpupower.c: bounded waits (CNTPCT) */
 {
 	return now();

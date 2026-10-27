@@ -3953,6 +3953,28 @@ def udump_object_selftest() -> int:
     return caught
 
 
+def check_oriole_touch_hold_source(source: str) -> None:
+    """Pin the hardware writer's orchestration and require the rollback order."""
+    expected = "b5d1a431a2752ac1d0c98cad48eb705211d4fb7aec79bc9bd027d1c42881351a"
+    if hashlib.sha256(source.encode()).hexdigest() != expected:
+        raise ValueError("Oriole touch hold changed; independent re-review required")
+    start = source.split("int acpm_touch_hold_start(struct acpm_touch_hold_state *s)", 1)[1]
+    ordered = ("!read_exact(s, &c, 0x5cu, 0x2cu)",
+               "!read_exact(s, &c, 0x5du, 0x3cu)",
+               "set_rail(s, &c, 0x5cu, 1, &s->held25)",
+               "set_rail(s, &c, 0x5du, 1, &s->held26)")
+    if any(start.count(s) != 1 for s in ordered) or \
+            list(map(start.index, ordered)) != sorted(map(start.index, ordered)):
+        raise ValueError("Oriole touch preflight / enable order changed")
+    restore = source.split("int acpm_touch_hold_restore(struct acpm_touch_hold_state *s)", 1)[1].split(
+        "int acpm_touch_hold_start(struct acpm_touch_hold_state *s)", 1)[0]
+    if restore.index("set_rail(s, &c, 0x5du, 0, &s->held26)") >= \
+            restore.index("set_rail(s, &c, 0x5cu, 0, &s->held25)"):
+        raise ValueError("Oriole touch restore order changed")
+    if any(s in source for s in ("try_write32", "try_read32", "volatile", "__asm__", "asm(")):
+        raise ValueError("Oriole touch hold gained direct hardware access")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("boot_image", type=pathlib.Path, nargs="?")
@@ -4143,6 +4165,18 @@ def main() -> None:
                                        {"acpm_cfg_init", "acpm_describe", "acpm_oriole_touch_rail_set",
                                         "acpm_pmic_read", "con_hex2", "con_str"})
     print(f"PASS Oriole rail-cycle entry object: {n_stores} stores, all stack/argument based; no direct MMIO")
+    hold_source = (repo_root / "shim" / "acpmrailhold.c").read_text()
+    check_oriole_touch_hold_source(hold_source)
+    try:
+        check_oriole_touch_hold_source(hold_source.replace("0x5du, 0, &s->held26", "0x5du, 1, &s->held26", 1))
+    except ValueError:
+        pass
+    else:
+        raise ValueError("Oriole touch hold mutation escaped source audit")
+    n_stores = check_touchprobe_object(repo_root / "shim" / "out" / "acpmrailhold.o",
+                                       {"acpm_cfg_init", "acpm_describe", "acpm_oriole_touch_rail_set",
+                                        "acpm_pmic_read", "con_hex2", "con_str"})
+    print(f"PASS Oriole touch hold source/object audit: {n_stores} stores; no direct MMIO")
     udump_object_selftest()
     n_stores = check_udump_object(repo_root / "shim" / "out" / "udump.o")
     print(f"PASS udump object audit: {n_stores} stores, all stack/argument-"

@@ -10,7 +10,11 @@ static inline int ur_inside(uint64_t off, uint64_t len, uint64_t limit)
 
 static inline int ufsroot_payload_ok(const struct payload *p, uint64_t available)
 {
-#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP
+#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID
+    /* Exact 0109 kernel + Oriole FTM5 identify ADT/args, hash-pinned by
+     * tools/oriole_touch_identify.py; never widen other payload profiles. */
+    const uint64_t size=16716576;
+#elif defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP)
     /* Exact 0109 panel-snapshot payload. Other COW profiles retain their cap. */
     const uint64_t size=16714672;
 #elif defined(ORIOLE_UFSROOT_COW_POOL)

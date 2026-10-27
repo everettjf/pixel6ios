@@ -37,7 +37,24 @@ On macOS, `tools/run_touch_inventory.py --seconds 180` arms the CDC-ACM log rece
 
 ## Next gates
 
-1. **Implementation:** add a separately reviewed Oriole rail-ownership path and a separate identify-only iOS boot profile, then enable the existing XNU FTM5 driver behind an Oriole ADT node. Preserve the current no-touch profile as a fallback. The present XNU driver does not power the touch LDOs, so adding the node alone will not enable touch. Confirm the XNU SPI ID and ready result before enabling FIFO polling and one-finger events.
+**Read from source, 2026-10-27 (candidate, not a device result):** the opt-in
+`--xnu-ufsroot-cow-pool512-fbsnap-touchid` build now binds a hash-pinned
+identify-only payload to a separate Oriole rail-handoff path. The shim checks
+both measured off values, enables LDO25M then LDO26M using the existing
+audited ACPM writer, and refuses XNU entry if the check fails. If the loader
+returns, it attempts reverse-order restoration and records any failure.
+The exact payload passes both the hash checker and the *runtime* UFS-root
+bounds guard in a host test. The old no-touch profile remains separate.
+**No XNU touch identification, physical finger event, gesture, or app tap has
+yet been observed with this candidate.** Its locally relinked kernel still
+uses the previous SPI setup ordering; the prekernel probe indicates that
+Oriole may require `SPI_FB_CLK` to be written after releasing USI reset.
+Check and ADT-gate that driver change before calling the profile ready for
+a physical input test. The Android factory reset also erased the iOS root in
+`userdata`, so an iOS boot needs a freshly verified root image and a new
+user confirmation immediately before any flash.
+
+1. **Implementation and device test:** retain the separate rail-handoff and identify-only profiles, verify the XNU SPI reset/feedback-clock ordering against the successful prekernel trace, and test the hash-pinned image on a restored iOS root. Confirm XNU reports chip ID `36 48` and a controller-ready FIFO result before enabling one-finger events. Preserve the current no-touch profile as a fallback.
 2. **Observed iOS behavior:** verify physical touch down/up and coordinate scaling in the USB log, then a physical swipe from lock screen to home screen, then tap Settings and return Home. A visible app launch and matching input logs are required before claiming interaction works.
 
 Hardware-writing changes require the repository's independent review and stay on a local `wip/*` branch until it passes. The cycle capture helper, `tools/run_acpm_rail_cycle_inventory.py`, only accepts logs showing both exact on readbacks and both exact off readbacks after reverse restoration; a failed restoration remains an explicit failure. The current Android factory reset erased the earlier iOS root from `userdata`. Temporary inventory boots do not read or write `userdata`.

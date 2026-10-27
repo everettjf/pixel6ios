@@ -54,6 +54,7 @@ ufsroot_cow_pool512_long=0
 ufsroot_cow_pool512_fbsnap=0
 ufsroot_cow_pool512_fbsnap_silent=0
 ufsroot_cow_pool512_fbsnap_home=0
+ufsroot_cow_pool512_fbsnap_touchid=0
 preparecheck=0
 coldinit=0
 while [ "$#" -gt 0 ]; do
@@ -74,6 +75,7 @@ while [ "$#" -gt 0 ]; do
 		--xnu-ufsroot-cow-pool512-fbsnap) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-pool512-fbsnap-silent) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_silent=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-pool512-fbsnap-home) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_home=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
+		--xnu-ufsroot-cow-pool512-fbsnap-touchid) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-resetcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; resetcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
@@ -145,7 +147,14 @@ if [ "$ramprobe" = 1 ]; then
     [ "$ufsroot_cow_pool512_fbsnap" = 0 ] || payload_checker=../tools/oriole_ufsroot_cow_pool512_fbsnap.py
     [ "$ufsroot_cow_pool512_fbsnap_silent" = 0 ] || payload_checker=../tools/oriole_ufsroot_cow_pool512_fbsnap_silent.py
     [ "$ufsroot_cow_pool512_fbsnap_home" = 0 ] || payload_checker=../tools/oriole_ufsroot_cow_pool512_fbsnap_home.py
+    [ "$ufsroot_cow_pool512_fbsnap_touchid" = 0 ] || payload_checker=../tools/oriole_touch_identify.py
     "$PYTHON" "$payload_checker" --check "$payload" || exit 2
+    if [ "$ufsroot_cow_pool512_fbsnap_touchid" = 1 ]; then
+        mkdir -p out
+        gcc -std=c11 -O1 -Wall -Wextra -Werror -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID \
+            -I. -o out/oriole_touch_payload_guard_check oriole_touch_payload_guard_host_test.c
+        ./out/oriole_touch_payload_guard_check "$payload"
+    fi
 fi
 if [ "$inventory_ufs" = 1 ]; then
     [ "$board:$inventory_display" = oriole:0 ] && [ -z "${UFS_DMA_HI_BASE:-}${UFS_ATTEMPTS:-}${XNU_UFS:-}${REBOOT_BL:-}" ] || {
@@ -219,6 +228,7 @@ CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
 [ "$ufsroot_cow_trace" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_TRACE"
 [ "$ufsroot_cow_pool" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL"
 [ "$ufsroot_cow_pool512_fbsnap" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL512_FBSNAP"
+[ "$ufsroot_cow_pool512_fbsnap_touchid" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_ACPM_TOUCH_HOLD -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID"
 [ "$coldinit" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFS_COLDINIT"
 [ "$preparecheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFS_PREPARECHECK"
 [ "$loadcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_LOADCHECK"
@@ -464,6 +474,8 @@ NOJOB_CFLAGS="${CFLAGS//-DGPU_JOB/}"	# the plain / stack gpupower objects never 
 "$CC" $CFLAGS -fno-tree-switch-conversion -fno-jump-tables -c touchprobe.c -o out/touchprobe.o
 # Same for acpm.c (ACPM client for the touch rails); only LINKED with explicitly selected ACPM profiles. Its transport writes go through one allowlisted helper (audited).
 "$CC" $CFLAGS -fno-tree-switch-conversion -fno-jump-tables -c acpm.c -o out/acpm.o
+# Audit on every build; only the exact Oriole touch-ID profile links this entry.
+"$CC" $CFLAGS -DORIOLE_ACPM_TOUCH_HOLD -c acpmrailhold.c -o out/acpmrailhold.o
 if [ "$gs101" = 1 ]; then
 	"$CC" $CFLAGS -DORIOLE_ACPM_RAILS_READ -fno-tree-switch-conversion -fno-jump-tables -c acpm.c -o out/acpm_rails.o
 	"$CC" $CFLAGS -DORIOLE_ACPM_RAILS_READ -c acpmrailread.c -o out/acpmrailread.o
@@ -490,6 +502,9 @@ if [ "$inventory_acpm_rails" = 1 ]; then
 fi
 if [ "$inventory_acpm_rail_cycle" = 1 ]; then
 	acpm_rail_objs="out/acpmrailcycle.o out/acpm_rail_cycle.o"
+fi
+if [ "$ufsroot_cow_pool512_fbsnap_touchid" = 1 ]; then
+	acpm_rail_objs="out/acpmrailhold.o out/acpm_rail_cycle.o"
 fi
 touch_id_objs=""
 if [ "$inventory_touch_id" = 1 ]; then
@@ -669,6 +684,10 @@ $GRO -DNULL_TEST -Iout -include out/board_config_n0.h -o out/gpurailon_null_host
 gcc -O1 -Wall -Wextra -Werror -I. -Iout -include out/board_config.h -o out/touch_host_test touch_host_test.c && ./out/touch_host_test
 gcc -O1 -Wall -Wextra -Werror -DTOUCH_RAILS_WRITE -I. -Iout -include out/board_config.h -o out/acpm_host_test acpm_host_test.c && ./out/acpm_host_test
 gcc -O1 -Wall -Wextra -Werror -I. -Iout -include out/board_config.h -o out/oriole_touch_rail_cycle_host_test oriole_touch_rail_cycle_host_test.c && ./out/oriole_touch_rail_cycle_host_test
+if [ "$gs101" = 1 ]; then
+	gcc -std=c11 -O1 -Wall -Wextra -Werror -I. -Iout -include out/board_config.h -o out/oriole_touch_hold_host_test oriole_touch_hold_host_test.c
+	./out/oriole_touch_hold_host_test
+fi
 gcc -std=c11 -O1 -Wall -Wextra -Werror -I. -o out/orioletouchid_flow_host_test orioletouchid_flow.c orioletouchid_flow_host_test.c && ./out/orioletouchid_flow_host_test
 for v in 0 1; do gcc -O1 -Wall -Wextra -Werror -DRT_VERIFIED=$v -I. -Iout -include out/board_config.h -o out/rails_host_test$v rails_host_test.c && ./out/rails_host_test$v; done
 # ACPM DVFS client (docs/research/25): the fake channel-1 APM; the read-only build has no request tests (no acpm_dvfs_set there).
