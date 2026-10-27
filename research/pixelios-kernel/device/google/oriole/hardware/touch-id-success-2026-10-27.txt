@@ -1,0 +1,36 @@
+Observed on Pixel 6 (oriole), 2026-10-27 PDT; ninth bounded temporary fastboot boot.
+No partition was written. Source commit: 70f9a6a. Image SHA-256:
+7637f4fcf2a385088d60381b2ea13e8c4ca5bfe7eb15e09500b1b7d192e70a1e
+The complete local USB capture parsed as one capture. Selected sanitized lines:
+
+INVENTORY Oriole one-shot touch ID and restore
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value000000AC
+ORIOLE TOUCH RAIL reg0000005D value000000BC
+ORIOLE TOUCH ENGINE pa10D400C4 value00000001
+ORIOLE TOUCH ENGINE pa10D400C8 value00000001
+ORIOLE TOUCH ENGINE pa10D40000 value00000000
+ORIOLE TOUCH ENGINE pa10D4000C value00000001
+ORIOLE TOUCH ENGINE pa10D40020 value00000000
+ORIOLE TOUCH ENGINE pa10D4002C value00000000
+ORIOLE TOUCH ENGINE pa10D40004 value00000000
+ORIOLE TOUCH ENGINE pa10D40008 value00000000
+ORIOLE TOUCH ENGINE pa10D40010 value00000000
+ORIOLE TOUCH ENGINE pa10D40028 value00000000
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH ID first00000000 cleanup00000000
+ORIOLE TOUCH ID id000000036 id100000048
+ORIOLE TOUCH ID attempts00000001 restored00000002
+ORIOLE TOUCH ID PASS 36 48 AND RESTORED
+INVENTORY report complete
+
+Observed: one ID-command attempt returned hexadecimal bytes 0x36, 0x48.
+Preparation and cleanup both reported success. The two PMIC rail values
+returned exactly to their original disabled values. The parser reported
+chip_id_verified_by_probe=true and ios_touch_or_gestures_verified=false.
+
+This proves that the bounded pre-kernel SPI path can communicate with the
+touch controller under this boot state. It does not prove that an XNU touch
+driver, interrupt path, physical gestures, iOS taps, or app launches work.
