@@ -106,22 +106,43 @@ static int snapshot(struct cell *c)
 static int set(struct cell *c, uint32_t bits)
 {
 	uint32_t now, after, want;
-	if (rd(c->pa, &now)) return -1;
+	if (rd(c->pa, &now)) {
+		con_hex2("ORIOLE TOUCH SET READ FAILED", "pa", c->pa, "mask", c->mask);
+		return -1;
+	}
 	want = (now & ~c->mask) | (bits & c->mask);
 	if (want == now) return 0;
 	c->changed = 1; /* even an uncertain write must receive a restore */
-	if (guarded_write(c->pa, now, want, c->mask) || rd(c->pa, &after)) return -1;
-	return (after & c->mask) == (want & c->mask) ? 0 : -1;
+	if (guarded_write(c->pa, now, want, c->mask) || rd(c->pa, &after)) {
+		con_hex2("ORIOLE TOUCH SET WRITE FAILED", "pa", c->pa, "want", want);
+		return -1;
+	}
+	if ((after & c->mask) != (want & c->mask)) {
+		con_hex2("ORIOLE TOUCH SET MISMATCH", "pa", c->pa, "got", after);
+		con_hex2("ORIOLE TOUCH SET EXPECTED", "pa", c->pa, "want", want);
+		return -1;
+	}
+	return 0;
 }
 
 static int restore(struct cell *c)
 {
 	uint32_t now, after, want;
 	if (!c->changed) return 0;
-	if (rd(c->pa, &now)) return -1;
+	if (rd(c->pa, &now)) {
+		con_hex2("ORIOLE TOUCH RESTORE READ FAILED", "pa", c->pa, "mask", c->mask);
+		return -1;
+	}
 	want = (now & ~c->mask) | (c->old & c->mask);
-	if (guarded_write(c->pa, now, want, c->mask) || rd(c->pa, &after)) return -1;
-	if ((after & c->mask) != (c->old & c->mask)) return -1;
+	if (guarded_write(c->pa, now, want, c->mask) || rd(c->pa, &after)) {
+		con_hex2("ORIOLE TOUCH RESTORE WRITE FAILED", "pa", c->pa, "want", want);
+		return -1;
+	}
+	if ((after & c->mask) != (c->old & c->mask)) {
+		con_hex2("ORIOLE TOUCH RESTORE MISMATCH", "pa", c->pa, "got", after);
+		con_hex2("ORIOLE TOUCH RESTORE EXPECTED", "pa", c->pa, "old", c->old);
+		return -1;
+	}
 	c->changed = 0;
 	return 0;
 }
@@ -285,8 +306,16 @@ static int engine_quiet(void)
 {
 	uint32_t v;
 	unsigned i;
-	for (i = 0; i < sizeof(quiet_offsets) / sizeof(quiet_offsets[0]); i++)
-		if (rd(SPI + quiet_offsets[i], &v) || v != 0) return -1;
+	for (i = 0; i < sizeof(quiet_offsets) / sizeof(quiet_offsets[0]); i++) {
+		if (rd(SPI + quiet_offsets[i], &v)) {
+			con_hex2("ORIOLE TOUCH QUIET READ FAILED", "pa", SPI + quiet_offsets[i], "index", i);
+			return -1;
+		}
+		if (v != 0) {
+			con_hex2("ORIOLE TOUCH QUIET MISMATCH", "pa", SPI + quiet_offsets[i], "got", v);
+			return -1;
+		}
+	}
 	return 0;
 }
 
@@ -301,26 +330,32 @@ static int spi_prepare(void *p)
 	/* The USI reset can change cells without going through set().  Mark every
 	 * captured engine cell for cleanup before issuing any reset write. */
 	for (i = 0; i < E_COUNT; i++) h->e[i].changed = 1;
-	if (set(&h->s[S_SPI_DAT], 1u << TOUCH_PIN_CS_NR) ||
-	    set(&h->s[S_SPI_PUD], 0) ||
-	    set(&h->s[S_CTRL_PUD], 0) ||
-	    set(&h->s[S_SPI_CON], func) ||
-	    set(&h->e[E_USI_CON], TP_USI_CON_RESET) ||
-	    engine_quiet() ||
-	    set(&h->e[E_USI_OPTION], OTI_USI_OPTION_ABL) ||
-	    set(&h->e[E_FB], 1u) ||
-	    set(&h->e[E_USI_CON], 0) ||
-	    engine_quiet() ||
-	    set(&h->e[E_CH], 0) ||
-	    set(&h->e[E_PKT], 0) ||
-	    set(&h->e[E_CS], 1u) ||
-	    set(&h->s[S_CTRL_DAT], 0) ||
-	    set(&h->s[S_CTRL_CON],
+	/* Preserve the original short-circuit order, but report the exact failed
+	 * operation before the single cleanup path runs.  This only adds logs. */
+#define PREP_STEP(N, EXPR) do { if ((EXPR)) { \
+	con_hex2("ORIOLE TOUCH PREP FAILED", "step", (N), "pa", 0u); return -1; \
+} } while (0)
+	PREP_STEP(1u, set(&h->s[S_SPI_DAT], 1u << TOUCH_PIN_CS_NR));
+	PREP_STEP(2u, set(&h->s[S_SPI_PUD], 0));
+	PREP_STEP(3u, set(&h->s[S_CTRL_PUD], 0));
+	PREP_STEP(4u, set(&h->s[S_SPI_CON], func));
+	PREP_STEP(5u, set(&h->e[E_USI_CON], TP_USI_CON_RESET));
+	PREP_STEP(6u, engine_quiet());
+	PREP_STEP(7u, set(&h->e[E_USI_OPTION], OTI_USI_OPTION_ABL));
+	PREP_STEP(8u, set(&h->e[E_FB], 1u));
+	PREP_STEP(9u, set(&h->e[E_USI_CON], 0));
+	PREP_STEP(10u, engine_quiet());
+	PREP_STEP(11u, set(&h->e[E_CH], 0));
+	PREP_STEP(12u, set(&h->e[E_PKT], 0));
+	PREP_STEP(13u, set(&h->e[E_CS], 1u));
+	PREP_STEP(14u, set(&h->s[S_CTRL_DAT], 0));
+	PREP_STEP(15u, set(&h->s[S_CTRL_CON],
 	        (1u << (TOUCH_PIN_RESET_NR * 4u)) |
-	        (1u << (TOUCH_PIN_MUX_NR * 4u))) ||
-	    bounded_delay(10000u) ||
-	    set(&h->s[S_CTRL_DAT], 1u << TOUCH_PIN_RESET_NR) ||
-	    bounded_delay(100000u)) return -1;
+	        (1u << (TOUCH_PIN_MUX_NR * 4u))));
+	PREP_STEP(16u, bounded_delay(10000u));
+	PREP_STEP(17u, set(&h->s[S_CTRL_DAT], 1u << TOUCH_PIN_RESET_NR));
+	PREP_STEP(18u, bounded_delay(100000u));
+#undef PREP_STEP
 	return 0;
 }
 
@@ -414,8 +449,16 @@ static int engine_restore(void *p)
 	 * USI_CON reset is asserted; any ignored restore must fail readback. */
 	if (restore(&h->e[E_USI_CON])) bad = 1;
 	for (i = E_COUNT; i > 1; i--) if (restore(&h->e[i - 1])) bad = 1;
-	for (i = 0; i < E_COUNT; i++)
-		if (rd(h->e[i].pa, &v) || v != h->e[i].old) bad = 1;
+	for (i = 0; i < E_COUNT; i++) {
+		if (rd(h->e[i].pa, &v)) {
+			con_hex2("ORIOLE TOUCH VERIFY READ FAILED", "pa", h->e[i].pa, "index", i);
+			bad = 1;
+		} else if (v != h->e[i].old) {
+			con_hex2("ORIOLE TOUCH VERIFY MISMATCH", "pa", h->e[i].pa, "got", v);
+			con_hex2("ORIOLE TOUCH VERIFY EXPECTED", "pa", h->e[i].pa, "old", h->e[i].old);
+			bad = 1;
+		}
+	}
 	if (engine_quiet()) bad = 1;
 	return bad ? -1 : 0;
 }
