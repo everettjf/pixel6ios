@@ -1,0 +1,36 @@
+Observed on hardware: Pixel 6 (oriole), 2026-10-26 PDT.
+Third temporary fastboot boot of the isolated touch-ID probe; no partition write.
+Source commit: ecab7bc. Boot image SHA-256:
+5585566650dd920e485883238dc39184cf8ea6a347b9f0b85bebb1b0accddcc2
+
+Selected lines from the complete private USB capture (device identifiers omitted):
+
+INVENTORY Oriole one-shot touch ID and restore
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value000000AC
+ORIOLE TOUCH RAIL reg0000005D value000000BC
+ORIOLE TOUCH ENGINE pa10D400C4 value00000001
+ORIOLE TOUCH ENGINE pa10D400C8 value00000001
+ORIOLE TOUCH ENGINE pa10D40000 value00000000
+ORIOLE TOUCH ENGINE pa10D4000C value00000001
+ORIOLE TOUCH ENGINE pa10D40020 value00000000
+ORIOLE TOUCH ENGINE pa10D4002C value00000000
+ORIOLE TOUCH ENGINE pa10D40004 value00000000
+ORIOLE TOUCH ENGINE pa10D40008 value00000000
+ORIOLE TOUCH ENGINE pa10D40010 value00000000
+ORIOLE TOUCH ENGINE pa10D40028 value00000000
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH ID first0000000A cleanup0000000D
+ORIOLE TOUCH ID id000000000 id100000000
+ORIOLE TOUCH ID attempts00000000 restored00000002
+ORIOLE TOUCH ID FAILED
+INVENTORY report complete
+
+Interpretation: Stage 0x0A is SPI_PREPARE and 0x0D is ENGINE_RESTORE.
+No SPI ID command was sent. Both PMIC touch rails read back exactly at their
+original disabled values. ENGINE_RESTORE failed, so the capture does not prove
+that every USI/SPI register returned to its pre-boot value. The current image
+does not identify which individual preparation or restoration operation failed.
+Do not call this a successful hardware restore or a touch-controller response.
