@@ -1,0 +1,77 @@
+diff --git a/bsd/dev/sweet_touch_gs101.c b/bsd/dev/sweet_touch_gs101.c
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -936,6 +936,8 @@
+ 	    tg_rd(tg.spi, SPI_CLK_CFG));
+ 	return err == 0;
+ }
++
++static void tg_oriole_acpm_snapshot(void);
+ 
+ static bool
+ tg_identify(void)
+@@ -967,8 +969,64 @@
+ 		tg_spi_diag("ID mismatch");
+ 		tg_pin_report("reset after ID", &tg.reset);
+ 		tg_pin_report("mux after ID", &tg.mux);
++		tg_oriole_acpm_snapshot();
+ 	}
+ 	return match != 0;
++}
++
++/* Oriole diagnostic only. Read the APM channel-2 descriptor at the point
++ * where SPI identification returned the wrong ID. This makes no ACPM
++ * request and cannot establish rail state or channel liveness; it records
++ * whether the observed queue layout and indices still match at this point.
++ * Layout: docs/research/23 section 2;
++ * Pixel 6 descriptor and indices: acpm-desc-2026-10-26.txt. */
++static void
++tg_oriole_acpm_snapshot(void)
++{
++	const vm_offset_t sram = tg_map(0x02039000u, 0x40000u);
++	uint32_t tab, n, id, type, qlen, esz, req_rear_off, req_front_off;
++	uint32_t rsp_rear_off, rsp_front_off, rr, rf, sr, sf;
++	vm_offset_t d;
++
++	if (!sram) {
++		printf("SWEET TOUCH: ACPM snapshot: SRAM map failed\n");
++		return;
++	}
++	tab = tg_rd(sram, 0xa008u);
++	n = tg_rd(sram, 0xa018u);
++	printf("SWEET TOUCH: ACPM snapshot: tab=%#x n=%u\n", tab, n);
++	if (n < 3u || n > 32u || (tab & 3u) ||
++	    (uint64_t)tab + (uint64_t)n * 0x48u > 0x40000u) {
++		printf("SWEET TOUCH: ACPM snapshot: invalid table; no queue reads\n");
++		return;
++	}
++	d = sram + tab + 2u * 0x48u;
++	id = tg_rd(d, 0u);
++	type = tg_rd(d, 0x0cu);
++	qlen = tg_rd(d, 0x34u);
++	esz = tg_rd(d, 0x38u);
++	printf("SWEET TOUCH: ACPM snapshot: ch=%u type=%u qlen=%u esz=%u\n", id, type, qlen, esz);
++	if (id != 2u || type != 1u || qlen != 5u || esz != 16u) {
++		printf("SWEET TOUCH: ACPM snapshot: descriptor differs; no queue reads\n");
++		return;
++	}
++	req_rear_off = tg_rd(d, 0x10u);
++	req_front_off = tg_rd(d, 0x14u);
++	rsp_rear_off = tg_rd(d, 0x28u);
++	rsp_front_off = tg_rd(d, 0x2cu);
++	if (req_rear_off != 0x382e8u || req_front_off != 0x382ecu ||
++	    rsp_rear_off != 0x38288u || rsp_front_off != 0x3828cu) {
++		printf("SWEET TOUCH: ACPM snapshot: queue offsets differ; no queue reads\n");
++		return;
++	}
++	rr = tg_rd(sram, req_rear_off);
++	rf = tg_rd(sram, req_front_off);
++	sr = tg_rd(sram, rsp_rear_off);
++	sf = tg_rd(sram, rsp_front_off);
++	printf("SWEET TOUCH: ACPM snapshot: req=%u/%u rsp=%u/%u %s\n",
++	    rr, rf, sr, sf,
++	    rr < qlen && rf < qlen && sr < qlen && sf < qlen &&
++	    rr == rf && sr == sf ? "empty" : "not empty or invalid");
+ }
+ 
+ /* ---- phase 2 ---- */

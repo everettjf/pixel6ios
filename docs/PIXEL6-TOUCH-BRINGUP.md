@@ -93,6 +93,21 @@ and the AP/AOC mux read low. This excludes a still-busy divider at that
 snapshot as the direct explanation. The XNU-time PMIC rail state remains
 unmeasured. No physical touch, gesture or app interaction was observed.
 
+**Read from source, 2026-10-27 (0114 candidate):**
+[patch 0114](../research/pixelios-kernel/xnu/patches/0114-oriole-touch-acpm-snapshot.patch)
+adds a bounded, read-only snapshot of the ACPM channel-2 descriptor and four
+queue indices after an Oriole chip-ID mismatch. It checks the mapped SRAM
+window and requires the descriptor's queue-pointer offsets to match the
+2026-10-26 measured values before reading those indices. It sends no ACPM
+request, writes no PMIC register and does **not** reveal whether LDO25M or
+LDO26M is enabled. A different model family reviewed the mapping and bounds.
+The local kernel SHA-256 is
+`69f0919a63fd098bbdd4188390608c3490c067dbbf66613095b49347030f20aa`,
+the payload SHA-256 is
+`dd31877a7892baf6d4ee20540da2e1ebc15a3916b78d8f08915fb004c2446857`.
+This candidate is not yet a hardware result; its first boot must wait until
+the 0113 temporary run ends and the exact Pixel 6 is identified again.
+
 **Read from source and the 0111 hardware capture, 2026-10-27:** the isolated
 prekernel ID probe waits for the CMU mux and divider BUSY bit to clear after
 each clock write (`shim/orioletouchid_hw.c:392-393`). The XNU experiment's
