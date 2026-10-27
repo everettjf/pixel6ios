@@ -1,0 +1,16 @@
+diff --git a/bsd/dev/sweet_touch_gs101.c b/bsd/dev/sweet_touch_gs101.c
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -961,5 +961,12 @@
+ 	    (id[0] == 0xff && id[1] == 0xff) ? "no answer, MISO high (rails off, in reset, or bus not ours?)" :
+ 	    (id[0] == 0 && id[1] == 0) ? "no answer, MISO low (rails off, in reset, or bus not ours?)" :
+ 	    "unexpected value");
++	if (match == 0 && tg.oriole_spi_order) {
++		/* Snapshot only after a failed ID read, without changing ID-read timing. */
++		tg_cmu_dump();
++		tg_spi_diag("ID mismatch");
++		tg_pin_report("reset after ID", &tg.reset);
++		tg_pin_report("mux after ID", &tg.mux);
++	}
+ 	return match != 0;
+ }

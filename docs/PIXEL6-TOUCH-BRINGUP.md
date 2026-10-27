@@ -77,6 +77,16 @@ read `00 00 00 00` instead of `36 48` and stopped before scan. See the
 This excludes FIFO-before-ID as the sole cause. It establishes no iOS touch,
 gesture or app interaction.
 
+**Prepared locally, awaiting a second hardware result (0113):**
+[patch 0113](../research/pixelios-kernel/xnu/patches/0113-oriole-touch-id-mismatch-readback.patch)
+adds a CMU, SPI and pad snapshot only after a completed but unmatched Oriole
+chip-ID read. The first ID transaction therefore retains the 0112 ordering
+and timing. A different model family independently reviewed the source and
+the pinned local build profile. The exact temporary-boot image SHA-256 is
+`24c3ba9ea91371ca9964478e7deedd1c7b98bf3a32c003980d89b9d71a22c1a7`.
+It cannot measure the XNU-time PMIC rail state, and it cannot claim touch
+support without a subsequent physical event capture.
+
 **Read from source and the 0111 hardware capture, 2026-10-27:** the isolated
 prekernel ID probe waits for the CMU mux and divider BUSY bit to clear after
 each clock write (`shim/orioletouchid_hw.c:392-393`). The XNU experiment's
