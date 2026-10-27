@@ -1,0 +1,53 @@
+Observed on Pixel 6 (oriole), 2026-10-27 PDT. Temporary fastboot boot; no partition write.
+Source commit: 644a1fb (patch 0111 reset settle). Boot image SHA-256:
+1be8fc04e31de089a6b4f87f3c1dd2ade87c554ef24ae27ec4d0c1b015c1facd
+Full USB network capture retained privately. Selected touch lines, timestamps and device identifiers removed:
+
+SWEET TOUCH: mapping SPI 0x10d40000, USI mode 0x10c2100c and the pad banks
+SWEET TOUCH: cmu base 0x10c00000: OPTION[0x800]=0xf1000000 usi_mux[0x640]=0x10 bus_mux[0x600]=0x10 bus_auto[0x604]=0 usi_auto[0x644]=0 div[0x180c]=0
+SWEET TOUCH: cmu_top 0x1e080000: PERIC1_IP mux[0x10e8]=0x1 div[0x18e0]=0 gate[0x2104]=0x200000
+SWEET TOUCH: cmu gates: ipclk_4[0x202c]=0x200000 pclk_4[0x204c]=0x200000 rstnsync[0x2068]=0x200000 QCH[0x302c]=0x3f0002
+SWEET TOUCH: sysreg USI11 mode (0x10c2100c) = 0 (SPI = 0x2, so not SPI yet)
+SWEET TOUCH: pin clk   bank 0x10c40060[0] func=0 dat=0 pud=0x1
+SWEET TOUCH: pin mosi  bank 0x10c40060[1] func=0 dat=0 pud=0x1
+SWEET TOUCH: pin miso  bank 0x10c40060[2] func=0 dat=0 pud=0x1
+SWEET TOUCH: pin cs    bank 0x10c40060[3] func=0 dat=0 pud=0x1
+SWEET TOUCH: pin irq   bank 0x174d00c0[0] func=0 dat=0 pud=0
+SWEET TOUCH: pin reset bank 0x10c400c0[0] func=0 dat=0 pud=0x1
+SWEET TOUCH: pin mux   bank 0x10c400c0[1] func=0 dat=0 pud=0x1
+SWEET TOUCH: AP/AOC mux: AP is NOT driving it low, the bus may belong to the AOC
+SWEET TOUCH: sweettouchmux=1: mux driven low, now func=0x1 dat=0
+SWEET TOUCH: cmu_top gate [0x2104]: 0x200000 -> wrote 0x200000 -> 0x200000
+SWEET TOUCH: cmu: sweettouchclk=3, forcing the USI11 clock chain
+SWEET TOUCH: cmu usi mux [0x640] = 0x10: already selects the TOP source, not written
+SWEET TOUCH: cmu ipclk_4 gate [0x202c]: 0x200000 -> wrote 0x300000 -> 0x300000
+SWEET TOUCH: cmu pclk_4 gate [0x204c]: 0x200000 -> wrote 0x300000 -> 0x300000
+SWEET TOUCH: cmu rstnsync gate [0x2068]: 0x200000 -> wrote 0x300000 -> 0x300000
+SWEET TOUCH: cmu QCH [0x302c]: 0x3f0002 -> wrote 0x3f0003 -> 0x3f0003
+SWEET TOUCH: cmu: clock sequence done
+SWEET TOUCH: poke: 3 ops
+SWEET TOUCH: poke 0 m 0x10c00640 mask 0x10: 0x10 -> wrote 0 -> read back 0
+SWEET TOUCH: poke 1 d: 256 us
+SWEET TOUCH: poke 2 m 0x10c0180c mask 0xf: 0 -> wrote 0x5 -> read back 0x10005
+SWEET TOUCH: USI_CON=0x1 (bit0 = reset), USI mode now 0x2
+SWEET TOUCH: SPI regs before init: ch=0 clk=0 mode=0 status=0 fb=0
+SWEET TOUCH: SPI regs after init:  ch=0 clk=0 mode=0 status=0 fb=0x1 (max 10000000 Hz; the
+SWEET TOUCH: actual SCK = CMU ipclk / 4 and is unverified)
+SWEET TOUCH: diag after setup: USI_CON=0 USI_OPTION=0x1 USI mode=0x2
+SWEET TOUCH: diag after setup: ch=0 clk=0 mode=0 cs=0x1 inten=0 status=0
+SWEET TOUCH: diag after setup: pktcnt=0 pend=0 swap=0 fb=0x1 (TX/RX data not read)
+SWEET TOUCH: pin clk   bank 0x10c40060[0] func=0x2 dat=0 pud=0x1
+SWEET TOUCH: pin mosi  bank 0x10c40060[1] func=0x2 dat=1 pud=0x1
+SWEET TOUCH: pin miso  bank 0x10c40060[2] func=0x2 dat=0 pud=0x1
+SWEET TOUCH: pin cs    bank 0x10c40060[3] func=0x1 dat=1 pud=0x1
+SWEET TOUCH: sweettouchcs=1: pads PUD := 0, reset pulse before the identify
+SWEET TOUCH: pin reset bank 0x10c400c0[0] func=0x1 dat=1 pud=0
+SWEET TOUCH: reset before identify: no ready event
+SWEET TOUCH: identify: reg 0x20000000 = 00 00 00 00, want 36 48 -> no answer, MISO low (rails off, in reset, or bus not ours?)
+SWEET TOUCH: phase 1 result: chip did not answer; nothing else is touched
+
+Observed: Oriole reset release stayed high after the 100 ms settle. The
+controller-ready FIFO event was not seen, and the ID command returned 00 00
+rather than the previously observed 36 48 in the isolated prekernel probe.
+No physical touch, gesture, or app launch was tested in this run. The cause
+is unresolved; the rail state at XNU identify time was not measured.
