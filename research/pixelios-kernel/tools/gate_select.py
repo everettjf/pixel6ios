@@ -3,9 +3,9 @@
 Usage: gate_select.py STAMP_FILE   -> prints the steps to run (space separated), or FULL when there is no usable stamp."""
 import subprocess, sys
 
-ALL = ["build", "build-fast", "build-usb", "build-wlan", "build-gpu", "build-gpupower", "build-gpuclk", "build-gpurails", "build-gpurailon", "build-gpujob", "build-touch", "build-udump", "host-tests", "boot-safety",
+ALL = ["build", "build-fast", "build-usb", "build-wlan", "build-gpu", "build-gpupower", "build-gpuclk", "build-gpurails", "build-gpurailon", "build-gpujob", "build-touch", "build-udump", "host-tests", "boot-safety", "oriole-touch-id-host",
        "unit", "phone-state", "hang-recover", "probe-run", "rootless", "public-split", "validate"]
-SHIM = ALL[:14]
+SHIM = ALL[:15]
 # build.sh also extracts headers from xnu patches 0087/0088 for its host tests
 SHIM_PREFIX = ("shim/", "soc/", "device/", "tools/imgmeta", "tools/mk", "tools/test-bluejay-boot.py",
                "tools/check-all.sh", "tools/gate_select.py", "xnu/patches/0087", "xnu/patches/0088")
@@ -30,7 +30,8 @@ def git(*a):
 
 def base_from_stamp(path):
     try:
-        base = open(path).read().strip()
+        with open(path) as stamp:
+            base = stamp.read().strip()
     except OSError:
         return None
     ok = base and git("cat-file", "-e", base + "^{commit}").returncode == 0 and \
@@ -39,7 +40,9 @@ def base_from_stamp(path):
 
 
 def changed(base):
-    tracked = git("diff", "--name-only", base).stdout.split()
+    # This checkout can live below a monorepo root.  --relative gives select()
+    # the same paths used by its prefixes and by check-all.sh's step commands.
+    tracked = git("diff", "--relative", "--name-only", base).stdout.split()
     new = git("ls-files", "--others", "--exclude-standard").stdout.split()
     return tracked + new
 
