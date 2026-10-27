@@ -17,6 +17,7 @@ Updated 2026-10-27 PDT. This is a staged hardware investigation, not an installa
 - **Observed on Pixel 6, 2026-10-27:** the ninth isolated touch-ID boot returned `0x36 0x48` from one SPI command. Preparation and cleanup both reported `OK`, and both touch rails read back at their original disabled values. See the [sanitized capture](../research/pixelios-kernel/device/google/oriole/hardware/touch-id-success-2026-10-27.txt) and [probe analysis](ORIOLE-TOUCH-ID-PROBE.md).
 - **Observed on Pixel 6, 2026-10-27:** a later, separately pinned FIFO profile read `03 00 00 00 00 00 00 00` after the same verified ID exchange. The complete capture reports `OK` cleanup and both rails restored; the phone returned to Android. See [the FIFO capture](../research/pixelios-kernel/device/google/oriole/hardware/touch-fifo-ready-2026-10-27.txt) and [probe analysis](ORIOLE-TOUCH-FIFO-PROBE.md). This is one controller-ready event after reset, not a physical finger event or working iOS input.
 - **Observed on Pixel 6, 2026-10-27 (0110 candidate):** temporary boot image SHA-256 `6edd2799fe0517f72deb32ed89698634c646273468900d68d3ea1799801e7db4` reached XNU and its USB network answered. A listener started after boot captured repeated `BSD root: ufsroot0` and `unknown Volume Signature : ea94` / `cannot mount root, errno = 19`. This is consistent with the known Android-formatted userdata after factory reset. The listener missed early touch setup, so this boot does **not** establish whether the XNU FTM5 controller identified successfully. The raw UDP capture stays in ignored `private/touch-xnu-source/relink/touch-0110-udp.log`.
+- **Observed on Pixel 6, 2026-10-27 (0110 repeat):** a second `fastboot boot` of that same hash-pinned image, with UDP reception armed first, captured the XNU touch phase. `/sweet-touch` started, USI11 entered SPI mode 2, `USI_OPTION=1` and `SPI_FB_CLK=1` read back. The reset/ready poll saw no ready event in 1.5 seconds, and the chip-ID read returned `00 00 00 00` instead of `36 48`; the driver stopped at identify-only phase 1. This is a real XNU communication failure, not evidence of working touch. The log cannot distinguish rail loss after shim handoff, reset sequencing, bus ownership or SPI timing. The full private capture is `private/touch-xnu-source/relink/touch-0110-repeat-udp.log`; [selected non-identifying lines](../research/pixelios-kernel/device/google/oriole/hardware/xnu-touch-identify-failure-2026-10-27.txt) are tracked for review. `userdata` is still Android formatted, so this run cannot test iOS interaction.
 
 ## Safe first measurement
 
@@ -52,9 +53,12 @@ now applies the prekernel-observed USI option and feedback-clock order only
 when an Oriole-specific `/sweet-touch` compatible is present. The Oriole
 identify payload emits that compatible; other boards retain the old path.
 The source was independently reviewed, the local relink produced a pinned
-kernel, and `check-all.sh` passed at `821f766+dirty`. The first temporary
-boot reached XNU but the receiver missed early touch logging, so a second
-capture with the UDP receiver armed *before* `fastboot boot` is required.
+kernel, and `check-all.sh` passed at `821f766+dirty`. The second temporary
+boot captured the early XNU touch phase and established that this candidate
+does **not** identify the controller. Compare its clock, pad, reset and SPI
+transaction sequence with the successful isolated prekernel probe. In
+particular, measure whether the two touch rails remain enabled at the XNU
+identify point before attributing `00 00` to a software SPI difference.
 The Android factory reset also erased the iOS root in
 `userdata`, so an iOS boot needs a freshly verified root image and a new
 user confirmation immediately before any flash.

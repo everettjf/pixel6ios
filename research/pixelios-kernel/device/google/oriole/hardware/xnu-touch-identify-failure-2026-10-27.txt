@@ -1,0 +1,23 @@
+Observed on Pixel 6 (oriole), 2026-10-27 PDT; second temporary XNU touch-ID boot.
+Image SHA-256: 6edd2799fe0517f72deb32ed89698634c646273468900d68d3ea1799801e7db4
+No partition write. UDP receiver was armed before fastboot boot. Selected XNU lines:
+
+SWEET TOUCH: sysreg USI11 mode (0x10c2100c) = 0 (SPI = 0x2, so not SPI yet)
+SWEET TOUCH: AP/AOC mux: AP is NOT driving it low, the bus may belong to the AOC
+SWEET TOUCH: sweettouchmux=1: mux driven low, now func=0x1 dat=0
+SWEET TOUCH: cmu: sweettouchclk=3, forcing the USI11 clock chain
+SWEET TOUCH: cmu: clock sequence done
+SWEET TOUCH: poke 0 m 0x10c00640 mask 0x10: 0x10 -> wrote 0 -> read back 0
+SWEET TOUCH: poke 2 m 0x10c0180c mask 0xf: 0 -> wrote 0x5 -> read back 0x10005
+SWEET TOUCH: USI_CON=0x1 (bit0 = reset), USI mode now 0x2
+SWEET TOUCH: SPI regs before init: ch=0 clk=0 mode=0 status=0 fb=0
+SWEET TOUCH: SPI regs after init:  ch=0 clk=0 mode=0 status=0 fb=0x1
+SWEET TOUCH: diag after setup: USI_CON=0 USI_OPTION=0x1 USI mode=0x2
+SWEET TOUCH: diag after setup: ch=0 clk=0 mode=0 cs=0x1 inten=0 status=0
+SWEET TOUCH: sweettouchcs=1: pads PUD := 0, reset pulse before the identify
+SWEET TOUCH: reset before identify: no ready event
+SWEET TOUCH: identify: reg 0x20000000 = 00 00 00 00, want 36 48 -> no answer, MISO low (rails off, in reset, or bus not ours?)
+SWEET TOUCH: phase 1 result: chip did not answer; nothing else is touched
+
+The diagnostic string lists possibilities; it does not measure rail voltage or
+identify a root cause. The full private capture is intentionally untracked.
