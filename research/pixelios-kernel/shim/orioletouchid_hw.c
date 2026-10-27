@@ -251,6 +251,7 @@ static int engine_snapshot(void *p)
 	struct hw *h = p;
 	unsigned i;
 	uint32_t mode, v;
+	int bad = 0;
 	if (rd(TOUCH_USI_MODE_REG, &mode) ||
 	    (mode & TOUCH_USI_MODE_MASK) != TOUCH_USI_MODE_SPI) return -1;
 	init_cell(&h->e[E_USI_CON], USI + TP_USI_CON, TP_USI_CON_RESET);
@@ -262,20 +263,21 @@ static int engine_snapshot(void *p)
 	for (i = 0; i < E_COUNT; i++) if (snapshot(&h->e[i])) return -1;
 	/* Fail closed on a live or non-default engine.  There is no defensible
 	 * way to restore unknown out-of-mask bits after USI reset. */
-	for (i = 0; i < E_COUNT; i++)
-		if (h->e[i].old != (i == E_CS ? 1u : 0u)) {
-			con_hex2("ORIOLE TOUCH ENGINE REFUSE", "pa", h->e[i].pa,
-			         "value", h->e[i].old);
-			return -1;
-		}
-	for (i = 0; i < sizeof(quiet_offsets) / sizeof(quiet_offsets[0]); i++)
+	/* This Oriole arrived with USI_OPTION bit 0 already set (physical
+	 * 2026-10-26 capture); ABL's manual SPI init also sets that bit.  Log
+	 * every captured word before rejecting another unfamiliar default. */
+	for (i = 0; i < E_COUNT; i++) {
+		v = h->e[i].old;
+		con_hex2("ORIOLE TOUCH ENGINE", "pa", h->e[i].pa, "value", v);
+		if (v != ((i == E_CS || i == E_USI_OPTION) ? 1u : 0u)) bad = 1;
+	}
+	for (i = 0; i < sizeof(quiet_offsets) / sizeof(quiet_offsets[0]); i++) {
 		if (rd(SPI + quiet_offsets[i], &v)) return -1;
-		else if (v != 0) {
-			con_hex2("ORIOLE TOUCH ENGINE REFUSE", "pa", SPI + quiet_offsets[i],
-			         "value", v);
-			return -1;
-		}
-	return 0;
+		con_hex2("ORIOLE TOUCH ENGINE", "pa", SPI + quiet_offsets[i], "value", v);
+		if (v != 0) bad = 1;
+	}
+	if (bad) con_str("ORIOLE TOUCH ENGINE", "REFUSED non-default snapshot");
+	return bad ? -1 : 0;
 }
 
 static int engine_quiet(void)

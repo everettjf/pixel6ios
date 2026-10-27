@@ -58,6 +58,7 @@ static void reset_fake(void)
 	seed(CMU + TOUCH_CMU_GATE_IPCLK, 0x200000u);
 	seed(CMU + TOUCH_CMU_GATE_PCLK, 0x200000u);
 	seed(CMU + TOUCH_CMU_GATE_RSTN, 0x200000u);
+	seed(USI + TP_USI_OPTION, 1);
 	seed(SPI + TP_SPI_CS_REG, 1);
 }
 
@@ -204,6 +205,7 @@ static void assert_restored(void)
 	assert(value(TOUCH_PIN_CLK_BANK + 8u) == 0x1111u);
 	assert(value(TOUCH_PIN_RESET_BANK + 8u) == 0x11u);
 	assert(value(SPI + TP_SPI_CH_CFG) == 0);
+	assert(value(USI + TP_USI_OPTION) == 1);
 	assert(value(SPI + TP_SPI_CLK_CFG) == 0);
 	assert(value(SPI + TP_SPI_MODE_CFG) == 0);
 	assert(value(SPI + TP_SPI_CS_REG) == 1);

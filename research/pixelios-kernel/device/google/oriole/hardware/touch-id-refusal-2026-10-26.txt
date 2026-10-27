@@ -1,0 +1,26 @@
+Observed on hardware: Pixel 6 (oriole), 2026-10-26 PDT.
+Temporary fastboot boot of the isolated touch-ID probe; no partition write.
+Source commit: 5daee20. Boot image SHA-256:
+57bb54f91c491df1e7c168227b87f681ff3828c2af252d7b0a0e388e627b16f4
+
+Selected lines from the private USB log (device identifiers omitted):
+
+INVENTORY Oriole one-shot touch ID and restore
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value000000AC
+ORIOLE TOUCH RAIL reg0000005D value000000BC
+ORIOLE TOUCH ENGINE REFUSE pa10D400C4 value00000001
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH ID first00000009 cleanup00000000
+ORIOLE TOUCH ID id000000000 id100000000
+ORIOLE TOUCH ID attempts00000000 restored00000002
+ORIOLE TOUCH ID FAILED
+INVENTORY report complete
+
+Interpretation: The live USI_OPTION at PA 0x10D400C4 was 0x1 after switching
+USI11 to SPI mode. The probe's old engine gate expected 0, so it refused
+before sending an SPI ID command. Both enabled touch rails were read back at
+their original disabled values. The zero ID fields are unattempted output,
+not a chip response. This does not establish that touch input works.
