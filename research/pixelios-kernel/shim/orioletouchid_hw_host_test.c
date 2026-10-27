@@ -330,6 +330,22 @@ int main(void)
 	assert(reported_first == OTI_OK && reported_cleanup == OTI_OK);
 	assert(burst_n == 2 && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
 	assert_restored();
+	/* Reset may retain FB_CLK.  Writes while RESET=1 are ignored in this
+	 * model, so cleanup must clear FB_CLK before reasserting reset. */
+	reset_fake(); ignore_engine_writes_in_usi_reset = 1;
+	disturb_engine_on_reset = 0;
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) == 0);
+	assert(reported_first == OTI_OK && reported_cleanup == OTI_OK);
+	assert(burst_n == 2 && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
+	assert_restored();
+	baseline_writes = writes;
+	for (step = 1; step <= baseline_writes; step++) {
+		reset_fake(); ignore_engine_writes_in_usi_reset = 1;
+		disturb_engine_on_reset = 0; apply_fail_write_at = step;
+		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+		assert(rail25 == 0x2c && rail26 == 0x3c && forbidden_reads == 0);
+		if (reported_cleanup == OTI_OK) assert_restored();
+	}
 	reset_fake(); live_board_ok = 0;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0 &&
 	       reported_first == OTI_PREFLIGHT && writes == 0);

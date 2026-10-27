@@ -489,10 +489,12 @@ static int engine_restore(void *p)
 	if (set(&h->e[E_CS], 1u)) bad = 1;
 	if (set(&h->e[E_CH], TP_CH_SW_RST)) bad = 1;
 	if (set(&h->e[E_CH], 0)) bad = 1;
-	/* The captured USI_CON had RESET=1.  Reasserting it can clear other
-	 * engine registers (host fault model).  Restore it before other engine
-	 * words, then verify them all.  ABL writes OPTION and FB_CLK while
-	 * USI_CON reset is asserted; any ignored restore must fail readback. */
+	/* Restore the engine while the wrapper is released.  On this Oriole,
+	 * FB_CLK did not accept a write with USI reset asserted.  Reasserting
+	 * reset may itself change engine words, so arm and verify a second
+	 * restore pass after returning USI_CON to its captured value. */
+	for (i = E_COUNT; i > 1; i--) if (restore(&h->e[i - 1])) bad = 1;
+	for (i = 1; i < E_COUNT; i++) h->e[i].changed = 1;
 	if (restore(&h->e[E_USI_CON])) bad = 1;
 	for (i = E_COUNT; i > 1; i--) if (restore(&h->e[i - 1])) bad = 1;
 	for (i = 0; i < E_COUNT; i++) {
