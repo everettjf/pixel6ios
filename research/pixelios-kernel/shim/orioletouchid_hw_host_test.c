@@ -23,6 +23,8 @@ static int corrupt_quiet_on_reset;
 static int ignore_engine_writes_in_usi_reset;
 static int live_board_ok, live_ram_ok;
 static enum oti_stage reported_first, reported_cleanup;
+static uint32_t failed_prep_step;
+static uintptr_t first_set_mismatch_pa, last_set_mismatch_pa;
 
 static struct reg *reg(uintptr_t pa)
 {
@@ -47,6 +49,7 @@ static void reset_fake(void)
 	live_board_ok = live_ram_ok = 1;
 	rail25 = 0x2c; rail26 = 0x3c; ticks = 1;
 	reported_first = reported_cleanup = OTI_OK;
+	failed_prep_step = 0; first_set_mismatch_pa = last_set_mismatch_pa = 0;
 	seed(TOUCH_PIN_CLK_BANK, 0);
 	seed(TOUCH_PIN_CLK_BANK + 4u, 0);
 	seed(TOUCH_PIN_CLK_BANK + 8u, 0x1111u);
@@ -201,6 +204,11 @@ void con_hex2(const char *tag, const char *a, uint32_t av, const char *b, uint32
 		reported_first = (enum oti_stage)av;
 		reported_cleanup = (enum oti_stage)bv;
 	}
+	if (strcmp(tag, "ORIOLE TOUCH PREP FAILED") == 0) failed_prep_step = av;
+	if (strcmp(tag, "ORIOLE TOUCH SET MISMATCH") == 0) {
+		if (!first_set_mismatch_pa) first_set_mismatch_pa = av;
+		last_set_mismatch_pa = av;
+	}
 }
 void con_str(const char *tag, const char *s) { (void)tag; (void)s; }
 
@@ -285,6 +293,8 @@ int main(void)
 	reset_fake(); ignore_engine_writes_in_usi_reset = 1;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
 	assert(reported_first == OTI_SPI_PREPARE && reported_cleanup == OTI_ENGINE_RESTORE);
+	assert(failed_prep_step == 8u && first_set_mismatch_pa == SPI + TP_SPI_FB_CLK);
+	assert(last_set_mismatch_pa == SPI + TP_SPI_CH_CFG);
 	assert(rail25 == 0x2c && rail26 == 0x3c && tx_n == 0 && burst_n == 0);
 	reset_fake(); live_board_ok = 0;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0 &&
