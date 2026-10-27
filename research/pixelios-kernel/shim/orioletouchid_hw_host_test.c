@@ -22,6 +22,9 @@ static int disturb_engine_on_reset;
 static int corrupt_quiet_on_reset;
 static int ignore_engine_writes_in_usi_reset;
 static int ignore_cs_latch_write;
+static int reset_input_high_after_pud_clear;
+static int reset_input_high_active;
+static int reset_output_stuck_high;
 static int live_board_ok, live_ram_ok;
 static int spi_con_restore_seen, ctrl_con_restore_seen, unsafe_cleanup_dat_low;
 static enum oti_stage reported_first, reported_cleanup;
@@ -49,6 +52,8 @@ static void reset_fake(void)
 	disturb_engine_on_reset = 1; corrupt_quiet_on_reset = 0;
 	ignore_engine_writes_in_usi_reset = 0;
 	ignore_cs_latch_write = 0;
+	reset_input_high_after_pud_clear = reset_input_high_active = 0;
+	reset_output_stuck_high = 0;
 	live_board_ok = live_ram_ok = 1;
 	spi_con_restore_seen = ctrl_con_restore_seen = unsafe_cleanup_dat_low = 0;
 	rail25 = 0x2c; rail26 = 0x3c; ticks = 1;
@@ -113,6 +118,16 @@ int try_read32(uintptr_t pa, uint32_t *v)
 		/* Model the fourth phone capture: the input pin reads low even
 		 * after its high output latch is primed. */
 		*v = value(pa) & ~(1u << TOUCH_PIN_CS_NR);
+	} else if (pa == TOUCH_PIN_RESET_BANK + 4u &&
+	           reset_output_stuck_high &&
+	           (value(TOUCH_PIN_RESET_BANK) & 0xfu) == 1u) {
+		*v = value(pa) | (1u << TOUCH_PIN_RESET_NR);
+	} else if (pa == TOUCH_PIN_RESET_BANK + 4u &&
+	           reset_input_high_active && rail26 == 0xbcu &&
+	           (value(TOUCH_PIN_RESET_BANK) & 0xfu) == 0) {
+		/* The sixth phone capture saw high input level after pull removal,
+		 * independent of the low output latch. */
+		*v = value(pa) | (1u << TOUCH_PIN_RESET_NR);
 	} else {
 		*v = value(pa);
 	}
@@ -171,6 +186,9 @@ int try_write32(uintptr_t pa, uint32_t v)
 	    (value(USI + TP_USI_CON) & TP_USI_CON_RESET) &&
 	    (pa == SPI + TP_SPI_FB_CLK || pa == SPI + TP_SPI_CH_CFG))
 		return writes == apply_fail_write_at ? 0 : 1;
+	if (pa == TOUCH_PIN_RESET_BANK + 8u &&
+	    reset_input_high_after_pud_clear && !(v & 0xfu))
+		reset_input_high_active = 1;
 	seed(pa, v);
 	return writes == apply_fail_write_at ? 0 : 1;
 }
@@ -273,9 +291,19 @@ int main(void)
 	assert(reported_first == OTI_OK && reported_cleanup == OTI_OK);
 	assert(burst_n == 2 && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
 	assert_restored();
+	reset_fake(); reset_input_high_after_pud_clear = 1;
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) == 0);
+	assert(reset_input_high_active && reported_first == OTI_OK &&
+	       reported_cleanup == OTI_OK && burst_n == 2);
+	assert_restored();
 	baseline_writes = writes;
 	baseline_reads = reads;
 	assert(reset_n >= 3);
+	reset_fake(); reset_input_high_after_pud_clear = 1;
+	reset_output_stuck_high = 1;
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+	assert(reported_first == OTI_SPI_PREPARE && failed_prep_step == 15u);
+	assert(burst_n == 0 && tx_n == 0 && rail25 == 0x2c && rail26 == 0x3c);
 	reset_fake(); ignore_cs_latch_write = 1;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
 	assert(reported_first == OTI_SPI_PREPARE && reported_cleanup == OTI_OK);
@@ -305,6 +333,28 @@ int main(void)
 	}
 	for (step = 1; step <= baseline_reads; step++) {
 		reset_fake();
+		fail_read_at = step;
+		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+		assert(rail25 == 0x2c && rail26 == 0x3c && forbidden_reads == 0);
+		if (reported_cleanup == OTI_OK) assert_restored();
+	}
+	/* Repeat the fault matrix with the sixth-run high input level.  A
+	 * preparation failure may leave the latch unverifiable; that cleanup
+	 * must report failure while both rails are still restored. */
+	for (step = 1; step <= baseline_writes; step++) {
+		reset_fake(); reset_input_high_after_pud_clear = 1;
+		fail_write_at = step;
+		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+		assert(rail25 == 0x2c && rail26 == 0x3c && forbidden_reads == 0);
+		if (reported_cleanup == OTI_OK) assert_restored();
+		reset_fake(); reset_input_high_after_pud_clear = 1;
+		apply_fail_write_at = step;
+		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+		assert(rail25 == 0x2c && rail26 == 0x3c && forbidden_reads == 0);
+		if (reported_cleanup == OTI_OK) assert_restored();
+	}
+	for (step = 1; step <= baseline_reads; step++) {
+		reset_fake(); reset_input_high_after_pud_clear = 1;
 		fail_read_at = step;
 		assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
 		assert(rail25 == 0x2c && rail26 == 0x3c && forbidden_reads == 0);

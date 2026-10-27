@@ -156,6 +156,33 @@ static int verify_cs_high(const struct cell *dat)
 	return 0;
 }
 
+/* GPIO DAT can report the externally driven input level rather than its
+ * output latch.  Samsung's direction_output writes DAT before CON; the
+ * sixth Oriole capture read reset DAT=1 while the pin was still input.
+ * Verify the requested low level only after the pin becomes an output. */
+static int prime_reset_low(struct cell *dat)
+{
+	uint32_t now, want;
+	if (dat->pa != TOUCH_PIN_RESET_BANK + 4u || dat->mask != 0x3u ||
+	    rd(dat->pa, &now)) return -1;
+	want = now & ~dat->mask;
+	dat->changed = 1;
+	return guarded_write(dat->pa, now, want, dat->mask);
+}
+
+static int verify_reset_low(const struct cell *dat)
+{
+	uint32_t con, val;
+	if (rd(TOUCH_PIN_RESET_BANK, &con) ||
+	    ((con >> (TOUCH_PIN_RESET_NR * 4u)) & 0xfu) != 1u ||
+	    rd(dat->pa, &val)) return -1;
+	if ((val & dat->mask) != 0) {
+		con_hex2("ORIOLE TOUCH RESET LOW MISMATCH", "pa", dat->pa, "got", val);
+		return -1;
+	}
+	return 0;
+}
+
 static int restore(struct cell *c)
 {
 	uint32_t now, after, want;
@@ -385,10 +412,11 @@ static int spi_prepare(void *p)
 	PREP_STEP(11u, set(&h->e[E_CH], 0));
 	PREP_STEP(12u, set(&h->e[E_PKT], 0));
 	PREP_STEP(13u, set(&h->e[E_CS], 1u));
-	PREP_STEP(14u, set(&h->s[S_CTRL_DAT], 0));
+	PREP_STEP(14u, prime_reset_low(&h->s[S_CTRL_DAT]));
 	PREP_STEP(15u, set(&h->s[S_CTRL_CON],
 	        (1u << (TOUCH_PIN_RESET_NR * 4u)) |
 	        (1u << (TOUCH_PIN_MUX_NR * 4u))));
+	PREP_STEP(15u, verify_reset_low(&h->s[S_CTRL_DAT]));
 	PREP_STEP(16u, bounded_delay(10000u));
 	PREP_STEP(17u, set(&h->s[S_CTRL_DAT], 1u << TOUCH_PIN_RESET_NR));
 	PREP_STEP(18u, bounded_delay(100000u));
@@ -524,18 +552,23 @@ static int shared_restore(void *p)
 	uint32_t con;
 	int bad = 0;
 	for (i = S_COUNT; i > 0; i--) {
-		/* Return each GPIO to input before restoring its original DAT
-		 * latch, avoiding a transient active-low CS or reset pulse. */
-		if (i - 1 == S_SPI_DAT || i - 1 == S_CTRL_DAT) continue;
+		/* Restore CS as an input before its DAT latch.  The reset DAT
+		 * latch is checked while output, then its CON returns to input. */
+		if (i - 1 == S_SPI_DAT || i - 1 == S_CTRL_DAT ||
+		    i - 1 == S_CTRL_CON) continue;
 		if (restore(&h->s[i - 1])) bad = 1;
 	}
-	/* If CON restoration failed, writing the old low DAT latch would
-	 * actively assert CS/reset.  Leave the deasserted latch in place and
-	 * report incomplete restoration instead. */
-	if (rd(h->s[S_CTRL_CON].pa, &con) ||
-	    (con & h->s[S_CTRL_CON].mask) !=
-	    (h->s[S_CTRL_CON].old & h->s[S_CTRL_CON].mask)) bad = 1;
-	else if (restore(&h->s[S_CTRL_DAT])) bad = 1;
+	/* When reset is an output, restore and verify the original low latch
+	 * before returning the pin to input.  An input read may instead show
+	 * the external high level while the touch rails are still on. */
+	if (rd(h->s[S_CTRL_CON].pa, &con)) bad = 1;
+	else if (((con >> (TOUCH_PIN_RESET_NR * 4u)) & 0xfu) == 1u) {
+		if (restore(&h->s[S_CTRL_DAT])) bad = 1;
+	} else if (h->s[S_CTRL_DAT].changed) {
+		/* The input level cannot verify its hidden output latch. */
+		bad = 1;
+	}
+	if (restore(&h->s[S_CTRL_CON])) bad = 1;
 	if (rd(h->s[S_SPI_CON].pa, &con) ||
 	    (con & h->s[S_SPI_CON].mask) !=
 	    (h->s[S_SPI_CON].old & h->s[S_SPI_CON].mask)) bad = 1;

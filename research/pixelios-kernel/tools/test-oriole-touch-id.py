@@ -9,7 +9,7 @@ import subprocess
 
 SHIM = Path(__file__).resolve().parents[1] / "shim"
 PINS = {
-    "orioletouchid_hw.c": "2ecc91c4f37b7d8451c55ab494988e73cf230e4550765ef907aac32a185306d7",
+    "orioletouchid_hw.c": "0c2244b07fa6ccd917c00fcd837220ff570e34ba75ab93b2f9e0327e2b4bde28",
     "orioletouchid_flow.c": "ebf428bc6b25217bb0954a87bdae25e700c35d39b9e6c3f1945d23841edadd15",
 }
 HW_U = frozenset(("acpm_cfg_init", "acpm_describe", "acpm_oriole_touch_rail_set",
