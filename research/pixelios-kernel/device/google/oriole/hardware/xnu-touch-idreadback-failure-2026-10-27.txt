@@ -1,0 +1,25 @@
+Observed on Pixel 6 (oriole), 2026-10-27, temporary fastboot boot of 0113.
+No partition was written. The Android-formatted userdata was not used for this touch-ID test.
+Exact boot image SHA-256: a2236162fe340d91c69b3f318dcdbabe9eadd605714838f1bf25eee005c13bfa
+Kernel SHA-256: 075e96ae749269b0b067ca0cdf78f0f8146d0427813640adf6657438ddf0026a
+Payload SHA-256: 006a69f04e03482b025e10ec41ec638d669d2f1bde4b5c03f7dcb1422183047d
+Local check: GATE PASS 00006f4+dirty before the WIP commit; exact image/payload/metadata checked immediately before boot.
+
+Selected USB live-log lines (private full log is not published):
+SWEET TOUCH: Oriole reset settled; ID before first FIFO read
+SWEET TOUCH: identify: reg 0x20000000 = 00 00 00 00, want 36 48 -> no answer, MISO low (rails off, in reset, or bus not ours?)
+SWEET TOUCH: cmu base 0x10c00000: OPTION[0x800]=0xf1000000 usi_mux[0x640]=0 bus_mux[0x600]=0x10 bus_auto[0x604]=0 usi_auto[0x644]=0 div[0x180c]=0x5
+SWEET TOUCH: cmu_top 0x1e080000: PERIC1_IP mux[0x10e8]=0x1 div[0x18e0]=0 gate[0x2104]=0x200000
+SWEET TOUCH: cmu gates: ipclk_4[0x202c]=0x300000 pclk_4[0x204c]=0x300000 rstnsync[0x2068]=0x300000 QCH[0x302c]=0x3f0003
+SWEET TOUCH: diag ID mismatch: USI_CON=0 USI_OPTION=0x1 USI mode=0x2
+SWEET TOUCH: diag ID mismatch: ch=0x20 clk=0 mode=0 cs=0x1 inten=0 status=0x1000000
+SWEET TOUCH: diag ID mismatch: pktcnt=0 pend=0 swap=0 fb=0x1 (TX/RX data not read)
+SWEET TOUCH: pin clk   bank 0x10c40060[0] func=0x2 dat=0 pud=0
+SWEET TOUCH: pin mosi  bank 0x10c40060[1] func=0x2 dat=1 pud=0
+SWEET TOUCH: pin miso  bank 0x10c40060[2] func=0x2 dat=0 pud=0
+SWEET TOUCH: pin cs    bank 0x10c40060[3] func=0x1 dat=1 pud=0
+SWEET TOUCH: pin reset bank 0x10c400c0[0] func=0x1 dat=1 pud=0
+SWEET TOUCH: pin mux a bank 0x10c400c0[1] func=0x1 dat=0 pud=0x1
+SWEET TOUCH: phase 1 result: chip did not answer; nothing else is touched
+
+Inference from this hardware result: the transient divider BUSY bit observed immediately after the write in earlier boots was cleared by the ID failure snapshot. Reset reads high and AP/AOC mux reads low; those states alone do not establish controller power. The XNU-time PMIC LDO25M/LDO26M state was not measured. No physical touch, gesture, or app launch was verified.
