@@ -9,8 +9,8 @@ import subprocess
 
 SHIM = Path(__file__).resolve().parents[1] / "shim"
 PINS = {
-    "orioletouchid_hw.c": "2ef035540cd7698e84c8b683c06f95ba4814e56a501372ee0f48d3cb31359498",
-    "orioletouchid_flow.c": "ebf428bc6b25217bb0954a87bdae25e700c35d39b9e6c3f1945d23841edadd15",
+    "orioletouchid_hw.c": "e85fae1c53c2d3de9e0919cdc1381695f389efa78f10524fff0264e93d985c0d",
+    "orioletouchid_flow.c": "3426fc2664389ad4fd460c4a189c6f7ea19886a61853e858cd6dfdaac05bbabc",
 }
 HW_U = frozenset(("acpm_cfg_init", "acpm_describe", "acpm_oriole_touch_rail_set",
                   "acpm_pmic_read", "con_hex2", "con_str", "counter_freq",
@@ -35,12 +35,19 @@ def check_pins(texts):
        flow.count("o->rail_set(ctx, OTI_LDO26M, 0") != 1 or \
        flow.count("o->rail_set(ctx, OTI_LDO25M, 0") != 1:
         raise AssertionError("touch-ID rail sequence drifted")
+    if hw.count("static int spi_read_fifo") != 1 or \
+       hw.count("ops.fifo_read = spi_read_fifo") != 1 or \
+       flow.count("o->fifo_read(ctx, r->event)") != 1:
+        raise AssertionError("touch-FIFO opt-in path drifted")
 
 
 def check_diagnostic_build(text):
     marker = '[ "$inventory_touch_id" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_TOUCH_ID_HW -DORIOLE_TOUCH_ID_RESET_SETTLE"'
     if text.count(marker) != 1:
         raise AssertionError("Oriole touch-ID build lost the bounded reset-settle macro")
+    fifo = '[ "$inventory_touch_fifo" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_TOUCH_FIFO"'
+    if text.count(fifo) != 1:
+        raise AssertionError("Oriole touch-FIFO build lost the opt-in macro")
 
 
 def symbols(raw):

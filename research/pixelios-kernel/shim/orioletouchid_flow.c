@@ -37,9 +37,11 @@ int oti_run(const struct oti_ops *o, void *ctx, struct oti_result *r)
 	if (!r)
 		return -1;
 	r->first_error = r->cleanup_error = OTI_OK;
-	r->attempts = r->rail25_restored = r->rail26_restored = 0;
+	r->attempts = r->fifo_attempts = r->rail25_restored = r->rail26_restored = 0;
 	for (i = 0; i < 4; i++)
 		r->id[i] = 0;
+	for (i = 0; i < 8; i++)
+		r->event[i] = 0;
 	if (!o || !o->preflight || !o->shared_snapshot || !o->rail_read || !o->rail_set ||
 	    !o->mode_set || !o->engine_snapshot || !o->spi_prepare || !o->spi_identify ||
 	    !o->engine_restore || !o->mode_restore || !o->shared_restore) {
@@ -104,8 +106,15 @@ int oti_run(const struct oti_ops *o, void *ctx, struct oti_result *r)
 		goto cleanup;
 	}
 	if (!((r->id[0] == 0x36u && r->id[1] == 0x48u) ||
-	      (r->id[0] == 0x48u && r->id[1] == 0x36u)))
+	      (r->id[0] == 0x48u && r->id[1] == 0x36u))) {
 		error_once(r, OTI_ID_MISMATCH);
+		goto cleanup;
+	}
+	if (o->fifo_read) {
+		r->fifo_attempts = 1;
+		if (o->fifo_read(ctx, r->event))
+			error_once(r, OTI_FIFO_READ);
+	}
 
 cleanup:
 	/* Every restore is independent.  A sticky read/write fault must never

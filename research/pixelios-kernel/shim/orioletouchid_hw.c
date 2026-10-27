@@ -87,7 +87,11 @@ __attribute__((noinline)) static int guarded_write(uintptr_t pa, uint32_t old, u
 	if (!allowed || !mask || (mask & ~allowed) || ((old ^ val) & ~mask))
 		return -1;
 	if (pa == SPI + TP_SPI_TX_DATA && (mask != 0xffffffffu ||
-	    (val != 0u && val != 0xfbu && val != 0x20u)))
+	    (val != 0u && val != 0xfbu && val != 0x20u
+#ifdef ORIOLE_TOUCH_FIFO
+	     && val != 0x87u
+#endif
+	    )))
 		return -1;
 	return try_write32(pa, val) ? 0 : -1;
 }
@@ -506,26 +510,28 @@ static int tx(uint32_t byte)
 	return guarded_write(SPI + TP_SPI_TX_DATA, 0, byte, 0xffffffffu);
 }
 
-/* One ABL-style 5-byte burst.  The second burst clocks a dummy byte and four
- * ID bytes while GPIO CS stays low.  No DMA, no address scan, no retries. */
-static int burst(struct hw *h, const uint8_t txbuf[5], uint8_t rxbuf[5])
+/* A single bounded PIO burst under an already asserted GPIO CS.  The
+ * five-byte ID path remains unchanged; FIFO uses one command byte followed
+ * by one dummy plus the eight-byte event (9 bytes). */
+static int burst_len(struct hw *h, const uint8_t *txbuf, uint8_t *rxbuf, unsigned len)
 {
 	uint64_t f = counter_freq(), start;
 	uint32_t status, data;
 	unsigned i, polls;
 	int failed = 0;
-	if (set(&h->e[E_CH], 0) || set(&h->e[E_PKT], 5u | TP_PKT_CNT_EN)) return -1;
-	for (i = 0; i < 5; i++) if (tx(txbuf ? txbuf[i] : 0u)) return -1;
+	if (len == 0 || len > 9u) return -1;
+	if (set(&h->e[E_CH], 0) || set(&h->e[E_PKT], len | TP_PKT_CNT_EN)) return -1;
+	for (i = 0; i < len; i++) if (tx(txbuf ? txbuf[i] : 0u)) return -1;
 	if (set(&h->e[E_CH], TP_CH_RXCH_ON | TP_CH_TXCH_ON)) return -1;
 	start = touch_ticks();
 	for (polls = 0; polls < POLL_MAX; polls++) {
 		if (rd(SPI + TP_SPI_STATUS, &status)) { failed = 1; break; }
-		if (TP_ST_RX_LVL(status) >= 5u) break;
+		if (TP_ST_RX_LVL(status) >= len) break;
 		if ((touch_ticks() - start) * 1000000ull / f > TP_BURST_TIMEOUT_US) { failed = 1; break; }
 	}
 	if (polls == POLL_MAX) failed = 1;
 	if (!failed) {
-		for (i = 0; i < 5; i++) {
+		for (i = 0; i < len; i++) {
 			if (rd(SPI + TP_SPI_RX_DATA, &data)) { failed = 1; break; }
 			if (rxbuf) rxbuf[i] = (uint8_t)data;
 		}
@@ -552,6 +558,11 @@ static int burst(struct hw *h, const uint8_t txbuf[5], uint8_t rxbuf[5])
 	return failed ? -1 : 0;
 }
 
+static int burst(struct hw *h, const uint8_t txbuf[5], uint8_t rxbuf[5])
+{
+	return burst_len(h, txbuf, rxbuf, 5u);
+}
+
 static int spi_identify(void *p, uint8_t id[4])
 {
 	struct hw *h = p;
@@ -571,6 +582,34 @@ static int spi_identify(void *p, uint8_t id[4])
 	if (set(&h->e[E_CS], 1u)) bad = 1;
 	return bad ? -1 : 0;
 }
+
+#ifdef ORIOLE_TOUCH_FIFO
+/* Read exactly one event without enabling scan or changing firmware.  The
+ * FTM5 SPI command is 0x87; the response has one dummy then eight bytes.
+ * Existing XNU tg_read() uses the same two transfers under one CS assertion.
+ * The read may consume one pending controller-ready event. */
+static int spi_read_fifo(void *p, uint8_t event[8])
+{
+	struct hw *h = p;
+	const uint8_t cmd = 0x87u;
+	uint8_t reply[9];
+	int bad = 0;
+	if (set(&h->s[S_SPI_DAT], 0) || set(&h->e[E_CS], 0) || bounded_delay(1u))
+		bad = 1;
+	if (!bad && burst_len(h, &cmd, 0, 1u)) bad = 1;
+	if (!bad && burst_len(h, 0, reply, 9u)) bad = 1;
+	if (!bad) {
+		event[0] = reply[1]; event[1] = reply[2];
+		event[2] = reply[3]; event[3] = reply[4];
+		event[4] = reply[5]; event[5] = reply[6];
+		event[6] = reply[7]; event[7] = reply[8];
+	}
+	if (bounded_delay(TP_FTM5_SPI_DELAY_CS_US)) bad = 1;
+	if (set(&h->s[S_SPI_DAT], 1u << TOUCH_PIN_CS_NR)) bad = 1;
+	if (set(&h->e[E_CS], 1u)) bad = 1;
+	return bad ? -1 : 0;
+}
+#endif
 
 static int engine_restore(void *p)
 {
@@ -692,6 +731,11 @@ int oriole_touch_id_run(uintptr_t dtb, uint64_t image_base, uint64_t image_size)
 	ops.engine_snapshot = engine_snapshot;
 	ops.spi_prepare = spi_prepare;
 	ops.spi_identify = spi_identify;
+#ifdef ORIOLE_TOUCH_FIFO
+	ops.fifo_read = spi_read_fifo;
+#else
+	ops.fifo_read = 0;
+#endif
 	ops.engine_restore = engine_restore;
 	ops.mode_restore = mode_restore;
 	ops.shared_restore = shared_restore;
@@ -700,6 +744,14 @@ int oriole_touch_id_run(uintptr_t dtb, uint64_t image_base, uint64_t image_size)
 	con_hex2("ORIOLE TOUCH ID", "id0", r.id[0], "id1", r.id[1]);
 	con_hex2("ORIOLE TOUCH ID", "attempts", r.attempts,
 	         "restored", r.rail25_restored + r.rail26_restored);
+#ifdef ORIOLE_TOUCH_FIFO
+	con_hex2("ORIOLE TOUCH FIFO", "attempts", r.fifo_attempts,
+	         "event0", r.event[0]);
+	con_hex2("ORIOLE TOUCH FIFO", "b1", r.event[1], "b2", r.event[2]);
+	con_hex2("ORIOLE TOUCH FIFO", "b3", r.event[3], "b4", r.event[4]);
+	con_hex2("ORIOLE TOUCH FIFO", "b5", r.event[5], "b6", r.event[6]);
+	con_hex2("ORIOLE TOUCH FIFO", "b7", r.event[7], "cleanup", r.cleanup_error);
+#endif
 	con_str("ORIOLE TOUCH ID", rc ? "FAILED" : "PASS 36 48 AND RESTORED");
 	return rc;
 }

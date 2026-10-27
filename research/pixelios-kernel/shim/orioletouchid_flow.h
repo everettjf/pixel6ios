@@ -22,7 +22,8 @@ enum oti_stage {
 	OTI_MODE_RESTORE,
 	OTI_SHARED_RESTORE,
 	OTI_RAIL_RESTORE_26,
-	OTI_RAIL_RESTORE_25
+	OTI_RAIL_RESTORE_25,
+	OTI_FIFO_READ
 };
 
 struct oti_ops {
@@ -34,6 +35,7 @@ struct oti_ops {
 	int (*engine_snapshot)(void *ctx); /* only after verified mode 2 */
 	int (*spi_prepare)(void *ctx);     /* one bounded setup, reset and CS */
 	int (*spi_identify)(void *ctx, uint8_t id[4]); /* one FB 20 00 00 00 */
+	int (*fifo_read)(void *ctx, uint8_t event[8]); /* optional: one 0x87 read, no scan */
 	int (*engine_restore)(void *ctx);  /* independent attempts, even after fault */
 	int (*mode_restore)(void *ctx);
 	int (*shared_restore)(void *ctx);
@@ -43,7 +45,9 @@ struct oti_result {
 	enum oti_stage first_error;
 	enum oti_stage cleanup_error;
 	uint8_t id[4];
+	uint8_t event[8];
 	unsigned attempts;
+	unsigned fifo_attempts;
 	unsigned rail25_restored;
 	unsigned rail26_restored;
 };

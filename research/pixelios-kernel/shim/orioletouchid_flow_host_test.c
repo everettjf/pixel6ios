@@ -5,11 +5,11 @@
 
 enum { PRE, SNAP, READ25, READ26, ON25, VERIFY25, ON26, VERIFY26,
        MODE, ENGINE, PREPARE, IDENTIFY, ERESTORE, MRESTORE, SRESTORE,
-       OFF26, OFF25, CHECKOFF26, CHECKOFF25 };
+       OFF26, OFF25, CHECKOFF26, CHECKOFF25, FIFO };
 
 struct fake {
 	int fail, reads25, reads26, on25, on26, mode_ok, engine_seen;
-	int erestore, mrestore, srestore, off26, off25, identify_calls;
+	int erestore, mrestore, srestore, off26, off25, identify_calls, fifo_calls;
 	int order[40], n;
 };
 
@@ -79,6 +79,13 @@ static int identify(void *p, uint8_t id[4])
 	id[2] = id[3] = 0;
 	return hit(f, IDENTIFY);
 }
+static int fifo_read(void *p, uint8_t event[8])
+{
+	struct fake *f = p;
+	f->fifo_calls++;
+	event[0] = 0x03;
+	return hit(f, FIFO);
+}
 static int erestore(void *p)
 {
 	struct fake *f = p;
@@ -98,8 +105,11 @@ static int srestore(void *p)
 	return hit(f, SRESTORE);
 }
 static const struct oti_ops ops = {
-	pre, snap, read_rail, set_rail, mode_set, engine_snapshot, prepare,
-	identify, erestore, mrestore, srestore
+	.preflight = pre, .shared_snapshot = snap, .rail_read = read_rail,
+	.rail_set = set_rail, .mode_set = mode_set, .engine_snapshot = engine_snapshot,
+	.spi_prepare = prepare, .spi_identify = identify,
+	.engine_restore = erestore, .mode_restore = mrestore,
+	.shared_restore = srestore
 };
 
 static int position(struct fake *f, int stage)
@@ -143,6 +153,24 @@ int main(void)
 	f.fail = IDENTIFY + 100; /* a complete transfer with the wrong ID */
 	assert(oti_run(&ops, &f, &r) != 0 && r.first_error == OTI_ID_MISMATCH);
 	assert(f.off25 == 1 && f.off26 == 1 && r.cleanup_error == OTI_OK);
+	/* The opt-in FIFO read is permitted only after a verified chip ID;
+	 * its failure still runs every independent cleanup attempt. */
+	{
+		struct oti_ops fifo_ops = ops;
+		fifo_ops.fifo_read = fifo_read;
+		f = (struct fake){0}; f.fail = -1;
+		assert(oti_run(&fifo_ops, &f, &r) == 0);
+		assert(f.fifo_calls == 1 && r.fifo_attempts == 1 && r.event[0] == 0x03);
+		assert(position(&f, IDENTIFY) < position(&f, FIFO));
+		assert(position(&f, FIFO) < position(&f, ERESTORE));
+		f = (struct fake){0}; f.fail = FIFO;
+		assert(oti_run(&fifo_ops, &f, &r) != 0 && r.first_error == OTI_FIFO_READ);
+		assert(f.fifo_calls == 1 && f.off25 == 1 && f.off26 == 1);
+		assert(f.erestore == 1 && f.mrestore == 1 && f.srestore == 1);
+		f = (struct fake){0}; f.fail = IDENTIFY + 100;
+		assert(oti_run(&fifo_ops, &f, &r) != 0 && r.first_error == OTI_ID_MISMATCH);
+		assert(f.fifo_calls == 0 && r.fifo_attempts == 0);
+	}
 	/* A malformed ops table must not call any hardware callback. */
 	f = (struct fake){0};
 	assert(oti_run(0, &f, &r) != 0 && r.first_error == OTI_BAD_OPS && f.n == 0);

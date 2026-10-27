@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CHECKOUT = ROOT / 'research/pixelios-kernel'
 
 
-KNOWN_MODES = frozenset(('inventory', 'inventory-touch', 'inventory-touch-id', 'inventory-acpm-desc', 'inventory-acpm-rails', 'inventory-acpm-rail-cycle', 'inventory-display', 'inventory-ufs',
+KNOWN_MODES = frozenset(('inventory', 'inventory-touch', 'inventory-touch-id', 'inventory-touch-fifo', 'inventory-acpm-desc', 'inventory-acpm-rails', 'inventory-acpm-rail-cycle', 'inventory-display', 'inventory-ufs',
                          'inventory-ufs-ready',
                          'xnu-ramprobe', 'xnu-loadcheck', 'xnu-resetcheck',
                          'xnu-md0usb', 'xnu-md0usb-loadcheck',
@@ -78,6 +78,15 @@ def check_touch_id_image_digest(baseline, digest):
         raise SystemExit('Touch ID image differs from the reviewed exact build')
 
 
+def check_touch_fifo_image_digest(baseline, digest):
+    """One-event FIFO reads need an independent exact image pin."""
+    pinned = baseline.get('inventory_touch_fifo_image_sha256') if isinstance(baseline, dict) else None
+    if not isinstance(pinned, str) or not re.fullmatch(r'[0-9a-f]{64}', pinned):
+        raise SystemExit('Touch FIFO image hash is not pinned in the firmware baseline')
+    if digest != pinned:
+        raise SystemExit('Touch FIFO image differs from the reviewed exact build')
+
+
 def check_acpm_desc_image_digest(baseline, digest):
     """Pin the exact descriptor-only build independently of generic inventory."""
     pinned = baseline.get('inventory_acpm_desc_image_sha256') if isinstance(baseline, dict) else None
@@ -120,6 +129,7 @@ def main():
     group.add_argument('--resetcheck', action='store_true', help='load/copy, log volatile reset SMC, then reset')
     group.add_argument('--touch', action='store_true', help='read-only Oriole touch inventory only')
     group.add_argument('--touch-id', action='store_true', help='exact reviewed one-shot Oriole touch chip ID and restore')
+    group.add_argument('--touch-fifo', action='store_true', help='exact reviewed one-event Oriole touch FIFO read and restore')
     group.add_argument('--acpm-desc', action='store_true', help='Oriole ACPM descriptor snapshot; no IPC request')
     group.add_argument('--acpm-rails', action='store_true', help='Oriole ACPM touch rail read via bounded IPC')
     group.add_argument('--acpm-rail-cycle', action='store_true', help='Oriole PMIC touch-rail bit-7 cycle; exact pinned image only')
@@ -152,8 +162,11 @@ def main():
     if (touch_marker in kernel) != args.touch:
         raise SystemExit('Touch inventory image requires an explicit --touch selection')
     touch_id_marker = b'Oriole one-shot touch ID and restore'
-    if (touch_id_marker in kernel) != args.touch_id:
+    if (touch_id_marker in kernel) != (args.touch_id or args.touch_fifo):
         raise SystemExit('Touch ID image requires an explicit --touch-id selection')
+    fifo_marker = b'Oriole one-shot touch FIFO and restore'
+    if (fifo_marker in kernel) != args.touch_fifo:
+        raise SystemExit('Touch FIFO image requires an explicit --touch-fifo selection')
     acpm_marker = b'Oriole ACPM descriptor snapshot'
     if (acpm_marker in kernel) != args.acpm_desc:
         raise SystemExit('ACPM descriptor image requires an explicit --acpm-desc selection')
@@ -166,7 +179,7 @@ def main():
     if args.touch and any(marker in kernel for marker in
                           (b'RDMA channel', b'UFS INVENTORY', b'UFS READY-HOST')):
         raise SystemExit('Touch inventory cannot include display or UFS experiments')
-    if args.touch_id and any(marker in kernel for marker in
+    if (args.touch_id or args.touch_fifo) and any(marker in kernel for marker in
                              (touch_marker, acpm_marker, rail_marker, cycle_marker,
                               b'RDMA channel', b'UFS INVENTORY', b'UFS READY-HOST',
                               b'ORIOLE_UFS_ROOT', b'ORIOLE_RAM_PROBE')):
@@ -215,13 +228,15 @@ def main():
     if (fastboot_value(getvar('product'), 'product') != 'oriole' or
             fastboot_value(getvar('unlocked'), 'unlocked') != 'yes'):
         raise SystemExit('Target must be unlocked oriole')
-    mode = ('inventory-touch-id' if args.touch_id else 'inventory-acpm-rail-cycle' if args.acpm_rail_cycle else 'inventory-acpm-rails' if args.acpm_rails else 'inventory-acpm-desc' if args.acpm_desc else 'inventory-touch' if args.touch else 'xnu-ufsroot-coldinit-preparecheck' if args.ufsroot_coldinit_preparecheck else 'xnu-ufsroot-coldinit' if args.ufsroot_coldinit else 'xnu-ufsroot-preparecheck' if args.ufsroot_preparecheck else 'xnu-ufsroot-loadcheck' if args.ufsroot_loadcheck else 'xnu-ufsroot' if args.ufsroot else 'xnu-md0usb-loadcheck' if args.md0usb_loadcheck else 'xnu-md0usb' if args.md0usb else 'xnu-resetcheck' if args.resetcheck else 'xnu-loadcheck' if args.loadcheck else 'xnu-ramprobe' if args.ramprobe else 'inventory-ufs-ready' if b'UFS READY-HOST' in kernel else 'inventory-ufs' if b'UFS INVENTORY' in kernel else
+    mode = ('inventory-touch-fifo' if args.touch_fifo else 'inventory-touch-id' if args.touch_id else 'inventory-acpm-rail-cycle' if args.acpm_rail_cycle else 'inventory-acpm-rails' if args.acpm_rails else 'inventory-acpm-desc' if args.acpm_desc else 'inventory-touch' if args.touch else 'xnu-ufsroot-coldinit-preparecheck' if args.ufsroot_coldinit_preparecheck else 'xnu-ufsroot-coldinit' if args.ufsroot_coldinit else 'xnu-ufsroot-preparecheck' if args.ufsroot_preparecheck else 'xnu-ufsroot-loadcheck' if args.ufsroot_loadcheck else 'xnu-ufsroot' if args.ufsroot else 'xnu-md0usb-loadcheck' if args.md0usb_loadcheck else 'xnu-md0usb' if args.md0usb else 'xnu-resetcheck' if args.resetcheck else 'xnu-loadcheck' if args.loadcheck else 'xnu-ramprobe' if args.ramprobe else 'inventory-ufs-ready' if b'UFS READY-HOST' in kernel else 'inventory-ufs' if b'UFS INVENTORY' in kernel else
             'inventory-display' if b'RDMA channel' in kernel else 'inventory')
     baseline = json.loads((ROOT / 'private/boot-baseline.json').read_text())
     if args.touch:
         check_touch_image_digest(baseline, digest)
     if args.touch_id:
         check_touch_id_image_digest(baseline, digest)
+    if args.touch_fifo:
+        check_touch_fifo_image_digest(baseline, digest)
     if args.acpm_desc:
         check_acpm_desc_image_digest(baseline, digest)
     if args.acpm_rails:

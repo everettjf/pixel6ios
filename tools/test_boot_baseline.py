@@ -1,7 +1,7 @@
 """A pending OTA must not silently become an approved hardware baseline."""
 import unittest
 from boot_inventory import (check_firmware, check_touch_image_digest,
-                            check_touch_id_image_digest,
+                            check_touch_id_image_digest, check_touch_fifo_image_digest,
                             check_acpm_desc_image_digest, check_acpm_rails_image_digest,
                             check_acpm_rail_cycle_image_digest)
 
@@ -43,6 +43,17 @@ class BootBaselineTests(unittest.TestCase):
         check_touch_id_image_digest(pinned, digest)
         self.assertEqual(check_firmware(self.values.__getitem__, pinned, 'inventory-touch-id'), 'a')
 
+    def test_touch_fifo_writer_requires_its_own_pin_and_mode(self):
+        digest = '3' * 64
+        opened = dict(self.baseline, allowed_modes=['inventory', 'inventory-touch-fifo'])
+        with self.assertRaisesRegex(SystemExit, 'not pinned'):
+            check_touch_fifo_image_digest(opened, digest)
+        pinned = dict(opened, inventory_touch_fifo_image_sha256=digest)
+        with self.assertRaisesRegex(SystemExit, 'differs'):
+            check_touch_fifo_image_digest(pinned, '4' * 64)
+        check_touch_fifo_image_digest(pinned, digest)
+        self.assertEqual(check_firmware(self.values.__getitem__, pinned, 'inventory-touch-fifo'), 'a')
+
     def test_acpm_descriptor_requires_a_separately_pinned_exact_image(self):
         digest = 'c' * 64
         opened = dict(self.baseline, allowed_modes=['inventory', 'inventory-acpm-desc'])
@@ -83,7 +94,7 @@ class BootBaselineTests(unittest.TestCase):
         self.assertEqual(check_firmware(self.values.__getitem__, pinned, 'inventory-acpm-rail-cycle'), 'a')
 
     def test_storage_modes_remain_closed_until_explicitly_added(self):
-        for mode in ('inventory-touch', 'inventory-touch-id', 'inventory-acpm-desc', 'inventory-acpm-rails', 'inventory-acpm-rail-cycle', 'inventory-ufs-ready', 'xnu-ufsroot-loadcheck',
+        for mode in ('inventory-touch', 'inventory-touch-id', 'inventory-touch-fifo', 'inventory-acpm-desc', 'inventory-acpm-rails', 'inventory-acpm-rail-cycle', 'inventory-ufs-ready', 'xnu-ufsroot-loadcheck',
                      'xnu-ufsroot-preparecheck', 'xnu-ufsroot',
                      'xnu-ufsroot-coldinit', 'xnu-ufsroot-coldinit-preparecheck'):
             with self.assertRaisesRegex(SystemExit,'not validated'):

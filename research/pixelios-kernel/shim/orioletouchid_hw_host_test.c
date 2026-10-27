@@ -14,7 +14,7 @@ struct reg { uintptr_t pa; uint32_t val; };
 static struct reg regs[32];
 static unsigned nr, writes, reads, fail_write_at, apply_fail_write_at;
 static unsigned fail_read_at, forbidden_reads, engine_writes, tx_n, burst_n, rx_pos, reset_n;
-static uint8_t tx_bytes[12];
+static uint8_t tx_bytes[24];
 static uint32_t rail25, rail26;
 static uint64_t ticks;
 static int force_timeout, uncertain_enable26, restore_error25;
@@ -94,18 +94,27 @@ static int burst_ready(void)
 {
 	unsigned i;
 	static const uint8_t cmd[5] = { 0xfb, 0x20, 0, 0, 0 };
+	unsigned len = 5u, base = burst_n * 5u;
+#ifdef ORIOLE_TOUCH_FIFO
+	if (burst_n == 2u) { len = 1u; base = 10u; }
+	if (burst_n == 3u) { len = 9u; base = 11u; }
+#endif
 	if (rail25 != 0xac || rail26 != 0xbc ||
 	    (value(TOUCH_USI_MODE_REG) & TOUCH_USI_MODE_MASK) != TOUCH_USI_MODE_SPI ||
 	    value(USI + TP_USI_CON) != 0 ||
 	    (value(SPI + TP_SPI_CH_CFG) & (TP_CH_RXCH_ON | TP_CH_TXCH_ON)) !=
 	    (TP_CH_RXCH_ON | TP_CH_TXCH_ON) ||
-	    value(SPI + TP_SPI_PACKET_CNT) != (5u | TP_PKT_CNT_EN) ||
+	    value(SPI + TP_SPI_PACKET_CNT) != (len | TP_PKT_CNT_EN) ||
 	    value(SPI + TP_SPI_CS_REG) != 0 ||
 	    (value(TOUCH_PIN_CLK_BANK + 4u) & (1u << TOUCH_PIN_CS_NR)) != 0 ||
-	    (value(TOUCH_PIN_RESET_BANK + 4u) & 1u) == 0 || tx_n != 5)
+	    (value(TOUCH_PIN_RESET_BANK + 4u) & 1u) == 0 || tx_n != len)
 		return 0;
-	for (i = 0; i < 5; i++)
-		if (tx_bytes[burst_n * 5u + i] != (burst_n == 0 ? cmd[i] : 0))
+	for (i = 0; i < len; i++)
+		if (tx_bytes[base + i] != (burst_n == 0 ? cmd[i] :
+#ifdef ORIOLE_TOUCH_FIFO
+		                         burst_n == 2 ? 0x87u :
+#endif
+		                         0u))
 			return 0;
 	return 1;
 }
@@ -121,11 +130,14 @@ int try_read32(uintptr_t pa, uint32_t *v)
 		}
 	}
 	if (pa == SPI + TP_SPI_STATUS) {
-		*v = force_timeout || !burst_ready() ? 0u : 5u << 15;
+		*v = force_timeout || !burst_ready() ? 0u :
+		     (value(SPI + TP_SPI_PACKET_CNT) & 0xffu) << 15;
 	} else if (pa == SPI + TP_SPI_RX_DATA) {
 		static const uint8_t reply[5] = { 0, 0x36, 0x48, 0, 0 };
-		*v = burst_n == 1 ? reply[rx_pos] : 0;
-		if (++rx_pos == 5) { burst_n++; tx_n = rx_pos = 0; }
+		unsigned len = value(SPI + TP_SPI_PACKET_CNT) & 0xffu;
+		*v = burst_n == 1 ? reply[rx_pos] :
+		     burst_n == 3 && rx_pos == 1 ? 0x03u : 0u;
+		if (++rx_pos == len) { burst_n++; tx_n = rx_pos = 0; }
 	} else if (pa == TOUCH_PIN_CLK_BANK + 4u &&
 	           ((value(TOUCH_PIN_CLK_BANK) >> (4u * TOUCH_PIN_CS_NR)) & 0xfu) == 0) {
 		/* Model the fourth phone capture: the input pin reads low even
@@ -189,9 +201,14 @@ int try_write32(uintptr_t pa, uint32_t v)
 		if (corrupt_quiet_on_reset) seed(SPI + TP_SPI_MODE_CFG, 1);
 	}
 	if (pa == SPI + TP_SPI_TX_DATA) {
-		assert(tx_n < 5u);
-		assert(tx_n + burst_n * 5u < sizeof(tx_bytes));
-		tx_bytes[tx_n + burst_n * 5u] = (uint8_t)v;
+		unsigned base = burst_n * 5u;
+		assert(tx_n < 9u);
+#ifdef ORIOLE_TOUCH_FIFO
+		if (burst_n == 2u) base = 10u;
+		if (burst_n == 3u) base = 11u;
+#endif
+		assert(tx_n + base < sizeof(tx_bytes));
+		tx_bytes[tx_n + base] = (uint8_t)v;
 		tx_n++;
 		return writes == apply_fail_write_at ? 0 : 1;
 	}
@@ -323,6 +340,17 @@ static void assert_restored(void)
 	assert(forbidden_reads == 0);
 }
 
+#ifndef ORIOLE_TOUCH_ID_RESET_OBSERVE
+static unsigned expected_bursts(void)
+{
+#ifdef ORIOLE_TOUCH_FIFO
+	return 4u;
+#else
+	return 2u;
+#endif
+}
+#endif
+
 #ifdef ORIOLE_TOUCH_ID_RESET_OBSERVE
 int main(void)
 {
@@ -379,13 +407,13 @@ int main(void)
 	reset_fake();
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) == 0);
 	assert(reported_first == OTI_OK && reported_cleanup == OTI_OK);
-	assert(burst_n == 2 && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
+	assert(burst_n == expected_bursts() && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
 	assert_restored();
 #ifdef ORIOLE_TOUCH_ID_RESET_SETTLE
 	reset_fake(); reset_dat_one_read_lag = 1;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) == 0);
 	assert(reported_first == OTI_OK && reported_cleanup == OTI_OK);
-	assert(burst_n == 2 && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
+	assert(burst_n == expected_bursts() && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
 	assert_restored();
 	reset_fake(); reset_release_stuck_low = 1;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
@@ -394,12 +422,12 @@ int main(void)
 	reset_fake(); reset_restore_stuck_high = 1;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
 	assert(reported_first == OTI_OK && reported_cleanup == OTI_SHARED_RESTORE);
-	assert(burst_n == 2 && rail25 == 0x2c && rail26 == 0x3c);
+	assert(burst_n == expected_bursts() && rail25 == 0x2c && rail26 == 0x3c);
 #endif
 	reset_fake(); reset_input_high_after_pud_clear = 1;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) == 0);
 	assert(reset_input_high_active && reported_first == OTI_OK &&
-	       reported_cleanup == OTI_OK && burst_n == 2);
+	       reported_cleanup == OTI_OK && burst_n == expected_bursts());
 	assert_restored();
 	baseline_writes = writes;
 	baseline_reads = reads;
@@ -483,7 +511,7 @@ int main(void)
 	reset_fake(); ignore_engine_writes_in_usi_reset = 1;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) == 0);
 	assert(reported_first == OTI_OK && reported_cleanup == OTI_OK);
-	assert(burst_n == 2 && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
+	assert(burst_n == expected_bursts() && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
 	assert_restored();
 	/* Reset may retain FB_CLK.  Writes while RESET=1 are ignored in this
 	 * model, so cleanup must clear FB_CLK before reasserting reset. */
@@ -491,7 +519,7 @@ int main(void)
 	disturb_engine_on_reset = 0;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) == 0);
 	assert(reported_first == OTI_OK && reported_cleanup == OTI_OK);
-	assert(burst_n == 2 && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
+	assert(burst_n == expected_bursts() && tx_bytes[0] == 0xfb && tx_bytes[1] == 0x20);
 	assert_restored();
 	baseline_writes = writes;
 	for (step = 1; step <= baseline_writes; step++) {

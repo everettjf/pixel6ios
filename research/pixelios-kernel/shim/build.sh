@@ -38,6 +38,7 @@ inventory_acpm_desc=0
 inventory_acpm_rails=0
 inventory_acpm_rail_cycle=0
 inventory_touch_id=0
+inventory_touch_fifo=0
 ramprobe=0
 loadcheck=0
 resetcheck=0
@@ -85,7 +86,8 @@ while [ "$#" -gt 0 ]; do
 		--inventory-acpm-desc) inventory=1; inventory_acpm_desc=1; usb_gadget=1; shift ;;
 		--inventory-acpm-rails) inventory=1; inventory_acpm_rails=1; usb_gadget=1; shift ;;
 		--inventory-acpm-rail-cycle) inventory=1; inventory_acpm_rail_cycle=1; usb_gadget=1; shift ;;
-		--inventory-touch-id) inventory=1; inventory_touch_id=1; usb_gadget=1; shift ;;
+		--inventory-touch-id) [ "$inventory_touch_id" = 0 ] || { echo "select one touch inventory profile" >&2; exit 2; }; inventory=1; inventory_touch_id=1; usb_gadget=1; shift ;;
+		--inventory-touch-fifo) [ "$inventory_touch_id" = 0 ] || { echo "select one touch inventory profile" >&2; exit 2; }; inventory=1; inventory_touch_id=1; inventory_touch_fifo=1; usb_gadget=1; shift ;;
 		--avb) avb=1; shift ;;
 		--pstore-fast) pstore_fast=1; shift ;;
 		--usb-gadget) usb_gadget=1; shift ;;
@@ -371,6 +373,7 @@ fi
 [ "$inventory_ufs_ready" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_UFS_READY"
 [ "$inventory_display" = 0 ] || CFLAGS="$CFLAGS -DINVENTORY_DISPLAY"
 [ "$inventory_touch_id" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_TOUCH_ID_HW -DORIOLE_TOUCH_ID_RESET_SETTLE"
+[ "$inventory_touch_fifo" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_TOUCH_FIFO"
 mkdir -p out
 # Invalidate provenance before every build, including failed/non-AVB builds.
 # Previous bytes may remain for inspection but cannot be boot-authorized.
@@ -571,6 +574,12 @@ if [ "$inventory_touch_id" = 1 ]; then
 		-I. -Iout -include out/board_config.h \
 		-o out/orioletouchid_hw_settle_host_test orioletouchid_hw_host_test.c
 	./out/orioletouchid_hw_settle_host_test
+	if [ "$inventory_touch_fifo" = 1 ]; then
+		gcc -std=c11 -O1 -Wall -Wextra -Werror -DORIOLE_TOUCH_ID_RESET_SETTLE -DORIOLE_TOUCH_FIFO \
+			-I. -Iout -include out/board_config.h \
+			-o out/orioletouchfifo_hw_host_test orioletouchid_hw_host_test.c
+		./out/orioletouchfifo_hw_host_test
+	fi
 fi
 "$PYTHON" ../tools/audit_oriole_resetcheck.py --enabled "$resetcheck" --object out/shim.o --elf out/shim.elf --objdump "${CROSS_OBJDUMP:-${prefix}objdump}"
 "$OBJCOPY" -O binary out/shim.elf out/Image

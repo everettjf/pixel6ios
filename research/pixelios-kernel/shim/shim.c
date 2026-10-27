@@ -674,6 +674,9 @@ static void __attribute__((noreturn)) bluejay_probe(uintptr_t dtb)
 	extern char _head[], _end[];
 	extern int oriole_touch_id_run(uintptr_t dtb, uint64_t image_base, uint64_t image_size);
 	con_str("INVENTORY", "Oriole one-shot touch ID and restore");
+#ifdef ORIOLE_TOUCH_FIFO
+	con_str("INVENTORY", "Oriole one-shot touch FIFO and restore");
+#endif
 	(void)oriole_touch_id_run(dtb, (uintptr_t)_head, (uintptr_t)_end - (uintptr_t)_head);
 #endif
 #ifdef TOUCH_PROBE
