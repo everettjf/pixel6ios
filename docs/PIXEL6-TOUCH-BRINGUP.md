@@ -72,6 +72,18 @@ gate passed at `778970c+dirty`; the exact temporary-boot image SHA-256 is
 `c6ce44d277ad39bb7bed92dacca6ac00eb1e2296681baebe9539eea27e325f3c`.
 No Pixel 6 boot result exists for 0112 yet, so it establishes no improvement
 in chip identification or iOS interaction.
+
+**Read from source and the 0111 hardware capture, 2026-10-27:** the isolated
+prekernel ID probe waits for the CMU mux and divider BUSY bit to clear after
+each clock write (`shim/orioletouchid_hw.c:392-393`). The XNU experiment's
+`sweettouchpoke` logs the immediate divider readback without that poll; its
+0111 capture shows `0x10005`, including the transient BUSY bit. XNU then
+spends at least 110 ms on the reset pulse and release settle before ID, so
+this immediate readback **does not prove** the clock was still busy at the
+transaction. Keep 0112 unchanged for its first hardware test. If it still
+returns `00 00`, capture the CMU mux/divider state at the ID point and both
+touch-rail readbacks before changing another clock or power writer.
+
 The Android factory reset also erased the iOS root in
 `userdata`, so an iOS boot needs a freshly verified root image and a new
 user confirmation immediately before any flash.
