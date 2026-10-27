@@ -263,13 +263,14 @@ static int engine_snapshot(void *p)
 	for (i = 0; i < E_COUNT; i++) if (snapshot(&h->e[i])) return -1;
 	/* Fail closed on a live or non-default engine.  There is no defensible
 	 * way to restore unknown out-of-mask bits after USI reset. */
-	/* This Oriole arrived with USI_OPTION bit 0 already set (physical
-	 * 2026-10-26 capture); ABL's manual SPI init also sets that bit.  Log
+	/* This Oriole arrived with USI_OPTION bit 0 and USI_CON reset bit 0
+	 * set (physical 2026-10-26 captures).  ABL sets both, then releases
+	 * USI_CON reset; Linux also releases an asserted reset at probe.  Log
 	 * every captured word before rejecting another unfamiliar default. */
 	for (i = 0; i < E_COUNT; i++) {
 		v = h->e[i].old;
 		con_hex2("ORIOLE TOUCH ENGINE", "pa", h->e[i].pa, "value", v);
-		if (v != ((i == E_CS || i == E_USI_OPTION) ? 1u : 0u)) bad = 1;
+		if (v != ((i == E_CS || i == E_USI_OPTION || i == E_USI_CON) ? 1u : 0u)) bad = 1;
 	}
 	for (i = 0; i < sizeof(quiet_offsets) / sizeof(quiet_offsets[0]); i++) {
 		if (rd(SPI + quiet_offsets[i], &v)) return -1;
@@ -407,7 +408,12 @@ static int engine_restore(void *p)
 	if (set(&h->e[E_CS], 1u)) bad = 1;
 	if (set(&h->e[E_CH], TP_CH_SW_RST)) bad = 1;
 	if (set(&h->e[E_CH], 0)) bad = 1;
-	for (i = E_COUNT; i > 0; i--) if (restore(&h->e[i - 1])) bad = 1;
+	/* The captured USI_CON had RESET=1.  Reasserting it can clear other
+	 * engine registers (host fault model).  Restore it before other engine
+	 * words, then verify them all.  ABL writes OPTION and FB_CLK while
+	 * USI_CON reset is asserted; any ignored restore must fail readback. */
+	if (restore(&h->e[E_USI_CON])) bad = 1;
+	for (i = E_COUNT; i > 1; i--) if (restore(&h->e[i - 1])) bad = 1;
 	for (i = 0; i < E_COUNT; i++)
 		if (rd(h->e[i].pa, &v) || v != h->e[i].old) bad = 1;
 	if (engine_quiet()) bad = 1;

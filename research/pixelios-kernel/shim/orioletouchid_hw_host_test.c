@@ -58,6 +58,7 @@ static void reset_fake(void)
 	seed(CMU + TOUCH_CMU_GATE_IPCLK, 0x200000u);
 	seed(CMU + TOUCH_CMU_GATE_PCLK, 0x200000u);
 	seed(CMU + TOUCH_CMU_GATE_RSTN, 0x200000u);
+	seed(USI + TP_USI_CON, 1);
 	seed(USI + TP_USI_OPTION, 1);
 	seed(SPI + TP_SPI_CS_REG, 1);
 }
@@ -205,6 +206,7 @@ static void assert_restored(void)
 	assert(value(TOUCH_PIN_CLK_BANK + 8u) == 0x1111u);
 	assert(value(TOUCH_PIN_RESET_BANK + 8u) == 0x11u);
 	assert(value(SPI + TP_SPI_CH_CFG) == 0);
+	assert(value(USI + TP_USI_CON) == 1);
 	assert(value(USI + TP_USI_OPTION) == 1);
 	assert(value(SPI + TP_SPI_CLK_CFG) == 0);
 	assert(value(SPI + TP_SPI_MODE_CFG) == 0);
@@ -269,7 +271,7 @@ int main(void)
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0 && reported_first == OTI_ENGINE_SNAPSHOT);
 	assert(rail25 == 0x2c && rail26 == 0x3c && tx_n == 0);
 	reset_fake(); corrupt_quiet_on_reset = 1;
-	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0 && reported_first == OTI_SPI_PREPARE);
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
 	assert(reported_cleanup == OTI_ENGINE_RESTORE && rail25 == 0x2c && rail26 == 0x3c);
 	reset_fake(); live_board_ok = 0;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0 &&

@@ -1,0 +1,36 @@
+Observed on hardware: Pixel 6 (oriole), 2026-10-26 PDT.
+Second temporary fastboot boot of the isolated touch-ID probe; no partition write.
+Source commit: 5eb17cc. Boot image SHA-256:
+4707cdf94154c86df5c7a4850b23f8f2364055a4d09c9fd6ab84687a895d2d8f
+
+Selected lines from the private USB log (device identifiers omitted):
+
+INVENTORY Oriole one-shot touch ID and restore
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value000000AC
+ORIOLE TOUCH RAIL reg0000005D value000000BC
+ORIOLE TOUCH ENGINE pa10D400C4 value00000001
+ORIOLE TOUCH ENGINE pa10D400C8 value00000001
+ORIOLE TOUCH ENGINE pa10D40000 value00000000
+ORIOLE TOUCH ENGINE pa10D4000C value00000001
+ORIOLE TOUCH ENGINE pa10D40020 value00000000
+ORIOLE TOUCH ENGINE pa10D4002C value00000000
+ORIOLE TOUCH ENGINE pa10D40004 value00000000
+ORIOLE TOUCH ENGINE pa10D40008 value00000000
+ORIOLE TOUCH ENGINE pa10D40010 value00000000
+ORIOLE TOUCH ENGINE pa10D40028 value00000000
+ORIOLE TOUCH ENGINE REFUSED non-default snapshot
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH ID first00000009 cleanup00000000
+ORIOLE TOUCH ID id000000000 id100000000
+ORIOLE TOUCH ID attempts00000000 restored00000002
+ORIOLE TOUCH ID FAILED
+INVENTORY report complete
+
+Interpretation: All ten readable SPI/USI engine words were captured after
+switching USI11 to SPI mode. The only mismatch against the then-current gate
+was USI_CON at PA 0x10D400C8 = 1, its reset bit. The probe again refused
+before the first SPI ID command, and both enabled rails read back at their
+original disabled values. The zero ID fields are unattempted output.
