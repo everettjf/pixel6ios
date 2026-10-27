@@ -9,7 +9,7 @@
 cd "$(dirname "$0")/.." || exit 2
 mkdir -p shim/out; log=shim/out/gate.log; stamp=shim/out/gate.stamp; : > "$log"
 h=$(git rev-parse --short HEAD)$(git diff --quiet HEAD || echo "+dirty")
-ALL="build build-fast build-usb build-wlan build-gpu build-gpupower build-gpuclk build-gpurails build-gpurailon build-gpujob build-touch build-udump host-tests boot-safety unit phone-state hang-recover probe-run rootless public-split validate"
+ALL="build build-fast build-usb build-wlan build-gpu build-gpupower build-gpuclk build-gpurails build-gpurailon build-gpujob build-touch build-udump host-tests boot-safety oriole-touch-id-host unit phone-state hang-recover probe-run rootless public-split validate"
 quick=; [ "$1" = --quick ] && quick=1
 want=$ALL
 if [ -n "$quick" ]; then
@@ -41,10 +41,14 @@ laneA() {
 	step A build-gpujob bash -c 'cd shim && ./build.sh --board bluejay --avb --usb-gadget --gpu-probe --gpu-s2mpu && ./build.sh --board bluejay --avb --usb-gadget --gpu-probe --gpu-job'
 	step A build-touch  bash -c 'cd shim && ./build.sh --board bluejay --avb --usb-gadget --touch-probe=run,mux,cs,osc,loop,rst,misopu,rails'
 	step A build-udump  bash -c 'cd shim && ./build.sh --board bluejay --avb --pstore-fast --udump 1'
-	step A host-tests   bash -c 'cd shim && for t in out/*_host_test out/host_test; do [ -x "$t" ] && "$t" || [ ! -x "$t" ] || exit 1; done'
+	# The Oriole writer is compiled with its own board header in lane B.  Do
+	# not execute a stale profile-specific binary left in shim/out by an
+	# earlier isolated build.
+	step A host-tests   bash -c 'cd shim && for t in out/*_host_test out/host_test; do [ "$t" = out/orioletouchid_hw_host_test ] && continue; [ -x "$t" ] && "$t" || [ ! -x "$t" ] || exit 1; done'
 	step A boot-safety  python3 tools/test-bluejay-boot.py shim/out/shim-boot-avb.img
 }
 laneB() {
+	step B oriole-touch-id-host needs shim/orioletouchid_hw_host_test.c bash -c 'tmp=$(mktemp -d); trap '\''rm -rf "$tmp"'\'' EXIT; python3 tools/boards.py oriole "$tmp/board_config.h" && cc -std=c11 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -Ishim -I"$tmp" -include "$tmp/board_config.h" -o "$tmp/orioletouchid_hw_host_test" shim/orioletouchid_hw_host_test.c && "$tmp/orioletouchid_hw_host_test"'
 	step B unit         python3 -m unittest discover -s tools -p "test_*.py"
 	step B phone-state  tools/phone-state --self-test
 	step B hang-recover  tools/hang-recover --self-test
