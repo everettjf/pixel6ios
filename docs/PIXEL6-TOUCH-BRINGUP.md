@@ -16,6 +16,7 @@ Updated 2026-10-27 PDT. This is a staged hardware investigation, not an installa
 - **Read from this repository:** the GS101 XNU FTM5 driver's `tg_run()` in [patch 0088](../research/pixelios-kernel/xnu/patches/0088-sweet-gs101-touch.patch) configures clocks, pads, SPI and the controller, but has no ACPM or regulator call. The optional `/sweet-touch` ADT node alone therefore cannot power the two rails that were measured off at handoff. An iOS boot profile needs a separately reviewed rail-ownership path that leaves them on while touch is active and restores them on failure or shutdown. The inventory rail-cycle image deliberately restores both rails before reset and cannot serve as that path.
 - **Observed on Pixel 6, 2026-10-27:** the ninth isolated touch-ID boot returned `0x36 0x48` from one SPI command. Preparation and cleanup both reported `OK`, and both touch rails read back at their original disabled values. See the [sanitized capture](../research/pixelios-kernel/device/google/oriole/hardware/touch-id-success-2026-10-27.txt) and [probe analysis](ORIOLE-TOUCH-ID-PROBE.md).
 - **Observed on Pixel 6, 2026-10-27:** a later, separately pinned FIFO profile read `03 00 00 00 00 00 00 00` after the same verified ID exchange. The complete capture reports `OK` cleanup and both rails restored; the phone returned to Android. See [the FIFO capture](../research/pixelios-kernel/device/google/oriole/hardware/touch-fifo-ready-2026-10-27.txt) and [probe analysis](ORIOLE-TOUCH-FIFO-PROBE.md). This is one controller-ready event after reset, not a physical finger event or working iOS input.
+- **Observed on Pixel 6, 2026-10-27 (0110 candidate):** temporary boot image SHA-256 `6edd2799fe0517f72deb32ed89698634c646273468900d68d3ea1799801e7db4` reached XNU and its USB network answered. A listener started after boot captured repeated `BSD root: ufsroot0` and `unknown Volume Signature : ea94` / `cannot mount root, errno = 19`. This is consistent with the known Android-formatted userdata after factory reset. The listener missed early touch setup, so this boot does **not** establish whether the XNU FTM5 controller identified successfully. The raw UDP capture stays in ignored `private/touch-xnu-source/relink/touch-0110-udp.log`.
 
 ## Safe first measurement
 
@@ -37,7 +38,7 @@ On macOS, `tools/run_touch_inventory.py --seconds 180` arms the CDC-ACM log rece
 
 ## Next gates
 
-**Read from source, 2026-10-27 (candidate, not a device result):** the opt-in
+**Read from source, 2026-10-27 (candidate, not an input result):** the opt-in
 `--xnu-ufsroot-cow-pool512-fbsnap-touchid` build now binds a hash-pinned
 identify-only payload to a separate Oriole rail-handoff path. The shim checks
 both measured off values, enables LDO25M then LDO26M using the existing
@@ -46,11 +47,15 @@ returns, it attempts reverse-order restoration and records any failure.
 The exact payload passes both the hash checker and the *runtime* UFS-root
 bounds guard in a host test. The old no-touch profile remains separate.
 **No XNU touch identification, physical finger event, gesture, or app tap has
-yet been observed with this candidate.** Its locally relinked kernel still
-uses the previous SPI setup ordering; the prekernel probe indicates that
-Oriole may require `SPI_FB_CLK` to be written after releasing USI reset.
-Check and ADT-gate that driver change before calling the profile ready for
-a physical input test. The Android factory reset also erased the iOS root in
+yet been observed with this candidate.** [Patch 0110](../research/pixelios-kernel/xnu/patches/0110-oriole-touch-feedback-order.patch)
+now applies the prekernel-observed USI option and feedback-clock order only
+when an Oriole-specific `/sweet-touch` compatible is present. The Oriole
+identify payload emits that compatible; other boards retain the old path.
+The source was independently reviewed, the local relink produced a pinned
+kernel, and `check-all.sh` passed at `821f766+dirty`. The first temporary
+boot reached XNU but the receiver missed early touch logging, so a second
+capture with the UDP receiver armed *before* `fastboot boot` is required.
+The Android factory reset also erased the iOS root in
 `userdata`, so an iOS boot needs a freshly verified root image and a new
 user confirmation immediately before any flash.
 

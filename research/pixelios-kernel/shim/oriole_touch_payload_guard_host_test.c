@@ -15,7 +15,7 @@ int main(int argc, char **argv)
 	assert(f);
 	assert(fseek(f, 0, SEEK_END) == 0);
 	len = ftell(f);
-	assert(len == 16716576L);
+	assert(len == 16716528L);
 	assert(fseek(f, 0, SEEK_SET) == 0);
 	buf = malloc((size_t)len);
 	assert(buf);

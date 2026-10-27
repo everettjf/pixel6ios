@@ -14,11 +14,11 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools import adt, mkadt, mkpayload, oriole_ufsroot_cow_pool512_fbsnap as base
 
-KERNEL_SHA = base.KERNEL_SHA
+KERNEL_SHA = 'c2c891d337fb67793d1889b5d460cb96f3564e1f5fa8bd1a55ad8448891b7dd4'
 BASE_ADT_SHA = base.ADT_SHA
-ADT_SHA = '3686505ef05bc1b150fe065ec675924be20aba513e699124496d7fe8511d4ce3'
-PAYLOAD_SHA = '909de5db3e2cb46d8647c4078f97d5116867a521dab0fedfa46418960cbf280e'
-PAYLOAD_SIZE = 16716576
+ADT_SHA = 'b85187b0fb3eeec4129c896b508680b27392f2d79ccc24ea95e47e18aa0d4164'
+PAYLOAD_SHA = '25f8962b11b39a92122faf2d0030427809cf4949d3d1cf91f70a12ccc5963338'
+PAYLOAD_SIZE = 16716528
 TOUCH_ARGS = (' sweettouch=1 sweettouchdelay=2 sweettouchmux=1 '
               'sweettouchclk=3 sweettouchcs=1 '
               'sweettouchpoke=m:10c00640=10=0;d:100;m:10c0180c=f=5;')
@@ -39,6 +39,10 @@ def make_adt(base_blob):
     candidates = [n for n in generated.children if n.name == 'sweet-touch']
     if len(candidates) != 1 or candidates[0].prop('compatible') != b'google,gs101-ftm5-spi\0':
         raise SystemExit('Oriole touch identify: unexpected controller node')
+    candidates[0].props = [
+        (name, flags, b'pixelios,oriole-ftm5-spi\0' if name == 'compatible' else value)
+        for name, flags, value in candidates[0].props
+    ]
     root.children.append(candidates[0])
     new_adt = adt.serialize(root)
     require_hash(new_adt, ADT_SHA, 'touch ADT')
@@ -56,6 +60,11 @@ def check(blob):
     if adt_off + adt_size > len(blob) or adt_size == 0:
         raise SystemExit('Oriole touch identify: ADT bounds invalid')
     require_hash(blob[adt_off:adt_off + adt_size], ADT_SHA, 'embedded ADT')
+    tree, end = adt.parse(blob[adt_off:adt_off + adt_size])
+    nodes = [node for node in tree.children if node.name == 'sweet-touch']
+    if end != adt_size or len(nodes) != 1 or \
+            nodes[0].prop('compatible') != b'pixelios,oriole-ftm5-spi\0':
+        raise SystemExit('Oriole touch identify: controller compatible mismatch')
 
 
 def main():

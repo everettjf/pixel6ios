@@ -1,0 +1,69 @@
+From: PixeliOS <noreply@example.invalid>
+Subject: [PATCH] oriole: ADT-gated FTM5 SPI feedback order
+
+The isolated Oriole probe observed ABL USI_OPTION bit 0 and FB_CLK
+latching only after release of USI_CON reset. Preserve the existing
+GS101 compatible path, and apply the measured order only to a new
+port-specific ADT compatible. Physical XNU touch remains unverified.
+
+---
+diff --git a/bsd/dev/sweet_touch_gs101.c b/bsd/dev/sweet_touch_gs101.c
+index 21628e3..d55106d 100644
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -93,6 +93,7 @@ extern void sweet_hid_touch(int finger, int down, int x, int y);
+ void sweet_touch_gs101_init(void);
+ 
+ #define TG_COMPAT        "google,gs101-ftm5-spi"
++#define TG_ORIOLE_COMPAT "pixelios,oriole-ftm5-spi"
+ #define TG_PAGE          0x4000u          /* kernel page: ml_io_map maps whole pages */
+ 
+ /* Samsung pad controller (see header comment) */
+@@ -163,6 +164,7 @@ static struct {
+ 		vm_offset_t va;
+ 	} top;
+ 	int clk_mode, var, cs_abl;
++	bool oriole_spi_order;
+ 	bool reset_done;   /* tg_reset_and_ready already ran (sweettouchcs=1 does it before the identify) */
+ 	char poke[POKE_MAX_LEN + 16];   /* sweettouchpoke boot-arg (empty = none) */
+ 	uint32_t last_st, last_ch;   /* STATUS / CH_CFG at the last burst timeout */
+@@ -840,9 +842,16 @@ tg_spi_setup(void)
+ 	    tg_rd(tg.spi, SPI_STATUS), tg_rd(tg.spi, SPI_FB_CLK));
+ 	if (tg.cs_abl) {   /* shim/touchprobe.c spi_setup with the cs option: no engine init */
+ 		tg_wr(tg.usi, USI_CON, tg_rd(tg.usi, USI_CON) | USI_CON_RESET);
+-		tg_wr(tg.usi, USI_OPTION, tg_rd(tg.usi, USI_OPTION) | USI_OPT_CLKREQ);
+-		tg_wr(tg.spi, SPI_FB_CLK, (tg_rd(tg.spi, SPI_FB_CLK) & ~3u) | 1u);
++		/* The Oriole prekernel ID probe measured ABL bit 0 and observed
++		 * FB_CLK latch only after releasing USI reset. The original GS101
++		 * compatible retains its previous order and Linux CLKREQ bit. */
++		tg_wr(tg.usi, USI_OPTION, tg_rd(tg.usi, USI_OPTION) |
++		    (tg.oriole_spi_order ? 1u : USI_OPT_CLKREQ));
++		if (!tg.oriole_spi_order)
++			tg_wr(tg.spi, SPI_FB_CLK, (tg_rd(tg.spi, SPI_FB_CLK) & ~3u) | 1u);
+ 		tg_wr(tg.usi, USI_CON, tg_rd(tg.usi, USI_CON) & ~USI_CON_RESET);
++		if (tg.oriole_spi_order)
++			tg_wr(tg.spi, SPI_FB_CLK, (tg_rd(tg.spi, SPI_FB_CLK) & ~3u) | 1u);
+ 	} else {
+ 		tg_spi_engine_init();
+ 	}
+@@ -1182,7 +1191,10 @@ sweet_touch_gs101_init(void)
+ 	started = 1;
+ 	if (SecureDTLookupEntry(NULL, "/sweet-touch", &node) != kSuccess ||
+ 	    SecureDTGetProperty(node, "compatible", (void const **)&compat, &csize) != kSuccess ||
+-	    compat == NULL || csize < sizeof(TG_COMPAT) || strncmp(compat, TG_COMPAT, sizeof(TG_COMPAT)) != 0) {
++	    compat == NULL ||
++	    !((csize >= sizeof(TG_COMPAT) && strncmp(compat, TG_COMPAT, sizeof(TG_COMPAT)) == 0) ||
++	      (csize >= sizeof(TG_ORIOLE_COMPAT) &&
++	       strncmp(compat, TG_ORIOLE_COMPAT, sizeof(TG_ORIOLE_COMPAT)) == 0))) {
+ 		return;    /* not this board: stay silent */
+ 	}
+ 	(void)PE_parse_boot_argn("sweettouch", &mode, sizeof(mode));
+@@ -1209,6 +1221,8 @@ sweet_touch_gs101_init(void)
+ 	tg_parse_cmu(node);
+ 	tg.var = var == 1;
+ 	tg.cs_abl = cs == 1;
++	tg.oriole_spi_order = csize >= sizeof(TG_ORIOLE_COMPAT) &&
++	    strncmp(compat, TG_ORIOLE_COMPAT, sizeof(TG_ORIOLE_COMPAT)) == 0;
+ 	tg.clk_mode = clk < 0 ? 0 : clk > 3 ? 3 : clk;
+ 	tg.mode = mode;
+ 	tg.delay_s = (uint32_t)delay_s;
