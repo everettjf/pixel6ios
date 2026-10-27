@@ -1,0 +1,62 @@
+diff --git a/bsd/dev/sweet_touch_gs101.c b/bsd/dev/sweet_touch_gs101.c
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -1045,13 +1045,11 @@
+ 	return (int)handled;
+ }
+ 
+-/* fts_system_reset (fts_lib/ftsCore.c:66-108) with a reset gpio: low, 10 ms, high, wait for CONTROLLER_READY. */
+-static bool
+-tg_reset_and_ready(unsigned *logged)
+-{
+-	static const uint8_t cmd[1] = { FTM5_CMD_FIFO_READ };
+-	uint64_t t0;
+-
++/* The isolated Oriole probe identifies immediately after this pulse and
++ * settle, then reads FIFO. Keep that measured order in identify-only mode. */
++static inline __attribute__((always_inline)) bool
++tg_reset_pulse(void)
++{
+ 	tg_pin_put(&tg.reset, 0);
+ 	tg_pin_set_func(&tg.reset, PIN_FUNC_OUTPUT);
+ 	tg_sleep_ms(10);
+@@ -1068,6 +1066,20 @@
+ 			return false;
+ 		}
+ 	}
++	return true;
++}
++
++/* fts_system_reset (fts_lib/ftsCore.c:66-108) with a reset gpio: low,
++ * 10 ms, high, wait for CONTROLLER_READY. */
++static bool
++tg_reset_and_ready(unsigned *logged)
++{
++	static const uint8_t cmd[1] = { FTM5_CMD_FIFO_READ };
++	uint64_t t0;
++
++	if (!tg_reset_pulse()) {
++		return false;
++	}
+ 	t0 = tg_now_us();
+ 	while (tg_now_us() - t0 < 1500000u) {   /* GENERAL_TIMEOUT is not known: 1.5 s, GUESS */
+ 		uint8_t e[FTM5_EVENT_SIZE];
+@@ -1133,8 +1145,16 @@
+ 		tg_pin_set_pud(&tg.cs, 0);
+ 		tg_pin_set_pud(&tg.reset, 0);
+ 		printf("SWEET TOUCH: sweettouchcs=1: pads PUD := 0, reset pulse before the identify\n");
+-		tg.reset_done = tg_reset_and_ready(&logged);
+-		printf("SWEET TOUCH: reset before identify: %s\n", tg.reset_done ? "controller-ready event seen" : "no ready event");
++		if (tg.oriole_spi_order) {
++			/* Observed prekernel sequence: ID command precedes FIFO read. */
++			if (!tg_reset_pulse()) {
++				return;
++			}
++			printf("SWEET TOUCH: Oriole reset settled; ID before first FIFO read\n");
++		} else {
++			tg.reset_done = tg_reset_and_ready(&logged);
++			printf("SWEET TOUCH: reset before identify: %s\n", tg.reset_done ? "controller-ready event seen" : "no ready event");
++		}
+ 		if (tg.reset_release_failed) {
+ 			return;
+ 		}

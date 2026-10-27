@@ -63,6 +63,15 @@ but the temporary boot again read `00 00`. Compare the remaining clock, pad,
 rail and SPI transaction sequence with the successful isolated prekernel
 probe. In particular, measure whether the two touch rails remain enabled at
 the XNU identify point before attributing `00 00` to a software SPI difference.
+**Read from source, 2026-10-27 (untested candidate):** the isolated probe
+issues the ID command before its first FIFO read, whereas patches through
+0111 poll FIFO for a ready event before identifying. Patch 0112 changes only
+the Oriole identify path to pulse and settle reset, then issue ID first.
+The identify-only profile still cannot enable scanning. Its local quality
+gate passed at `778970c+dirty`; the exact temporary-boot image SHA-256 is
+`c6ce44d277ad39bb7bed92dacca6ac00eb1e2296681baebe9539eea27e325f3c`.
+No Pixel 6 boot result exists for 0112 yet, so it establishes no improvement
+in chip identification or iOS interaction.
 The Android factory reset also erased the iOS root in
 `userdata`, so an iOS boot needs a freshly verified root image and a new
 user confirmation immediately before any flash.
