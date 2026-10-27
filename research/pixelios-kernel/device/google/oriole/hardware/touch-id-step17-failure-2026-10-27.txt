@@ -1,0 +1,34 @@
+Observed on Pixel 6 (oriole), 2026-10-27 PDT; seventh bounded temporary fastboot boot.
+No partition was written. Image SHA-256:
+bbdb6228d403cb7b448835302c0a3d78090b183fa4e8d962397a0351ee886e17
+Source commit: ba197e3 (with later documentation-only commits).
+
+Selected, sanitized diagnostics from one complete local USB capture:
+
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value000000AC
+ORIOLE TOUCH RAIL reg0000005D value000000BC
+ORIOLE TOUCH SET MISMATCH pa10C400C4 got00000000
+ORIOLE TOUCH SET EXPECTED pa10C400C4 want00000001
+ORIOLE TOUCH PREP FAILED step00000011 pa00000000
+ORIOLE TOUCH RESTORE MISMATCH pa10C400C4 got00000001
+ORIOLE TOUCH RESTORE EXPECTED pa10C400C4 old00000000
+ORIOLE TOUCH RAIL reg0000005D value0000003C
+ORIOLE TOUCH RAIL reg0000005C value0000002C
+ORIOLE TOUCH ID first0000000A cleanup0000000F
+ORIOLE TOUCH ID attempts00000000 restored00000002
+ORIOLE TOUCH ID FAILED
+INVENTORY report complete
+
+Observed: SPI_PREPARE step 17 failed when reset-bank DAT at 0x10c400c4
+immediately read 0 after requesting 1. SHARED_RESTORE immediately read 1
+after requesting the original 0, so GPIO restoration is unverified. The
+probe sent no SPI ID command. Both PMIC rails read back at their exact initial
+disabled values. The device subsequently returned to Android and was recognized
+over ADB.
+
+Guess: alternating DAT readbacks could be a delayed physical pin level, a
+posted write, or another GPIO/register behavior. This capture cannot distinguish
+those explanations. It does not establish a working touch controller, gestures,
+or app opening. Do not bypass the readback gate or repeat this writer unchanged.
