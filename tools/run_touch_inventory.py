@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture the read-only Pixel 6 touch dump around one verified temporary boot."""
+"""Capture one exact Pixel 6 touch inventory or bounded chip-ID temporary boot."""
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,6 +30,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--seconds', type=int, default=180,
                         help='bounded USB capture duration, 30..300 seconds')
+    parser.add_argument('--touch-id', action='store_true',
+                        help='run the separately pinned hardware-writing chip-ID profile')
     args = parser.parse_args()
     if not 30 <= args.seconds <= 300:
         parser.error('--seconds must be 30..300')
@@ -40,7 +42,7 @@ def main():
         raise SystemExit('Another inventory USB gadget is already connected')
 
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-    folder = ROOT / 'private/touch-inventory' / stamp
+    folder = ROOT / ('private/touch-id-inventory' if args.touch_id else 'private/touch-inventory') / stamp
     folder.mkdir(parents=True, mode=0o700)
     raw = folder / 'usb.log'
     status = folder / 'capture.txt'
@@ -60,7 +62,8 @@ def main():
                 raise SystemExit(f'USB capture did not arm; see {status}')
             try:
                 boot = subprocess.run([sys.executable, str(ROOT / 'tools/boot_inventory.py'),
-                                       '--touch'], check=False, timeout=120)
+                                       '--touch-id' if args.touch_id else '--touch'],
+                                      check=False, timeout=120)
             except subprocess.TimeoutExpired:
                 raise SystemExit('Verified temporary boot helper timed out; inspect phone before retrying') from None
             if boot.returncode:
@@ -79,9 +82,10 @@ def main():
                 except subprocess.TimeoutExpired:
                     capture.kill()
                     capture.wait()
-    subprocess.run([sys.executable, str(ROOT / 'tools/report_touch_inventory.py'),
+    subprocess.run([sys.executable, str(ROOT / ('tools/report_touch_id.py' if args.touch_id else
+                                              'tools/report_touch_inventory.py')),
                     str(raw), '--out', str(report)], check=True)
-    print(f'Complete read-only touch inventory: {report}')
+    print(f'Touch {"ID" if args.touch_id else "read-only"} inventory report: {report}')
 
 
 if __name__ == '__main__':
