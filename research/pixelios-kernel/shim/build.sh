@@ -631,6 +631,7 @@ $GRO -DNULL_TEST -Iout -include out/board_config_n0.h -o out/gpurailon_null_host
 gcc -O1 -Wall -Wextra -Werror -I. -Iout -include out/board_config.h -o out/touch_host_test touch_host_test.c && ./out/touch_host_test
 gcc -O1 -Wall -Wextra -Werror -DTOUCH_RAILS_WRITE -I. -Iout -include out/board_config.h -o out/acpm_host_test acpm_host_test.c && ./out/acpm_host_test
 gcc -O1 -Wall -Wextra -Werror -I. -Iout -include out/board_config.h -o out/oriole_touch_rail_cycle_host_test oriole_touch_rail_cycle_host_test.c && ./out/oriole_touch_rail_cycle_host_test
+gcc -std=c11 -O1 -Wall -Wextra -Werror -I. -o out/orioletouchid_flow_host_test orioletouchid_flow.c orioletouchid_flow_host_test.c && ./out/orioletouchid_flow_host_test
 for v in 0 1; do gcc -O1 -Wall -Wextra -Werror -DRT_VERIFIED=$v -I. -Iout -include out/board_config.h -o out/rails_host_test$v rails_host_test.c && ./out/rails_host_test$v; done
 # ACPM DVFS client (docs/research/25): the fake channel-1 APM; the read-only build has no request tests (no acpm_dvfs_set there).
 # Every check below FAILS the build (a plain `a && b && echo PASS` chain only skips the PASS line under set -e: review dvfs-1 M1).
