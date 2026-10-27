@@ -1,0 +1,22 @@
+Observed on Pixel 6 (oriole), 2026-10-27 PDT. One temporary `fastboot boot` of
+the 0112 ID-before-FIFO image; no partition write. Device identity and
+unlocked state were checked in Fastboot. The exact boot image SHA-256 was:
+c6ce44d277ad39bb7bed92dacca6ac00eb1e2296681baebe9539eea27e325f3c
+
+Selected XNU USB-network log lines, with timestamps and identifiers omitted:
+
+SWEET TOUCH: cmu: clock sequence done
+SWEET TOUCH: poke 0 m 0x10c00640 mask 0x10: 0x10 -> wrote 0 -> read back 0
+SWEET TOUCH: poke 2 m 0x10c0180c mask 0xf: 0 -> wrote 0x5 -> read back 0x10005
+SWEET TOUCH: USI_CON=0x1 (bit0 = reset), USI mode now 0x2
+SWEET TOUCH: SPI regs after init:  ch=0 clk=0 mode=0 status=0 fb=0x1
+SWEET TOUCH: diag after setup: USI_CON=0 USI_OPTION=0x1 USI mode=0x2
+SWEET TOUCH: pin reset bank 0x10c400c0[0] func=0x1 dat=1 pud=0
+SWEET TOUCH: Oriole reset settled; ID before first FIFO read
+SWEET TOUCH: identify: reg 0x20000000 = 00 00 00 00, want 36 48 -> no answer
+SWEET TOUCH: phase 1 result: chip did not answer; nothing else is touched
+
+The intended ID-before-FIFO path executed, but the controller still did not
+answer. This falsifies FIFO-before-ID as the sole cause of the 0110/0111
+failure. The XNU rail state at the ID transaction was not measured. No XNU
+touch contact, gesture or iOS app launch was observed in this test.
