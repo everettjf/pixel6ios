@@ -20,6 +20,7 @@ static uint64_t ticks;
 static int force_timeout, uncertain_enable26, restore_error25;
 static int disturb_engine_on_reset;
 static int corrupt_quiet_on_reset;
+static int ignore_engine_writes_in_usi_reset;
 static int live_board_ok, live_ram_ok;
 static enum oti_stage reported_first, reported_cleanup;
 
@@ -42,6 +43,7 @@ static void reset_fake(void)
 	forbidden_reads = tx_n = burst_n = rx_pos = reset_n = 0;
 	force_timeout = uncertain_enable26 = restore_error25 = 0;
 	disturb_engine_on_reset = 1; corrupt_quiet_on_reset = 0;
+	ignore_engine_writes_in_usi_reset = 0;
 	live_board_ok = live_ram_ok = 1;
 	rail25 = 0x2c; rail26 = 0x3c; ticks = 1;
 	reported_first = reported_cleanup = OTI_OK;
@@ -134,6 +136,13 @@ int try_write32(uintptr_t pa, uint32_t v)
 		/* RX consumption advances the burst; reset drains any remaining FIFO. */
 		rx_pos = 0;
 	}
+	/* Hypothetical hardware behavior: a bus write ACKs while USI reset is
+	 * asserted, but the SPI engine ignores the new value.  Keep this opt-in;
+	 * the real Oriole diagnostic has not identified the failed register yet. */
+	if (ignore_engine_writes_in_usi_reset &&
+	    (value(USI + TP_USI_CON) & TP_USI_CON_RESET) &&
+	    (pa == SPI + TP_SPI_FB_CLK || pa == SPI + TP_SPI_CH_CFG))
+		return writes == apply_fail_write_at ? 0 : 1;
 	seed(pa, v);
 	return writes == apply_fail_write_at ? 0 : 1;
 }
@@ -273,6 +282,10 @@ int main(void)
 	reset_fake(); corrupt_quiet_on_reset = 1;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
 	assert(reported_cleanup == OTI_ENGINE_RESTORE && rail25 == 0x2c && rail26 == 0x3c);
+	reset_fake(); ignore_engine_writes_in_usi_reset = 1;
+	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0);
+	assert(reported_first == OTI_SPI_PREPARE && reported_cleanup == OTI_ENGINE_RESTORE);
+	assert(rail25 == 0x2c && rail26 == 0x3c && tx_n == 0 && burst_n == 0);
 	reset_fake(); live_board_ok = 0;
 	assert(oriole_touch_id_run(1, 0x80000000u, 0x1000u) != 0 &&
 	       reported_first == OTI_PREFLIGHT && writes == 0);
