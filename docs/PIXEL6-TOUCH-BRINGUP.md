@@ -84,11 +84,10 @@ transaction. Keep 0112 unchanged for its first hardware test. If it still
 returns `00 00`, capture the CMU mux/divider state at the ID point and both
 touch-rail readbacks before changing another clock or power writer.
 
-**Observed on Pixel 6 Android, 2026-10-27:** after the prior temporary XNU
-boot returned to Android, read-only `getevent -lp` showed an `fts` direct
-touchscreen with 10 slots and X/Y ranges `0..1079` / `0..2399`. These match
-the current XNU driver's contact count and raw coordinate range. See the
-[sanitized input inventory](../research/pixelios-kernel/device/google/oriole/hardware/android-touch-input-2026-10-27.txt).
+**Observed on Pixel 6 Android, 2026-10-26 and repeated 2026-10-27:** read-only
+`getevent -lp` showed an `fts` direct touchscreen with 10 slots and X/Y
+ranges `0..1079` / `0..2399`. These match the current XNU driver's contact
+count and raw coordinate range. See the [sanitized input inventory](../research/pixelios-kernel/device/google/oriole/hardware/android-touch-2026-10-26.txt).
 This does not establish that XNU receives any touch event.
 
 The Android factory reset also erased the iOS root in
