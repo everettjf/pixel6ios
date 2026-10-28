@@ -1,0 +1,29 @@
+--- a/bsd/dev/sweet_ftm5.h
++++ b/bsd/dev/sweet_ftm5.h
+@@ -97,6 +97,7 @@
+ ftm5_parse_event(const uint8_t *e)
+ {
+ 	struct ftm5_ev r = { FTM5_IGNORED, 0, 0, 0 };
++	unsigned event_class = e[0] & 0xf0u;
+ 	unsigned type = e[1] & 0x0fu;
+ 
+ 	if (e[0] == FTM5_EVT_NOEVENT) {
+@@ -107,14 +108,16 @@
+ 		r.kind = FTM5_READY;
+ 		return r;
+ 	}
+-	if (e[0] != FTM5_EVT_ENTER_POINT && e[0] != FTM5_EVT_MOTION_POINT && e[0] != FTM5_EVT_LEAVE_POINT) {
++	/* The low nibble varies in live FIFO data (0x17/0x27); the downstream
++	 * interrupt handler dispatches point events by their high nibble. */
++	if (event_class != 0x10u && event_class != 0x20u && event_class != 0x30u) {
+ 		return r;
+ 	}
+ 	r.id = e[1] >> 4;
+ 	if (r.id >= FTM5_TOUCH_ID_MAX) {
+ 		return r;           /* "Invalid touch ID", fts.c:3063: not reported */
+ 	}
+-	if (e[0] == FTM5_EVT_LEAVE_POINT) {
++	if (event_class == 0x30u) {
+ 		r.kind = FTM5_UP;   /* every known type releases (fts.c:3232-3250) */
+ 		return r;
+ 	}

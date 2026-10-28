@@ -808,6 +808,10 @@ awk '/^\+\+\+ b\/bsd\/dev\/sweet_keys_gs101_debounce.h$/{f=1;next} f&&/^diff --g
 gcc -O1 -Wall -Wextra -Werror -I. -o out/keys_gs101_host_test keys_gs101_host_test.c && ./out/keys_gs101_host_test
 # pure FTM5 protocol header of the Pixel 6a touch driver: extracted from xnu patch 0088 so the test sees the kernel's bytes
 awk '$0=="+++ b/bsd/dev/sweet_ftm5.h"{on=1;next} on&&/^--- /{exit} on&&/^@@/{next} on&&/^\+/{print substr($0,2)}' ../xnu/patches/0088-sweet-gs101-touch.patch > out/sweet_ftm5.h
+mkdir -p out/bsd/dev
+cp out/sweet_ftm5.h out/bsd/dev/sweet_ftm5.h
+patch -s -d out -p1 < ../xnu/patches/0126-sweet-ftm5-point-class-decode.patch
+cp out/bsd/dev/sweet_ftm5.h out/sweet_ftm5.h
 gcc -O1 -Wall -Wextra -Werror -Iout -o out/ftm5_host_test ftm5_host_test.c && ./out/ftm5_host_test
 # runtime MMIO poke parser of the same driver (xnu patch 0093, new-file hunk)
 awk '$0=="+++ b/bsd/dev/sweet_touch_poke.h"{on=1;next} on&&/^diff --git/{exit} on&&/^@@/{next} on&&/^\+/{print substr($0,2)}' ../xnu/patches/0093-sweet-touch-poke.patch > out/sweet_touch_poke.h

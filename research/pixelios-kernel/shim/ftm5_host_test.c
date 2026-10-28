@@ -59,6 +59,21 @@ main(void)
 	mk(e, FTM5_EVT_ENTER_POINT, 3, FTM5_TYPE_FINGER, 1079, 2399, 0);
 	r = ftm5_parse_event(e);
 	assert(r.kind == FTM5_DOWN && r.id == 3 && r.x == 1079 && r.y == 2399);
+	/* Real Oriole FIFO emitted 0x17/0x27 while a finger was moving. */
+	mk(e, 0x17, 2, FTM5_TYPE_FINGER, 452, 1169, 0);
+	r = ftm5_parse_event(e);
+	assert(r.kind == FTM5_DOWN && r.id == 2 && r.x == 452 && r.y == 1169);
+	mk(e, 0x27, 2, FTM5_TYPE_FINGER, 508, 1000, 0);
+	r = ftm5_parse_event(e);
+	assert(r.kind == FTM5_DOWN && r.id == 2 && r.x == 508 && r.y == 1000);
+	{
+		const uint8_t captured_enter[FTM5_EVENT_SIZE] = { 0x17, 0x21, 0xc4, 0x11, 0x49, 0x53, 0x4b, 0x00 };
+		const uint8_t captured_move[FTM5_EVENT_SIZE] = { 0x27, 0x21, 0xfc, 0x21, 0x3e, 0x40, 0x4b, 0x00 };
+		r = ftm5_parse_event(captured_enter);
+		assert(r.kind == FTM5_DOWN && r.id == 2 && r.x == 452 && r.y == 1169);
+		r = ftm5_parse_event(captured_move);
+		assert(r.kind == FTM5_DOWN && r.id == 2 && r.x == 508 && r.y == 994);
+	}
 
 	/* every coordinate bit survives the packing (12-bit x, 12-bit y) */
 	mk(e, FTM5_EVT_MOTION_POINT, 9, FTM5_TYPE_GLOVE, 0xabc, 0x123, 0);
@@ -74,6 +89,8 @@ main(void)
 		r = ftm5_parse_event(e);
 		assert(r.kind == FTM5_UP && r.id == 7);
 	}
+	mk(e, 0x37, 2, FTM5_TYPE_FINGER, 10, 20, 0);
+	assert(ftm5_parse_event(e).kind == FTM5_UP);
 
 	/* palm and grip cancel the contact; hover and unknown types are ignored */
 	mk(e, FTM5_EVT_ENTER_POINT, 2, FTM5_TYPE_PALM, 100, 100, 0);
@@ -102,8 +119,8 @@ main(void)
 	assert(ftm5_parse_event(e).kind == FTM5_IGNORED);
 	mk(e, 0xF3, 0, 2, 0, 0, 0);    /* error: hard fault */
 	assert(ftm5_parse_event(e).kind == FTM5_IGNORED);
-	mk(e, 0x14, 0, 1, 0, 0, 0);    /* right class nibble, wrong low nibble */
-	assert(ftm5_parse_event(e).kind == FTM5_IGNORED);
+	mk(e, 0x14, 0, 1, 0, 0, 0);    /* point-class dispatch ignores the low nibble */
+	assert(ftm5_parse_event(e).kind == FTM5_DOWN);
 
 	/* scale: the panel is 1079x2399 raw onto 1080x2400, so it is the identity */
 	for (int v = 0; v <= 1079; v++) {
