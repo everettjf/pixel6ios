@@ -23,7 +23,7 @@ flowchart TD
 |---|---|---|
 | 从零构建 | `tools/build-oriole-fbsnap-local.sh` 引用忽略的 `private/fbsnap-work/`、对象归档、ADT 和 `artifacts/` 配方；固定 SHA-256 是安全门禁，不能随意去掉。 | 提供有来源、版本和校验的输入获取/自行构建方法；在全新机器上无作者私有目录完成构建，并与真机验收产物比对。需要区分全源码编译和当前对象 relink。 |
 | iOS 根镜像 | 当前可运行的 HFSX 根镜像不在仓库。嵌套 README 曾引用 `research/pixelios-kernel/tools/build-ios-root.sh`，但该脚本在本仓库不存在；单独的 [pixelios-userland](https://github.com/PixOS-Project/pixelios-userland) 项目有构建器，尚未在本仓库形成经 Pixel 6 验证的一体化流程。 | 纳入经许可审查的公开构建配方，用户自行提供并校验所需 iOS 16.7.16 输入；生成器验证产品/build、文件系统格式、分区容量与最终哈希。不得把 Apple 根镜像当作仓库附件。 |
-| 设备预检与安装器 | 现有成功试验依赖单台 `oriole`、特定固件/bootloader/槽位、先前刷入的 `userdata` 和人工核对；没有对陌生手机可直接运行的安装器。 | 增加只读预检与 dry-run：唯一设备、`product=oriole`、已解锁、固件/槽位允许列表、`userdata` 容量、镜像哈希、充电/连接状态；任何未知值都停止。把清空 `userdata` 与 `fastboot boot` 分成两个明确步骤。 |
+| 设备预检与安装器 | 单机试验已有 `tools/preflight_oriole_touch_gui.py`：只读校验固定的本地镜像哈希、唯一已记录设备、`product=oriole`、解锁状态、私有固件基线、槽位和分区容量。它绑定作者的私有镜像和设备记录，尚未在本轮真机执行，也不是面向陌生设备的安装器。 | 扩展为公开的只读预检与 dry-run：可审查的固件允许列表、自建镜像 provenance、充电/连接状态；任何未知值都停止。把清空 `userdata` 与 `fastboot boot` 分成两个明确步骤。 |
 | 实体交互与稳定性 | 当前主屏依赖 `sweethidtest=1300` 的软件按键；`sweetfbsnap=1` 也是诊断开关。实体触摸、应用启动和长时间运行未验证。 | 用无合成输入的配置验证锁屏到主屏、触摸坐标/多点/按键、打开一个系统应用；再测重复启动、内存压力、温度、电池与异常恢复。不要把诊断配置发布为日用配置。 |
 | 恢复路径 | `userdata` 为 iOS 时 Android Recovery 报无法加载 Android。当前试验自动返回 Recovery，并没有验证面向陌生设备的一套完整恢复流程。 | 对支持的固件逐台确认官方恢复材料、版本/防回滚条件和数据清空范围；写出从 panic、Recovery、fastboot 返回可启动 Android 的实测步骤，并由非作者操作一次。 |
 | 发行与支持范围 | 只在一台 Pixel 6 的一个固件基线上验证；没有跨设备版本矩阵或公开产物发布策略。 | 在第二台 `oriole` 与 fresh clone 主机上独立复现，发布兼容矩阵、源码/镜像 provenance、已知故障、卸载流程和更新策略；标明仍不支持的设备与功能。 |

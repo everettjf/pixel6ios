@@ -220,6 +220,13 @@ uncertain ACPM state or earlier restart can prevent or preempt restoration.
 The phone was in Android at the time of this update, and this image has **not**
 demonstrated a physical iOS swipe, app launch or networking. The reviewed
 source is on `main`; the device result remains pending.
+Before another trial, `python3 tools/preflight_oriole_touch_gui.py --offline`
+checks the two exact local images. With the phone attached in Fastboot, omit
+`--offline` to additionally check that exactly the recorded unlocked `oriole`
+is present, its bootloader and slot match the private baseline, and its boot
+and userdata partition sizes are sufficient. This preflight uses only
+`fastboot devices` and `getvar`; it never boots, flashes, or erases. A passing
+preflight is not consent to flash `userdata` or evidence that the GUI works.
 
 1. **Extend the verified touch path to a full iOS boot:** the synchronized 0118 test established physical FIFO and HID events. The diagnostic's 60-second rail window is too short for the previously observed iOS startup. A separate, bounded GUI profile must keep the controller powered through startup, retain cleanup on failure/restart, and preserve a no-touch fallback. Have the hardware-writing change independently reviewed before a temporary boot.
 2. **Verify GUI input:** after a freshly approved iOS root restore, test a physical lock-screen swipe, one app icon tap, and a return to Home. Capture both physical screen evidence and USB touch/HID logs; kernel coordinates alone do not establish that SpringBoard accepted a gesture.
