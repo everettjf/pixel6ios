@@ -10,6 +10,7 @@ import datetime
 import json
 from pathlib import Path
 import plistlib
+import re
 import socket
 import signal
 import threading
@@ -54,12 +55,16 @@ class TouchPathObserver:
         self.hid_events = 0
         self.gui_touch_events = 0
         self.gui_hid_events = 0
+        self.irq_activity_samples = 0
+        self.gui_irq_activity_samples = 0
+        self.irq_error_samples = 0
         self.touch_service_open = None
         self.buttons_service_open = None
         self.scan_started_at = None
         self.gui_ready_at = None
         self.first_gui_touch_at = None
         self.first_gui_hid_at = None
+        self.first_gui_irq_at = None
         self.scan_ended_at = None
         # Host receive timestamps, not device event timestamps. Keep the most
         # recent observations so a late gesture is not lost to startup noise.
@@ -91,6 +96,23 @@ class TouchPathObserver:
                 self.scan_ended_at = received_at
             self.window_ended |= b'scan window ended' in line or b'LDO26M restored' in line
             active = self.scanning and self.springboard and self.backboardd and not self.window_ended
+            if b'SWEET TOUCH: IRQ sample:' in line:
+                values = re.search(rb'\bedges=(\d+)\s+polls=\d+\s+events=(\d+)\s+errors=(\d+)\b', line)
+                if values:
+                    edges, events, errors = map(int, values.groups())
+                    if errors:
+                        self.irq_error_samples += 1
+                    if edges or events:
+                        self.irq_activity_samples += 1
+                        if active:
+                            self.gui_irq_activity_samples += 1
+                            if self.first_gui_irq_at is None:
+                                self.first_gui_irq_at = received_at
+                            self.event_observations.append({
+                                'received_utc': received_utc,
+                                'since_gui_seconds': round(received_at - self.gui_ready_at, 3),
+                                'path': 'irq', 'line': line.decode('utf-8', 'replace')[:200],
+                            })
             if b'SWEET TOUCH: ev ' in line and any(b'-> kind ' + str(k).encode() + b' ' in line for k in (1, 2, 3)):
                 self.touch_events += 1
                 self.event_observations.append({
@@ -125,6 +147,7 @@ class TouchPathObserver:
             'scan_to_gui_seconds': elapsed(self.scan_started_at, self.gui_ready_at),
             'gui_to_first_touch_seconds': elapsed(self.gui_ready_at, self.first_gui_touch_at),
             'gui_to_first_hid_seconds': elapsed(self.gui_ready_at, self.first_gui_hid_at),
+            'gui_to_first_irq_seconds': elapsed(self.gui_ready_at, self.first_gui_irq_at),
             'gui_to_scan_end_seconds': elapsed(self.gui_ready_at, self.scan_ended_at),
         }
 
@@ -263,6 +286,9 @@ def main():
               'touch_events':touch_path.touch_events, 'hid_events':touch_path.hid_events,
               'gui_touch_events':touch_path.gui_touch_events,
               'gui_hid_events':touch_path.gui_hid_events,
+              'irq_activity_samples':touch_path.irq_activity_samples,
+              'gui_irq_activity_samples':touch_path.gui_irq_activity_samples,
+              'irq_error_samples':touch_path.irq_error_samples,
               'touch_timing':touch_path.timing(),
               'event_observations':list(touch_path.event_observations),
               'network_log_milestones':network_path.result(),

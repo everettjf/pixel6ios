@@ -51,6 +51,7 @@ class TouchPathTests(unittest.TestCase):
             'scan_to_gui_seconds': 90,
             'gui_to_first_touch_seconds': 5,
             'gui_to_first_hid_seconds': 5,
+            'gui_to_first_irq_seconds': None,
             'gui_to_scan_end_seconds': 2310,
         })
         self.assertEqual((observer.gui_touch_events, observer.gui_hid_events), (1, 1))
@@ -89,6 +90,25 @@ class TouchPathTests(unittest.TestCase):
         self.assertEqual(len(observer.event_observations), 512)
         self.assertIn('at 8,1', observer.event_observations[0]['line'])
         self.assertIn('at 519,1', observer.event_observations[-1]['line'])
+
+    def test_irq_activity_is_separate_from_touch_and_hid(self):
+        observer = TouchPathObserver()
+        observer.feed(b'SWEET TOUCH: scanning, 1080x2400\n'
+                      b'SWEET TOUCH: IRQ sample: func=0 dat=1 high=100 low=1 edges=1 polls=101 events=2 errors=0\n',
+                      received_at=10)
+        observer.feed(b'exec SpringBoard\nexec backboardd\n', received_at=20)
+        observer.feed(b'SWEET TOUCH: IRQ sample: func=0 dat=1 high=100 low=0 edges=0 polls=100 events=0 errors=0\n'
+                      b'SWEET TOUCH: IRQ sample: func=0 dat=1 high=99 low=1 edges=1 polls=100 events=0 errors=1\n',
+                      received_at=25, received_utc='2026-10-28T17:00:25+00:00')
+        observer.feed(b'SWEET TOUCH: rail hold: 2400-second scan window ended\n'
+                      b'SWEET TOUCH: IRQ sample: func=0 dat=1 high=99 low=1 edges=1 polls=100 events=1 errors=0\n',
+                      received_at=30)
+        self.assertEqual(observer.irq_activity_samples, 3)
+        self.assertEqual(observer.gui_irq_activity_samples, 1)
+        self.assertEqual(observer.irq_error_samples, 1)
+        self.assertEqual((observer.touch_events, observer.hid_events), (0, 0))
+        self.assertEqual(observer.timing()['gui_to_first_irq_seconds'], 5)
+        self.assertEqual(list(observer.event_observations)[0]['path'], 'irq')
 
 
 class NetworkPathTests(unittest.TestCase):
