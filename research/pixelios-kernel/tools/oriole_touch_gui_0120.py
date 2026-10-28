@@ -19,6 +19,10 @@ BASE_ADT_SHA = base.ADT_SHA
 ADT_SHA = 'b85187b0fb3eeec4129c896b508680b27392f2d79ccc24ea95e47e18aa0d4164'
 PAYLOAD_SHA = 'be6cd79bfd186f200b34bdef06d5c53c7b00e983348c86c2d354dd6d7c06acd8'
 PAYLOAD_SIZE = 16716864
+# The selected local AVB image was built at d814166. The shim embeds the Git
+# revision in its pstore marker, so rebuilding from a later commit changes the
+# full-image digest even when the payload remains identical.
+IMAGE_SHA = 'b6b152dfba0228d1adf03339ad09493c5ccc96c2c0e10bcfceeb4d62c1dbfc11'
 TOUCH_ARGS = (' sweettouch=2 sweettouchdelay=2 sweettouchmux=1 '
               'sweettouchclk=3 sweettouchcs=1 '
               'sweettouchrailhold=1 sweettouchwindow=1200 sweettouchpoke=m:10c00640=10=0;d:100;m:10c0180c=f=5;')
@@ -91,6 +95,7 @@ def main():
         check(a.check.read_bytes())
     else:
         image = a.check_image.read_bytes()
+        require_hash(image, IMAGE_SHA, 'complete AVB boot image')
         if image[:8] != b'ANDROID!' or struct.unpack_from('<I', image, 40)[0] != 4:
             raise SystemExit('Oriole GUI touch: expected Android v4 image')
         kernel_size, ramdisk_size = struct.unpack_from('<II', image, 8)
