@@ -1,0 +1,20 @@
+Pixel 6 (oriole), temporary fastboot boot, XNU touch diagnostic 0115.
+Observation date: 2026-10-27 (America/Los_Angeles).
+Boot image SHA-256: a6e3013daf3fe848e3680dbbb474a2f2299b28b2cdc79fe0b3b1025dc3292caa
+Source: USB ECM live log captured on the attached Mac. Device identifiers omitted.
+
+SWEET TOUCH: identify: reg 0x20000000 = 00 00 00 00, want 36 48 -> no answer, MISO low
+SWEET TOUCH: ACPM snapshot: tab=0x9210 n=15
+SWEET TOUCH: ACPM snapshot: ch=2 type=1 qlen=5 esz=16
+SWEET TOUCH: ACPM snapshot: req=3/3 rsp=3/3 empty
+SWEET TOUCH: ACPM rail read: reg 0x5c value=0x2c enabled=0
+SWEET TOUCH: ACPM rail read: reg 0x5d value=0x3c enabled=0
+SWEET TOUCH: phase 1 result: chip did not answer; nothing else is touched
+
+Interpretation: two bounded channel-2 PMIC reads succeeded at the XNU
+touch-ID point. Bit 7 of each returned value was clear; LDO25M and LDO26M
+were disabled then. This explains the zero chip-ID response as a likely
+power prerequisite failure, but does not by itself identify which step
+turned the rails off after the prekernel rail-hold check. No PMIC register
+write occurred in this XNU diagnostic. No physical touch, gesture or app
+interaction was observed.

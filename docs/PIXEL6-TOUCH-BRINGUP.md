@@ -130,7 +130,7 @@ ranges `0..1079` / `0..2399`. These match the current XNU driver's contact
 count and raw coordinate range. See the [sanitized input inventory](../research/pixelios-kernel/device/google/oriole/hardware/android-touch-2026-10-26.txt).
 This does not establish that XNU receives any touch event.
 
-**Read from source, 2026-10-27 (0115 candidate):**
+**Observed on Pixel 6, 2026-10-27 (0115):**
 [patch 0115](../research/pixelios-kernel/xnu/patches/0115-oriole-touch-pmic-rail-read.patch)
 adds one bounded ACPM channel-2 attempt after a failed Oriole ID read. It
 checks the exact observed descriptor, empty queues and pointer offsets, then
@@ -143,15 +143,25 @@ SHA-256 is
 `0e4e24b3ff98fa0f4ef6a813b98043de83c13564b1dba1ab408901daae6fb52e`;
 the payload SHA-256 is
 `6348489fad23c85f17c4123c5b3eca4069de1e2dd41564621ce58a49537b412a`.
-The host build and payload guard pass, but this candidate has **no hardware
-rail result yet**. A response or timeout on the exact phone is the next
-gate before changing rail control or the SPI driver.
+The host build and payload guard passed. The first boot attempt used an
+unwrapped 17 MB image and remained in Fastboot; the successful attempt used
+the same payload in a 64 MB AVB-wrapped image, SHA-256
+`a6e3013daf3fe848e3680dbbb474a2f2299b28b2cdc79fe0b3b1025dc3292caa`.
+The [sanitized hardware capture](../research/pixelios-kernel/device/google/oriole/hardware/xnu-touch-rail-read-2026-10-27.txt)
+shows two successful PMIC reads at the failed XNU ID point: LDO25M `0x2c`
+and LDO26M `0x3c`, both with enable bit 7 clear. The XNU-time rails are
+therefore off at that moment. The prekernel rail-hold source requires on
+readbacks before handing off to XNU, but its earlier screen output was not
+captured in this USB log; where the state changed remains unmeasured.
+The next gate is a reviewed handoff that measures or enables them at the
+XNU touch init point, verifies on readbacks, and restores them on any failed
+ID or later touch initialization. Do not change the SPI transaction first.
 
 The Android factory reset also erased the iOS root in
 `userdata`, so an iOS boot needs a freshly verified root image and a new
 user confirmation immediately before any flash.
 
-1. **Resolve the XNU ID failure without a storage flash:** the 0113 run with Android-formatted `userdata` captured the same `00 00` failure after ID-before-FIFO, while the post-settle CMU mux/divider and GPIO reset/mux states read as intended. Measure the two touch rails at the XNU ID point using a separately reviewed diagnostic; compare with the successful isolated prekernel probe before modifying another hardware writer. A root-mount failure later in boot does not prevent this narrow test.
+1. **Resolve the XNU ID failure without a storage flash:** 0115 measured both touch rails disabled at the XNU ID point, explaining the zero response as a likely power prerequisite failure. Add a separately reviewed, fail-closed XNU rail-ownership path and confirm both on readbacks immediately before ID. Restore both rails if ID or later initialization fails. A root-mount failure later in boot does not prevent this narrow test.
 2. **Enable touch events after a verified ID:** retain the separate rail-handoff and identify-only profiles. Only after ID and FIFO behavior are established should a separately reviewed profile enable scanning and verify physical down/up plus coordinate scaling. Preserve the no-touch profile as a fallback.
 3. **Observed iOS behavior:** restoring an iOS root to `userdata` requires a freshly verified image and new confirmation immediately before flashing. Then verify a physical swipe from lock screen to home screen, tap Settings, and return Home. A visible app launch and matching input logs are required before claiming interaction works.
 
