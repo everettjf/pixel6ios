@@ -15,7 +15,9 @@ int main(int argc, char **argv)
 	assert(f);
 	assert(fseek(f, 0, SEEK_END) == 0);
 	len = ftell(f);
-#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_GUI_0121
+#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETROUTE_0124
+    assert(len == 16730160L);
+#elif defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_GUI_0121)
     assert(len == 16713664L);
 #elif defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_GUI)
     assert(len == 16716864L);

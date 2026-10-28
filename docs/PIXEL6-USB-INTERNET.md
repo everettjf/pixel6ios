@@ -45,3 +45,9 @@ Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kern
 - **离线模拟：** 用与 0122 相同的 ADT 和命令行，另加 `sweetnetroute=1` 构造候选 payload；QEMU 运行 12 秒。候选与 0122 基线显示完全相同的 `SWEET EARLY 1` 至 `SWEET EARLY 20` 日志，二者均返回 `incomplete_decode`。QEMU 的 `virt` 平台不模拟 Pixel 6 的实际 USB 和网卡，不能由此推断默认路由、断线清理或互联网访问可用。候选 payload SHA-256 为 `ac57f6084e49200079fc932433bef4bcaeca1da4a9c37cd02555725b8fd00e8f`，留在忽略目录，未刷写或启动真机。
 - **导入差异的定位：** 旧归档 `route.o` 的 DWARF 记录编译器为 Apple clang 15；本地配方使用 Apple clang 21。用同一配方重编译**未加 0123 的基线 `route.c`**，也得到 `_memset` 而不是旧归档的 `___memset_chk`。两者都存在于 0122 已链接内核的全局符号表；因此此差异与新路由函数无关，但仍需审核替换对象的运行时契约。
 - **可复现门禁：** `python3 tools/relink-oriole-netroute-xnu-0123.py` 检查固定输入哈希、在临时目录里重放 0123 补丁、重编译两个替换对象、核对对象导入和导出差异、重链接并审计段布局、符号集和最终内核哈希。它还验证既有 0123 GUI 触摸配置及 ADT，追加唯一的 `sweetnetroute=1`，重新生成相同哈希的 payload。本机分别输出 `OFFLINE RELINK PASS f68406db…` 和 `OFFLINE PAYLOAD PASS ac57f608…`。脚本只写入忽略的 `private/`，不操作手机。当前手机不在可识别的 Fastboot/ADB 状态，仍需真机临时启动和路由、触摸、联网结果。
+
+## 0124 本地临时镜像（未真机启动）
+
+- **本地构建：** 独立的 `oriole_touch_netroute_0124.py` 配置只接受 payload SHA-256 `ac57f6084e49200079fc932433bef4bcaeca1da4a9c37cd02555725b8fd00e8f`，内核 SHA-256 `f68406db756901338eedec463cec3bf54c063f56c817c8fb5173398fb89a89ef`，并核对触摸 ADT、启动参数和完整 AVB 镜像。`shim/build.sh` 的单独选项使用新 payload 长度 `16730160` 和内核末端 `0xfffffe000872c000` 的运行时边界；旧配置继续使用原有长度和末端地址。构建时 C 端 payload guard 的正例与截断反例均通过。
+- **本地产物：** 完整镜像留在忽略目录 `private/oriole-net-route-source/relink-0123/oriole-netroute-0124-avb.img`，大小 64 MiB，SHA-256 `34951d115aa9e933bf1b2b69e8897fcd74779bb048e8693c008c82c178e692fb`。它来自本机已通过离线重链接审计的内核和 payload；镜像校验通过，不代表手机上的路由、触摸、App 或互联网访问已经通过。
+- **等待真机证据：** 电脑目前没有识别到 Fastboot/ADB 设备。恢复连接后，仍须先核对唯一设备为已记录且解锁的 `oriole`、固件/槽位、镜像和 userdata 根镜像哈希，再做临时 `fastboot boot`。不应写其他分区；未经真机路由、触摸和 App 测试，不把该镜像合入稳定安装路径。
