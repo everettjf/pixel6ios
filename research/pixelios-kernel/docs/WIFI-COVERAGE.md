@@ -1,6 +1,9 @@
 # Wi-Fi coverage: how far are we from a working BCM4389 on the Pixel 6a
 
 Goal (user): real Wi-Fi inside the iOS experience (Settings lists networks, a WPA2 join passes traffic), no USB-Ethernet substitute.
+This matrix records **bluejay** hardware work. The current full-iOS trial
+targets **oriole**; no line marked `h` below proves the corresponding Oriole
+hardware path. See [Oriole BCM4389 reference and next evidence gate](research/32-oriole-bcm4389-reference.md).
 Same format as `docs/GPU-COVERAGE.md`: each line is `- [X] ID text`, X = the highest evidence reached:
 `" "` not started, `r` researched from source/RE (rule 5: read from source), `b` built/host-tested (not run on the phone), `h` verified on hardware (add date + run label).
 Percent = items at that level or above. Keep the evidence after the text. Last updated 2026-10-23 (kernel `wip/w3a-wlan-link`).
