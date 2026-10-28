@@ -1,0 +1,23 @@
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -1669,15 +1669,17 @@
+ 			window_s = 60;
+ 		else if (strncmp(window_arg, "1200", sizeof(window_arg)) == 0)
+ 			window_s = 1200;
++		else if (strncmp(window_arg, "2400", sizeof(window_arg)) == 0)
++			window_s = 2400;
+ 		else {
+ 			printf("SWEET TOUCH: invalid bounded scan window; driver not started\n");
+ 			return;
+ 		}
+ 	}
+ 	(void)PE_parse_boot_argn("sweettouchpoke", tg.poke, sizeof(tg.poke));   /* longer values are cut: poke_parse then sees > 240 chars */
+-	/* With a progressing touch thread, begin cleanup 20 minutes after the
+-	 * first rail-enable attempt, independent of the restart timer. */
+-	if (rail_hold == 1 && window_s != 60 && window_s != 1200) {
++	/* With a progressing touch thread, begin cleanup at the selected bounded
++	 * deadline after the first rail-enable attempt, independent of restart. */
++	if (rail_hold == 1 && window_s != 60 && window_s != 1200 && window_s != 2400) {
+ 		printf("SWEET TOUCH: invalid bounded scan window; driver not started\n");
+ 		return;
+ 	}

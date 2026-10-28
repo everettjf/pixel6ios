@@ -67,6 +67,7 @@ ufsroot_cow_pool512_fbsnap_touchid_sysinfo=0
 ufsroot_cow_pool512_fbsnap_touch_gui=0
 ufsroot_cow_pool512_fbsnap_touch_gui_0121=0
 ufsroot_cow_pool512_fbsnap_touch_gui_0122=0
+ufsroot_cow_pool512_fbsnap_touch_gui_0123=0
 preparecheck=0
 coldinit=0
 while [ "$#" -gt 0 ]; do
@@ -100,6 +101,7 @@ while [ "$#" -gt 0 ]; do
 		--xnu-ufsroot-cow-pool512-fbsnap-touch-gui) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touch_gui=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-pool512-fbsnap-touch-gui-0121) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touch_gui=1; ufsroot_cow_pool512_fbsnap_touch_gui_0121=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-pool512-fbsnap-touch-gui-0122) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touch_gui=1; ufsroot_cow_pool512_fbsnap_touch_gui_0121=1; ufsroot_cow_pool512_fbsnap_touch_gui_0122=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
+		--xnu-ufsroot-cow-pool512-fbsnap-touch-gui-0123) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touch_gui=1; ufsroot_cow_pool512_fbsnap_touch_gui_0121=1; ufsroot_cow_pool512_fbsnap_touch_gui_0122=1; ufsroot_cow_pool512_fbsnap_touch_gui_0123=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-resetcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; resetcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
@@ -184,6 +186,7 @@ if [ "$ramprobe" = 1 ]; then
     [ "$ufsroot_cow_pool512_fbsnap_touch_gui" = 0 ] || payload_checker=../tools/oriole_touch_gui_0120.py
     [ "$ufsroot_cow_pool512_fbsnap_touch_gui_0121" = 0 ] || payload_checker=../tools/oriole_touch_gui_0121.py
     [ "$ufsroot_cow_pool512_fbsnap_touch_gui_0122" = 0 ] || payload_checker=../tools/oriole_touch_gui_0122.py
+    [ "$ufsroot_cow_pool512_fbsnap_touch_gui_0123" = 0 ] || payload_checker=../tools/oriole_touch_gui_0123.py
     "$PYTHON" "$payload_checker" --check "$payload" || exit 2
     if [ "$ufsroot_cow_pool512_fbsnap_touchid" = 1 ]; then
         mkdir -p out
