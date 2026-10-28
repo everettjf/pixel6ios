@@ -36,3 +36,4 @@ Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kern
 - **读自源码 / 本地构建：** `0123-oriole-usb-owned-default-route.patch` 是默认关闭的 `sweetnetroute=1` 候选。只有在 `ue0` 地址设置成功、USB 数据接口切到 alt-setting 1 后，它才尝试安装经 `192.168.7.1` 的默认路由；接口下线时仅在路由对象、网卡索引和 IPv4 网关仍匹配时撤销。插入时也核对路由实际选中的网卡。该补丁仍留在本地 `wip/oriole-usb-internet-route` 分支，未推送。
 - **本地检查：** 补丁可在对应的 XNU 基线上 `git apply --check`，仓库门禁在本机输出 `GATE PASS 7dc299d`。`sweet_usb.c` 和 `route.c` 候选源码都已编译成对象文件。为适配现有编译头文件，补丁把 `route.c` 中对不透明 `lo_ifp` 的直接字段访问改用 XNU 的 `ifnet_index(lo_ifp)`；该 API 源码在非空时返回同一 `if_index`。这还不等于完整内核重链接或真机启动通过。
 - **未验证：** 真机路由添加、断线清理、重连、DNS 和互联网访问。现有 USB 驱动在 reset/disconnect 时没有清除 `configured`，可能跳过后续端点重配。完成完整构建、异模型审查及真机临时启动结果前，不应把该候选合入 `main` 或称为可用功能。
+- **重链接约束（本地对象对比）：** 新 `sweet_usb.o` 只增加预期的路由 API 引用；新 `route.o` 的公开符号增加两个预期 API。然而现有通用编译配方生成的 `route.o` 与已验证归档的未定义符号集合不同，尤其是 `memset` 与 `__memset_chk`。在重建与已验证归档等价的路由对象、审核内核布局之前，不能把该对象直接替换进真机镜像。相关比对产物留在忽略的 `private/oriole-net-route-source/`。
