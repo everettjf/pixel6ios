@@ -1,0 +1,32 @@
+Pixel 6 (oriole), temporary fastboot boot, XNU touch diagnostic 0118.
+Observation date: 2026-10-27 (America/Los_Angeles).
+Boot image SHA-256: 22d7252b7d30f17845b1f0a63eeb075bcbec2fa695df517d5420952fd811c305
+Source: USB ECM live log captured on the attached Mac; raw capture SHA-256
+d1ddba767434acaa329a74fdfb0bfc959293bae11b8e81e0320eed42d6b01200.
+Device identifiers omitted.
+
+The 0118 patch adds read-only GPIO PIN_DAT sampling to the existing bounded
+60-second rail-hold scan. No GPIO function, controller, or PMIC writes were
+added relative to 0117. `func=0` is reported by the mapped pin's PIN_CON.
+
+SWEET TOUCH: rail cycle: both rails on for ID (0xac, 0xbc)
+SWEET TOUCH: identify: reg 0x20000000 = 36 48 03 00, want 36 48 -> FTM5 answers
+SWEET TOUCH: scanning, 1080x2400 raw -> 1080x2400
+SWEET TOUCH: ev 43 05 01 00 00 00 00 01 -> kind 5 id 0 raw 0,0
+SWEET TOUCH: ev 43 01 a0 00 ff 00 00 00 -> kind 5 id 0 raw 0,0
+SWEET TOUCH: IRQ sample: func=0 dat=1 high=110 low=1 edges=1 polls=111 events=2 errors=0
+SWEET TOUCH: IRQ sample: func=0 dat=1 high=109 low=0 edges=0 polls=109 events=0 errors=0
+... (59 one-second sample lines total; across them: 6431 polls, 6430 high,
+     1 low, 1 edge, 2 initial status events, 0 FIFO errors. After the first
+     line all were high-only, with no edges or FIFO events.)
+SWEET TOUCH: rail hold: 60-second scan window ended
+SWEET TOUCH: rail cycle: LDO26M restored to 0x3c
+SWEET TOUCH: rail cycle: LDO25M restored to 0x2c
+
+Interpretation: the controller answers over SPI and acknowledges scanning,
+but this run again produced no finger event. The sampled GPIO level remained
+high after one initial low sample. This is consistent with no sustained IRQ
+assertion, but does not prove there were no short pulses: sampling is about
+109 Hz and the behavior of PIN_DAT with this mux state is not independently
+verified. The result alone cannot distinguish a sensor that never generated
+touch events from pulses missed by polling or an event-FIFO acquisition bug.

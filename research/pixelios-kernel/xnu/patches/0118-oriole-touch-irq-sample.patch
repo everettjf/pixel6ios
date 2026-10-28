@@ -1,0 +1,47 @@
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -1537,12 +1537,44 @@
+ 	}
+ 	printf("SWEET TOUCH: scanning, %dx%d raw -> %ux%u\n", (int)tg.max_x + 1, (int)tg.max_y + 1, tg.width, tg.height);
+ 	uint64_t scan_start = tg_now_us();
++	uint64_t irq_report_start = scan_start;
++	unsigned irq_high = 0, irq_low = 0, irq_edges = 0, irq_reads = 0;
++	unsigned irq_nonempty = 0, irq_fail = 0;
++	int irq_previous = -1;
+ 	for (;;) {
+ 		if (tg.rail_hold && tg_now_us() - scan_start >= 60000000u) {
+ 			printf("SWEET TOUCH: rail hold: 60-second scan window ended\n");
+ 			break;
+ 		}
++		if (tg.rail_hold) {
++			/* Diagnostic only: PIN_DAT is read, never changed. The EINT pin's
++			 * mux is left as found; whether DAT reflects a live level is measured,
++			 * not assumed. Keep the sample bounded by the rail-hold window. */
++			int level = tg_pin_get(&tg.irq);
++			if (level)
++				irq_high++;
++			else
++				irq_low++;
++			if (irq_previous >= 0 && irq_previous != level)
++				irq_edges++;
++			irq_previous = level;
++			irq_reads++;
++		}
+ 		int n = tg_drain(&logged);
++		if (tg.rail_hold) {
++			if (n > 0)
++				irq_nonempty += (unsigned)n;
++			else if (n < 0)
++				irq_fail++;
++			uint64_t now = tg_now_us();
++			if (now - irq_report_start >= 1000000u) {
++				printf("SWEET TOUCH: IRQ sample: func=%u dat=%d high=%u low=%u edges=%u polls=%u events=%u errors=%u\n",
++				    tg_pin_func(&tg.irq), irq_previous, irq_high, irq_low,
++				    irq_edges, irq_reads, irq_nonempty, irq_fail);
++				irq_high = irq_low = irq_edges = irq_reads = irq_nonempty = irq_fail = 0;
++				irq_report_start = now;
++			}
++		}
+ 		if (n < 0) {
+ 			if (errors++ % 100u == 0) {
+ 				printf("SWEET TOUCH: FIFO read failed (%u)\n", errors);

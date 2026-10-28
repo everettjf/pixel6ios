@@ -20,6 +20,17 @@ Interpretation: hardware communication, reset-ready, scan command, two FIFO
 status records, and bounded PMIC cleanup were observed. Neither FIFO record
 is a finger down/move/up event. This run does not establish physical touch,
 gesture handling, or app interaction. The timing of any human touches relative
-to the 60-second scan window was not independently verified. The later XNU
+to the first 60-second scan window was not independently verified. The later XNU
 root-mount loop is expected with Android-formatted userdata and does not
 change this narrow touch result.
+
+Second, synchronized 0117 boot on the same device and same checked image:
+USB ECM raw capture SHA-256
+7880140a9b3bb4d955a5c63be599fab7542cc1c9f52aba7df0ab68045fc504bd.
+The operator confirmed continuous tapping and swiping during the scan window.
+The captured touch lines again show the FTM5 ID, scan start, only the two
+status records `43 05 01 00 00 00 00 01` and `43 01 a0 00 ff 00 00 00`,
+then the 60-second timeout and restoration of both rails. No finger event
+(`0x13`, `0x23`, or `0x33`) appeared. This rules out missed operator timing
+for the second run, but does not identify whether sensing, IRQ delivery, or
+FIFO acquisition is at fault.
