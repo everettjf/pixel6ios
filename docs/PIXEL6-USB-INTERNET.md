@@ -33,7 +33,7 @@ Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kern
 
 ## 本地候选：0123（尚未真机验证）
 
-- **读自源码 / 本地构建：** `0123-oriole-usb-owned-default-route.patch` 是默认关闭的 `sweetnetroute=1` 候选。只有在 `ue0` 地址设置成功、USB 数据接口切到 alt-setting 1 后，它才尝试安装经 `192.168.7.1` 的默认路由；接口下线时仅在路由对象、网卡索引和 IPv4 网关仍匹配时撤销。插入时也核对路由实际选中的网卡。该补丁仍留在本地 `wip/oriole-usb-internet-route` 分支，未推送。
+- **读自源码 / 本地构建：** `0123-oriole-usb-owned-default-route.patch` 是默认关闭的 `sweetnetroute=1` 候选。只有在 `ue0` 地址设置成功、USB 数据接口切到 alt-setting 1 后，它才尝试安装经 `192.168.7.1` 的默认路由；接口下线时仅在路由对象、网卡索引和 IPv4 网关仍匹配时撤销。插入时也核对路由实际选中的网卡。该补丁位于已推送的 `wip/oriole-usb-internet-route` 分支，尚未合入 `main`。
 - **本地检查：** 补丁可在对应的 XNU 基线上 `git apply --check`，仓库门禁在本机输出 `GATE PASS 7dc299d`。`sweet_usb.c` 和 `route.c` 候选源码都已编译成对象文件。为适配现有编译头文件，补丁把 `route.c` 中对不透明 `lo_ifp` 的直接字段访问改用 XNU 的 `ifnet_index(lo_ifp)`；该 API 源码在非空时返回同一 `if_index`。这还不等于完整内核重链接或真机启动通过。
 - **未验证：** 真机路由添加、断线清理、重连、DNS 和互联网访问。现有 USB 驱动在 reset/disconnect 时没有清除 `configured`，可能跳过后续端点重配。完成完整构建、异模型审查及真机临时启动结果前，不应把该候选合入 `main` 或称为可用功能。
 - **重链接约束（本地对象对比）：** 新 `sweet_usb.o` 只增加预期的路由 API 引用；新 `route.o` 的公开符号增加两个预期 API。然而现有通用编译配方生成的 `route.o` 与已验证归档的未定义符号集合不同，尤其是 `memset` 与 `__memset_chk`。在重建与已验证归档等价的路由对象、审核内核布局之前，不能把该对象直接替换进真机镜像。相关比对产物留在忽略的 `private/oriole-net-route-source/`。
@@ -51,3 +51,4 @@ Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kern
 - **本地构建：** 独立的 `oriole_touch_netroute_0124.py` 配置只接受 payload SHA-256 `ac57f6084e49200079fc932433bef4bcaeca1da4a9c37cd02555725b8fd00e8f`，内核 SHA-256 `f68406db756901338eedec463cec3bf54c063f56c817c8fb5173398fb89a89ef`，并核对触摸 ADT、启动参数和完整 AVB 镜像。`shim/build.sh` 的单独选项使用新 payload 长度 `16730160` 和内核末端 `0xfffffe000872c000` 的运行时边界；旧配置继续使用原有长度和末端地址。构建时 C 端 payload guard 的正例与截断反例均通过。
 - **本地产物：** 完整镜像留在忽略目录 `private/oriole-net-route-source/relink-0123/oriole-netroute-0124-avb.img`，大小 64 MiB，SHA-256 `34951d115aa9e933bf1b2b69e8897fcd74779bb048e8693c008c82c178e692fb`。它来自本机已通过离线重链接审计的内核和 payload；镜像校验通过，不代表手机上的路由、触摸、App 或互联网访问已经通过。
 - **等待真机证据：** 电脑目前没有识别到 Fastboot/ADB 设备。恢复连接后，仍须先核对唯一设备为已记录且解锁的 `oriole`、固件/槽位、镜像和 userdata 根镜像哈希，再做临时 `fastboot boot`。不应写其他分区；未经真机路由、触摸和 App 测试，不把该镜像合入稳定安装路径。
+- **只读预检：** `python3 tools/preflight_oriole_touch_gui.py --trial 0124 --offline` 检查 0124 镜像和 iOS 根镜像的固定哈希及容量；手机确实处于 Fastboot 且连接后，去掉 `--offline` 才会进一步核对唯一已记录的解锁 `oriole`、槽位、bootloader 和分区容量。预检不启动或写入手机，且通过不代表触摸或联网已工作。
