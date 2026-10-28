@@ -308,6 +308,38 @@ lock-screen input nor app launch. The 0120 baseline remains unrun for
 comparison. The next run must synchronize the swipe with the first visible
 lock screen, before the window ends; a later swipe is not a GUI input test.
 
+**Observed on Pixel 6, 2026-10-28:** the human's original camera photo below
+shows the 0121 lock screen on the physical panel. It is evidence of a visible
+lock screen, not of a working gesture. The black console strip is present in
+the original photograph; it was not added by the documentation. **Read from
+source:** this profile inherits `serial=3` from the framebuffer base profile,
+which enables on-screen serial output. A later clean-display profile should
+use the separately gated `serial=0` path while retaining USB logging.
+
+![Pixel 6 showing the iOS lock screen with a console strip across its lower portion](assets/pixel6-ios-0121-lockscreen-camera.jpg)
+
+**Observed in the private 0121 USB capture:**
+`tools/decode-fb-snap.py` reconstructed seven complete 60×134 rolling RGB332
+frames. All seven decode to console text or boot graphics rather than an
+unobstructed lock screen. Those low-resolution frames therefore cannot date
+the first clean lock-screen appearance or replace the camera photograph. The
+decoded PNGs remain in ignored `private/touch-xnu-source/relink-0121/`.
+
+**Observed on Pixel 6, 2026-10-28 (0121 repeat):** after the same offline and
+online read-only preflight passed, the identical AVB image was temporarily
+started with `fastboot boot`; no partition was flashed. The USB capture in
+ignored `private/touch-xnu-source/relink-0121/gui-0121-retry-udp.log` shows
+FTM5 scanning and `SpringBoard`/`backboardd` execution. Two complete panel
+samples before `rail hold: 1200-second scan window ended` still show an Apple
+logo and progress bar, partly covered by console text. The human went to
+sleep and made no synchronized gesture in this repeat. Consequently, this
+run cannot establish whether 0121's HID event metadata reaches SpringBoard.
+It does establish that the current 20-minute powered window can end before
+the lock screen is testable. The next profile should first remove the
+on-screen `serial=3` logging, keeping USB capture, then measure whether the
+same bounded window spans the first visible lock screen. Do not claim a
+physical gesture or app launch from either 0121 run.
+
 1. **Extend the verified touch path to a full iOS boot:** the synchronized 0118 test established physical FIFO and HID events. The diagnostic's 60-second rail window is too short for the previously observed iOS startup. A separate, bounded GUI profile must keep the controller powered through startup, retain cleanup on failure/restart, and preserve a no-touch fallback. Have the hardware-writing change independently reviewed before a temporary boot.
 2. **Verify GUI input:** after a freshly approved iOS root restore, test a physical lock-screen swipe, one app icon tap, and a return to Home. Capture both physical screen evidence and USB touch/HID logs; kernel coordinates alone do not establish that SpringBoard accepted a gesture.
 3. **Observed iOS behavior:** restoring an iOS root to `userdata` requires a freshly verified image and new confirmation immediately before flashing. Then verify a physical swipe from lock screen to home screen, tap Settings, and return Home. A visible app launch and matching input logs are required before claiming interaction works.
