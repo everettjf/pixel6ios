@@ -275,6 +275,15 @@
   * Called from rtrequest(RTM_DELETE, ...) to fix up the route's ``family''
   * (i.e., the routes related to it by the operation of cloning).  This
   * routine is iterated over all potential former-child-routes by way of
+@@ -3225,7 +3320,7 @@
+ 				rn = NULL;
+ 				if (dontcare) {
+ 					ifscope = rt->rt_ifp->if_index;
+-				} else if (ifscope != lo_ifp->if_index ||
++				} else if (ifscope != ifnet_index(lo_ifp) ||
+ 				    rt_ifa_is_dst(dst, rt->rt_ifa) == FALSE) {
+ 					rn0 = NULL;
+ 				}
 --- a/bsd/net/route_private.h
 +++ b/bsd/net/route_private.h
 @@ -450,6 +450,12 @@
