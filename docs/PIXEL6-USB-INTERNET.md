@@ -10,6 +10,20 @@
 
 ## 实现与验收顺序
 
+**读自源码的路由接入约束（2026-10-28）：** XNU-8796 的
+`bsd/kern/netboot.c` 在 `default_route_add()` 中用
+`rtrequest_scoped(RTM_ADD, 0.0.0.0, router, 0.0.0.0,
+RTF_UP | RTF_STATIC | RTF_GATEWAY, ..., IFSCOPE_NONE)` 创建 IPv4 默认路由。
+这提供了可复用的内核 API 用法，但不等于 Pixel 6 已安装路由。
+当前 `bsd/dev/sweet_usb.c` 在 `ud_if_create()` 中配置 `ue0` 地址，而
+`ud_link_event(true)` 只在 USB `SET_INTERFACE` 选择数据 alt-setting 1 时
+调用；设备 reset/disconnect 分支仅打印事件，未调用 `ud_link_event(false)`，
+`SET_INTERFACE` 返回 alt-setting 0 时也没有下线处理。因而联网补丁必须
+在链路确实启用、地址配置成功后才尝试加路由，并在 alt-setting 0、
+reset 和 disconnect 时撤销**自己创建**的路由、发布下线状态；
+重复配置和路由已存在都不能误删别人的默认路由。先保留单独启动参数开关，
+默认关闭，再用 USB 重连及拔线实测证明清理行为。
+
 1. **设备端路由。** 在独立、默认关闭的临时启动配置中，为 `ue0` 增加经源码核对的 IPv4 默认网关 `192.168.7.1`；启动后读取实际路由表，确认默认路由确实指向该接口。若修改 XNU，须按内核补丁顺序提交，并经过异模型硬件代码复核、完整构建和临时真机启动。先验证纯 IP 目标，再处理 DNS。
 2. **Mac 端出口。** 只对已核实的 Pixel 6 USB 接口配置 `192.168.7.1/24`，核对 Mac 当前可用的上行网络，再配置受限的转发/NAT。任何需要管理员权限的操作都由用户在审阅确切命令后执行；不要改动全局网络设置来掩盖设备端故障。
 3. **DNS 与 iOS 策略。** 先验证设备可以到达外网 IP，再提供 DNS，并确认 `configd` 将 USB 链路视为可用服务。最终用一个系统 App 发起实际请求，同时捕获设备路由、DNS 查询、主机转发计数和 App 结果。
