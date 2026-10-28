@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reproduce and audit the offline 0123 Oriole USB-route kernel candidate.
+"""Reproduce and audit the offline 0123 Oriole USB-route kernel and payload.
 
 Outputs stay in ignored private/. This script does not build a phone image,
 connect to a phone, or establish that networking works on hardware.
@@ -21,6 +21,8 @@ BASE = ROOT / "private/oriole-net-route-base"
 SOURCE = ROOT / "private/oriole-net-route-source"
 OUT = SOURCE / "relink-0123"
 PREVIOUS = ROOT / "private/touch-xnu-source/relink-0122"
+BASE_ADT = ROOT / "private/touch-xnu-source/relink-0121/oriole-touch-gui.adt"
+BASE_PAYLOAD = PREVIOUS / "oriole-touch-gui-extended-payload.bin"
 PATCH = ROOT / "research/pixelios-kernel/xnu/patches/0123-oriole-usb-owned-default-route.patch"
 RECIPE = ROOT / "artifacts/fullroot-kernel/sweet_usb.oriole-ro-command.json"
 FILES = ("bsd/dev/sweet_usb.c", "bsd/net/route.c", "bsd/net/route_private.h")
@@ -35,9 +37,13 @@ PINS = {
     SOURCE / FILES[2]: "7f9a16a310e2592cb38fe290e6c1e8cff37474788f950d1b268591cbe6428160",
     PREVIOUS / "kernel.development.sweet.a": "1e324190ad35a798ae11cd0f00869e60b192486fcd9be43dc53772eb169caa59",
     PREVIOUS / "kernel.oriole-touch-0122": "62c47dd99e2cfd9bf763c0b03c618223ca4deb4d1ab34c24e81a0abea1115d56",
+    BASE_ADT: "b85187b0fb3eeec4129c896b508680b27392f2d79ccc24ea95e47e18aa0d4164",
+    BASE_PAYLOAD: "6d114538e636421087bf86d634f851d564e9a6626d225cb0c987fff0ff75142d",
 }
 EXPECTED_SHA256 = "f68406db756901338eedec463cec3bf54c063f56c817c8fb5173398fb89a89ef"
 EXPECTED_SIZE = 16713816
+EXPECTED_PAYLOAD_SHA256 = "ac57f6084e49200079fc932433bef4bcaeca1da4a9c37cd02555725b8fd00e8f"
+EXPECTED_PAYLOAD_SIZE = 16730160
 EXPECTED_OBJECT_DELTA = {
     "route.o": {
         "globals_added": {"_rtrequest_add_gateway_on_ifindex", "_rtrequest_delete_if_same"},
@@ -123,6 +129,21 @@ def check_segments(reference, candidate, m):
             raise SystemExit(label + " file segments overlap or do not cover EOF")
 
 
+def build_payload(kernel):
+    profile = runpy.run_path(str(ROOT / "research/pixelios-kernel/tools/oriole_touch_gui_0123.py"))
+    profile["check"](BASE_PAYLOAD.read_bytes())
+    args = profile["ARGS"]
+    if "sweetnetroute" in args or len((args + " sweetnetroute=1").encode()) >= 608:
+        raise SystemExit("Unexpected or oversized network boot arguments")
+    mkpayload = runpy.run_path(str(ROOT / "research/pixelios-kernel/tools/mkpayload.py"))
+    blob, _ = mkpayload["build"](kernel, BASE_ADT, args + " sweetnetroute=1", board="bluejay")
+    payload = OUT / "oriole-net-route-0123.payload.bin"
+    payload.write_bytes(blob)
+    if len(blob) != EXPECTED_PAYLOAD_SIZE or sha(payload) != EXPECTED_PAYLOAD_SHA256:
+        raise SystemExit("Payload bytes differ from the audited offline candidate")
+    print("OFFLINE PAYLOAD PASS", sha(payload), "(no device validation)")
+
+
 def main():
     m = runpy.run_path(str(ROOT / "tools/relink-oriole-cow-xnu.py"))
     policy = m["verify_inputs"]()
@@ -198,6 +219,7 @@ def main():
     if len(candidate) != EXPECTED_SIZE or sha(output) != EXPECTED_SHA256:
         raise SystemExit("Relink bytes differ from the reviewed offline candidate")
     print("OFFLINE RELINK PASS", sha(output), "(no device validation)")
+    build_payload(output)
 
 
 if __name__ == "__main__":
