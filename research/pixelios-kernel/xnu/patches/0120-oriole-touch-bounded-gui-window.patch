@@ -1,0 +1,91 @@
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -178,7 +178,7 @@
+ 	char poke[POKE_MAX_LEN + 16];   /* sweettouchpoke boot-arg (empty = none) */
+ 	uint32_t last_st, last_ch;   /* STATUS / CH_CFG at the last burst timeout */
+ 	int mode, mux_force;
+-	uint32_t delay_s;
++	uint32_t delay_s, scan_window_s;
+ 	int sleep_chan;
+ 	bool down[FTM5_TOUCH_ID_MAX];
+ 	int last_x[FTM5_TOUCH_ID_MAX], last_y[FTM5_TOUCH_ID_MAX];
+@@ -1453,6 +1453,7 @@
+ {
+ 	unsigned logged = 0, errors = 0;
+ 	bool ok, rail_active = false;
++	uint64_t rail_start_us = 0;
+ 
+ 	printf("SWEET TOUCH: gs101 FTM5 driver, mode %d, starting in %u s\n", tg.mode, tg.delay_s);
+ 	tg_sleep_ms(tg.delay_s * 1000u);
+@@ -1476,6 +1477,7 @@
+ 	}
+ 	tg_spi_diag("after setup");
+ 	if (tg.rail_probe) {
++		rail_start_us = tg_now_us(); /* bounds rail ownership, including setup */
+ 		if (!tg_oriole_rail_start())
+ 			return;
+ 		rail_active = true;
+@@ -1554,14 +1556,15 @@
+ 		goto rail_cleanup;
+ 	}
+ 	printf("SWEET TOUCH: scanning, %dx%d raw -> %ux%u\n", (int)tg.max_x + 1, (int)tg.max_y + 1, tg.width, tg.height);
+-	uint64_t scan_start = tg_now_us();
+-	uint64_t irq_report_start = scan_start;
++	uint64_t irq_report_start = tg_now_us();
+ 	unsigned irq_high = 0, irq_low = 0, irq_edges = 0, irq_reads = 0;
+ 	unsigned irq_nonempty = 0, irq_fail = 0;
+ 	int irq_previous = -1;
+ 	for (;;) {
+-		if (tg.rail_hold && tg_now_us() - scan_start >= 60000000u) {
+-			printf("SWEET TOUCH: rail hold: 60-second scan window ended\n");
++		if (tg.rail_hold && tg_now_us() - rail_start_us >=
++		    (uint64_t)tg.scan_window_s * 1000000u) {
++			printf("SWEET TOUCH: rail hold: %u-second scan window ended\n",
++			    tg.scan_window_s);
+ 			break;
+ 		}
+ 		if (tg.rail_hold) {
+@@ -1628,7 +1631,8 @@
+ 	DTEntry node;
+ 	char const *compat = NULL;
+ 	unsigned int csize = 0;
+-	int mode = 2, delay_s = 45, mux = 0, clk = 0, var = 0, cs = 0, rail_cycle = 0, rail_hold = 0;
++	int mode = 2, delay_s = 45, mux = 0, clk = 0, var = 0, cs = 0, rail_cycle = 0, rail_hold = 0, window_s = 60;
++	char window_arg[17] = {0};
+ 	thread_t thread;
+ 
+ 	if (started) {
+@@ -1658,7 +1662,25 @@
+ 	(void)PE_parse_boot_argn("sweettouchcs", &cs, sizeof(cs));
+ 	(void)PE_parse_boot_argn("sweettouchrailcycle", &rail_cycle, sizeof(rail_cycle));
+ 	(void)PE_parse_boot_argn("sweettouchrailhold", &rail_hold, sizeof(rail_hold));
++	/* Explicit string parser avoids integer truncation and the underscore
++	 * parser's bare-key ambiguity. Only an exact decimal value is accepted. */
++	if (PE_parse_boot_arg_str("sweettouchwindow", window_arg, sizeof(window_arg))) {
++		if (strncmp(window_arg, "60", sizeof(window_arg)) == 0)
++			window_s = 60;
++		else if (strncmp(window_arg, "1200", sizeof(window_arg)) == 0)
++			window_s = 1200;
++		else {
++			printf("SWEET TOUCH: invalid bounded scan window; driver not started\n");
++			return;
++		}
++	}
+ 	(void)PE_parse_boot_argn("sweettouchpoke", tg.poke, sizeof(tg.poke));   /* longer values are cut: poke_parse then sees > 240 chars */
++	/* With a progressing touch thread, begin cleanup 20 minutes after the
++	 * first rail-enable attempt, independent of the restart timer. */
++	if (rail_hold == 1 && window_s != 60 && window_s != 1200) {
++		printf("SWEET TOUCH: invalid bounded scan window; driver not started\n");
++		return;
++	}
+ 	if (delay_s < 0 || delay_s > 3600) {
+ 		delay_s = 45;
+ 	}
+@@ -1676,6 +1698,7 @@
+ 	tg.rail_hold = rail_hold == 1 && mode == 2 && rail_cycle == 0;
+ 	tg.rail_probe = rail_cycle == 1 || tg.rail_hold;
+ 	tg.delay_s = (uint32_t)delay_s;
++	tg.scan_window_s = (uint32_t)window_s;
+ 	tg.mux_force = mux == 1;
+ 	if (kernel_thread_start(tg_thread, NULL, &thread) == KERN_SUCCESS) {
+ 		thread_deallocate(thread);
