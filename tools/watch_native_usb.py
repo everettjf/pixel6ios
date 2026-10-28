@@ -5,6 +5,7 @@ Does not configure an interface, detach a driver, reboot a phone or write USB.
 Only the reviewed 1209:0001 descriptors are recorded; datagrams stay private.
 """
 import argparse
+from collections import deque
 import datetime
 import json
 from pathlib import Path
@@ -60,10 +61,15 @@ class TouchPathObserver:
         self.first_gui_touch_at = None
         self.first_gui_hid_at = None
         self.scan_ended_at = None
+        # Host receive timestamps, not device event timestamps. Keep the most
+        # recent observations so a late gesture is not lost to startup noise.
+        self.event_observations = deque(maxlen=512)
 
-    def feed(self, data, received_at=None):
+    def feed(self, data, received_at=None, received_utc=None):
         if received_at is None:
             received_at = time.monotonic()
+        if received_utc is None:
+            received_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
         lines = (self.tail + data).split(b'\n')
         self.tail = lines.pop()
         first_gui_touch = False
@@ -87,6 +93,11 @@ class TouchPathObserver:
             active = self.scanning and self.springboard and self.backboardd and not self.window_ended
             if b'SWEET TOUCH: ev ' in line and any(b'-> kind ' + str(k).encode() + b' ' in line for k in (1, 2, 3)):
                 self.touch_events += 1
+                self.event_observations.append({
+                    'received_utc': received_utc,
+                    'since_gui_seconds': None if self.gui_ready_at is None else round(received_at - self.gui_ready_at, 3),
+                    'path': 'controller', 'line': line.decode('utf-8', 'replace')[:200],
+                })
                 if active:
                     self.gui_touch_events += 1
                     first_gui_touch = self.gui_touch_events == 1
@@ -94,6 +105,11 @@ class TouchPathObserver:
                         self.first_gui_touch_at = received_at
             if b'SWEET HID: touch ' in line and (b' down at ' in line or b' up at ' in line):
                 self.hid_events += 1
+                self.event_observations.append({
+                    'received_utc': received_utc,
+                    'since_gui_seconds': None if self.gui_ready_at is None else round(received_at - self.gui_ready_at, 3),
+                    'path': 'hid', 'line': line.decode('utf-8', 'replace')[:200],
+                })
                 if active:
                     self.gui_hid_events += 1
                     first_gui_hid = self.gui_hid_events == 1
@@ -246,6 +262,7 @@ def main():
               'gui_touch_events':touch_path.gui_touch_events,
               'gui_hid_events':touch_path.gui_hid_events,
               'touch_timing':touch_path.timing(),
+              'event_observations':list(touch_path.event_observations),
               'network_log_milestones':network_path.result(),
               'events':len(events),
               'network_configuration_changed':False}

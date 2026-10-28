@@ -67,6 +67,29 @@ class TouchPathTests(unittest.TestCase):
         self.assertEqual((observer.touch_events, observer.hid_events), (2, 2))
         self.assertEqual((observer.gui_touch_events, observer.gui_hid_events), (1, 1))
 
+    def test_host_receipt_time_is_attached_to_complete_event_lines(self):
+        observer = TouchPathObserver()
+        observer.feed(b'SWEET TOUCH: scanning, 1080x2400\nexec SpringBoard\nexec backboardd\n',
+                      received_at=100, received_utc='2026-10-28T17:00:00+00:00')
+        observer.feed(b'SWEET TOUCH: ev 17 21 c4 14 49 00 00 00 -> kind 2 id 2 raw 452,1169\n'
+                      b'SWEET HID: touch 2 down at 452,1169\n',
+                      received_at=106.25, received_utc='2026-10-28T17:00:06+00:00')
+        self.assertEqual(list(observer.event_observations), [
+            {'received_utc': '2026-10-28T17:00:06+00:00', 'since_gui_seconds': 6.25,
+             'path': 'controller', 'line': 'SWEET TOUCH: ev 17 21 c4 14 49 00 00 00 -> kind 2 id 2 raw 452,1169'},
+            {'received_utc': '2026-10-28T17:00:06+00:00', 'since_gui_seconds': 6.25,
+             'path': 'hid', 'line': 'SWEET HID: touch 2 down at 452,1169'},
+        ])
+
+    def test_event_observations_are_bounded_to_recent_lines(self):
+        observer = TouchPathObserver()
+        observer.feed(b'SWEET TOUCH: scanning, 1080x2400\nexec SpringBoard\nexec backboardd\n')
+        for i in range(520):
+            observer.feed(f'SWEET HID: touch 0 down at {i},1\n'.encode(), received_at=i)
+        self.assertEqual(len(observer.event_observations), 512)
+        self.assertIn('at 8,1', observer.event_observations[0]['line'])
+        self.assertIn('at 519,1', observer.event_observations[-1]['line'])
+
 
 class NetworkPathTests(unittest.TestCase):
     def test_split_milestones_do_not_claim_unobserved_stages(self):
