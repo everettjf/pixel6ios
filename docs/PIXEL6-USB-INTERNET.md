@@ -43,6 +43,8 @@ Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kern
 
 **0125 固定输入重链接（2026-10-28，离线）：** `python3 tools/relink-oriole-netif-xnu-0125.py` 对 0124 归档、补丁、两份前后源码、编译配方、所需私有头文件及基线内核逐一核对 SHA-256；在临时目录重放补丁，再重编译 `sweet_usb.o` 与 `SweetFramebuffer.cpo`、替换归档成员并重链接。它检查内核入口在可执行段内的相对位置、加载命令与段集合、符号集、文件/虚拟地址无重叠和固定产物哈希。本机输出 `OFFLINE NETIF RELINK PASS a1036dba2c11af88587a72ad581339af09efbe9f39dd9c727279240056492df6`；内核仅留在忽略的 `private/oriole-net-route-source/relink-0125/`。这完成了可重复的离线构建审计，**没有**创建可启动镜像或真机运行结果。
 
+**0126 本地临时启动镜像（2026-10-28，未真机启动）：** `oriole_touch_netif_0126.py` 基于上述内核与已固定的 0121 触摸 ADT，沿用 0125 命令行并追加唯一的 `sweetnetif=1`。payload 长 16,753,584 字节，SHA-256 `972d39341a4a5f9875ee8646fc361278e0a696acf2a540d84c410cc45f1cfb4a`。0126 独立 shim profile 只接受此 payload，并把新的入口 `0xfffffe0007497488` 与内核末端 `0xfffffe0008730000` 固定到运行时守卫；旧 profile 的边界不变。64 MiB AVB 镜像只保存在忽略目录 `private/oriole-net-route-source/relink-0125/oriole-netif-0126-avb.img`，SHA-256 `fde6a6198053fb0716051e0ebabf279c10e28f843c0fb25c588092dad0ea67c1`。本地构建通过 payload 守卫的正例及截断反例，`--check-image`、`python3 tools/preflight_oriole_touch_gui.py --trial 0126 --offline`、旧 0125 profile 回归构建及完整 `tools/check-all.sh` 门禁均通过。**这些都是离线检查；尚无真实触摸手势、系统 App 打开、网络服务注册或互联网访问结果。**
+
 ## 本地候选：0123（尚未真机验证）
 
 - **读自源码 / 本地构建：** `0123-oriole-usb-owned-default-route.patch` 是默认关闭的 `sweetnetroute=1` 候选。只有在 `ue0` 地址设置成功、USB 数据接口切到 alt-setting 1 后，它才尝试安装经 `192.168.7.1` 的默认路由；接口下线时仅在路由对象、网卡索引和 IPv4 网关仍匹配时撤销。插入时也核对路由实际选中的网卡。该补丁位于已推送的 `wip/oriole-usb-internet-route` 分支，尚未合入 `main`。

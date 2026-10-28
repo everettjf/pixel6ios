@@ -10,7 +10,12 @@ static inline int ur_inside(uint64_t off, uint64_t len, uint64_t limit)
 
 static inline int ufsroot_payload_ok(const struct payload *p, uint64_t available)
 {
-#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETROUTE_RESOURCE_0125
+#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETIF_0126
+    /* Exact offline-audited 0126 IORegistry trial; entry moved with __TEXT_EXEC. */
+    const uint64_t size=16753584;
+    const uint64_t kernel_end=0xfffffe0008730000ULL;
+    const uint64_t entry_va=0xfffffe0007497488ULL;
+#elif defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETROUTE_RESOURCE_0125)
     /* Exact offline-audited resource-observation payload. */
     const uint64_t size=16713744;
     const uint64_t kernel_end=0xfffffe0008728000ULL;
@@ -65,9 +70,12 @@ static inline int ufsroot_payload_ok(const struct payload *p, uint64_t available
     const uint64_t kernel_end=0xfffffe0008728000ULL;
 #endif
     const uint64_t vb=0xfffffe0006000000ULL;
+#ifndef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETIF_0126
+    const uint64_t entry_va=0xfffffe0007493488ULL;
+#endif
     if (available < size || p->version!=1 || p->nsegs!=10 ||
         p->virt_base!=vb || p->phys_base!=0x880000000ULL ||
-        p->mem_size!=0x80000000ULL || p->entry_va!=0xfffffe0007493488ULL ||
+        p->mem_size!=0x80000000ULL || p->entry_va!=entry_va ||
         p->kernel_end!=kernel_end || (p->adt_off&7) ||
         !p->adt_size || p->adt_size>0x10000 ||
         !ur_inside(p->adt_off,(p->adt_size+7)&~7ULL,size)) return 0;
