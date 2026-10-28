@@ -69,6 +69,7 @@ ufsroot_cow_pool512_fbsnap_touch_gui_0121=0
 ufsroot_cow_pool512_fbsnap_touch_gui_0122=0
 ufsroot_cow_pool512_fbsnap_touch_gui_0123=0
 ufsroot_cow_pool512_fbsnap_touch_netroute_0124=0
+ufsroot_cow_pool512_fbsnap_touch_netroute_resource_0125=0
 preparecheck=0
 coldinit=0
 while [ "$#" -gt 0 ]; do
@@ -104,6 +105,7 @@ while [ "$#" -gt 0 ]; do
 		--xnu-ufsroot-cow-pool512-fbsnap-touch-gui-0122) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touch_gui=1; ufsroot_cow_pool512_fbsnap_touch_gui_0121=1; ufsroot_cow_pool512_fbsnap_touch_gui_0122=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-pool512-fbsnap-touch-gui-0123) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touch_gui=1; ufsroot_cow_pool512_fbsnap_touch_gui_0121=1; ufsroot_cow_pool512_fbsnap_touch_gui_0122=1; ufsroot_cow_pool512_fbsnap_touch_gui_0123=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-pool512-fbsnap-touch-netroute-0124) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touch_gui=1; ufsroot_cow_pool512_fbsnap_touch_gui_0121=1; ufsroot_cow_pool512_fbsnap_touch_netroute_0124=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
+		--xnu-ufsroot-cow-pool512-fbsnap-touch-netroute-resource-0125) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touch_gui=1; ufsroot_cow_pool512_fbsnap_touch_gui_0121=1; ufsroot_cow_pool512_fbsnap_touch_netroute_resource_0125=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-resetcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; resetcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
@@ -190,6 +192,7 @@ if [ "$ramprobe" = 1 ]; then
     [ "$ufsroot_cow_pool512_fbsnap_touch_gui_0122" = 0 ] || payload_checker=../tools/oriole_touch_gui_0122.py
     [ "$ufsroot_cow_pool512_fbsnap_touch_gui_0123" = 0 ] || payload_checker=../tools/oriole_touch_gui_0123.py
     [ "$ufsroot_cow_pool512_fbsnap_touch_netroute_0124" = 0 ] || payload_checker=../tools/oriole_touch_netroute_0124.py
+    [ "$ufsroot_cow_pool512_fbsnap_touch_netroute_resource_0125" = 0 ] || payload_checker=../tools/oriole_touch_netroute_resource_0125.py
     "$PYTHON" "$payload_checker" --check "$payload" || exit 2
     if [ "$ufsroot_cow_pool512_fbsnap_touchid" = 1 ]; then
         mkdir -p out
@@ -201,6 +204,7 @@ if [ "$ramprobe" = 1 ]; then
         [ "$ufsroot_cow_pool512_fbsnap_touch_gui" = 0 ] || touch_guard_define=-DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_GUI
         [ "$ufsroot_cow_pool512_fbsnap_touch_gui_0121" = 0 ] || touch_guard_define="$touch_guard_define -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_GUI_0121"
         [ "$ufsroot_cow_pool512_fbsnap_touch_netroute_0124" = 0 ] || touch_guard_define="$touch_guard_define -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETROUTE_0124"
+        [ "$ufsroot_cow_pool512_fbsnap_touch_netroute_resource_0125" = 0 ] || touch_guard_define="$touch_guard_define -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETROUTE_RESOURCE_0125"
         gcc -std=c11 -O1 -Wall -Wextra -Werror -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID \
             $touch_guard_define \
             -I. -o out/oriole_touch_payload_guard_check oriole_touch_payload_guard_host_test.c
@@ -287,6 +291,7 @@ CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
 [ "$ufsroot_cow_pool512_fbsnap_touch_gui" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_GUI"
 [ "$ufsroot_cow_pool512_fbsnap_touch_gui_0121" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_GUI_0121"
 [ "$ufsroot_cow_pool512_fbsnap_touch_netroute_0124" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETROUTE_0124"
+[ "$ufsroot_cow_pool512_fbsnap_touch_netroute_resource_0125" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETROUTE_RESOURCE_0125"
 [ "$coldinit" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFS_COLDINIT"
 [ "$preparecheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFS_PREPARECHECK"
 [ "$loadcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_LOADCHECK"

@@ -65,3 +65,7 @@ Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kern
 **本地检查：** 补丁在对应基线上 `git apply --check`、重放并与候选源码逐字节比对通过；更新后的 `sweet_usb.c` 编译为 Mach-O 对象，未定义符号清单与 0123 基线对象相同。异模型独立审查未发现高优先级问题。完整仓库门禁在提交 `44119e4` 上输出 `GATE PASS 44119e4`；这些结果不构成完整内核重链接或真机验证。
 
 **证据边界：** 该数值是驱动的软件记录，可能受完成事件和新传输之间的时序影响，不能当作硬件当前仍有活动传输的证明，更不能直接拿来发 `ENDTRANSFER`。由于手机当前不在可识别的 USB 状态，尚无该补丁的真机启动结果。后续须先完成内核重链接和临时启动审计，再观察首次连接、reset、拔插后的命令返回及端点事件，依据现场版本设计停止传输状态机。
+
+**离线重链接（2026-10-28）：** `python3 tools/relink-oriole-usb-resource-xnu-0124.py` 固定补丁、前后源码、编译配方、0123 归档及内核的 SHA-256，重放补丁、编译替换对象、核对导入和公开符号，然后重链接并审计 Mach-O。输出 `OFFLINE USB RESOURCE RELINK PASS 6dc7bd5d718d6292cd41aeb924c9966bc822ab2067eae41f24663b26fb04046b`；候选内核大小 16,697,408 字节，留在忽略的 `private/oriole-net-route-source/relink-0124/`。与 0123 相比，入口、加载命令、公开符号和 `__symbolsets` 未变；`__TEXT_EXEC` 缩小 16 KiB，后续段前移 16 KiB，段虚拟地址与文件范围均无重叠。上文的 0124 临时镜像仍包含旧的 0123 内核，不含此观测补丁。
+
+**0125 本地临时镜像（未真机启动）：** 新 profile `oriole_touch_netroute_resource_0125.py` 固定内核、payload 和完整 AVB 镜像哈希，沿用已核对的触摸 ADT 与 0124 启动参数。payload 为 16,713,744 字节，SHA-256 `c87a4317c1e0ac019bfcd1723ae399ce21036bab1e36ec67e5d580540dc802d3`；独立运行时守卫采用该精确长度及 `kernel_end=0xfffffe0008728000`，正例和截断反例均通过。完整镜像留在忽略的 `private/oriole-net-route-source/relink-0124/oriole-usb-resource-0125-avb.img`，大小 64 MiB，SHA-256 `d13bf273969dff02a101f2e70c857f7bcf7f5d9b61360448dc12146a35806a4e`。`python3 tools/preflight_oriole_touch_gui.py --trial 0125 --offline` 通过镜像、16 GiB 根镜像和 sparse 几何检查。镜像只供核实设备后临时 `fastboot boot`，未刷写手机；没有真机触摸、路由、App、联网或 USB 重连结论。

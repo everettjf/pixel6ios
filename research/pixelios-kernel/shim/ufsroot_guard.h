@@ -10,7 +10,11 @@ static inline int ur_inside(uint64_t off, uint64_t len, uint64_t limit)
 
 static inline int ufsroot_payload_ok(const struct payload *p, uint64_t available)
 {
-#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETROUTE_0124
+#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETROUTE_RESOURCE_0125
+    /* Exact offline-audited resource-observation payload. */
+    const uint64_t size=16713744;
+    const uint64_t kernel_end=0xfffffe0008728000ULL;
+#elif defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETROUTE_0124)
     /* Exact offline-audited 0124 USB-route payload; other profiles stay fixed. */
     const uint64_t size=16730160;
     const uint64_t kernel_end=0xfffffe000872c000ULL;
