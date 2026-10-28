@@ -8,14 +8,16 @@
 
 > **2026-10-27 PDT 事件读取进展** · 第二个独立探测镜像读取到一条 FTM5 就绪事件 `03 00 00 00 00 00 00 00`，随后恢复 SPI 与触摸供电并回到 Android。[查看 FIFO 真机记录](docs/ORIOLE-TOUCH-FIFO-PROBE.md)。这还不是手指触摸事件；iOS 上滑、点击与打开应用仍待 XNU 侧驱动接入和实体操作验收。
 
+> **2026-10-27 PDT 实体触摸进展** · 同步真机诊断中，XNU 从 FTM5 收到手指按下、移动、抬起坐标，并在 HID 路径报告触摸；60 秒后两条供电轨恢复原值。[查看带构建哈希的采样记录](research/pixelios-kernel/device/google/oriole/hardware/xnu-touch-irq-sample-2026-10-27.txt)。这轮使用 Android 格式的 `userdata`，没有进入 iOS 界面；锁屏上滑和 App 点击仍未验证。
+
 ## 现在做到了什么
 
 | 能力 | Pixel 6 当前状态 | 证据边界 |
 |---|---|---|
 | XNU、iOS 根卷、launchd | ✅ 真机验证 | USB 日志与屏幕观察 |
 | 锁屏、主屏显示 | ✅ 真机验证 | 主屏由软件 Home 事件触发；面板采样为低分辨率滚动扫描 |
-| 触摸芯片 SPI 与就绪事件 | ✅ 真机验证 | 独立预内核探测读到 `0x36 0x48` 和一次 `0x03` 就绪事件，尚未接入 XNU 触摸事件 |
-| 实体触摸、打开应用 | ◻️ 尚未打通 | 当前 Oriole 镜像没有触摸硬件节点；软件按键不能代替触摸验收 |
+| 触摸芯片与 XNU 实体事件 | ✅ 真机验证 | 60 秒诊断收到真实按下、移动、抬起坐标；尚未用于完整 iOS 启动 |
+| iOS 手势、打开应用 | ◻️ 尚未打通 | 现有主屏镜像没有触摸硬件节点；内核诊断不能代替界面验收 |
 | Wi-Fi、GPU 加速、音频、相机、蜂窝网络 | ◻️ 待验证 | 上游 Pixel 6a 的成果不等于 Pixel 6 的结果 |
 | 从公开仓库独立构建并安装 | ⛔ 尚未具备 | 当前本地构建依赖未公开的固定输入 |
 
@@ -32,7 +34,7 @@ flowchart LR
     H -. 面板滚动采样 .-> I
 ```
 
-本轮启动使用 `ufsrw=0`：XNU 不向物理 UFS 写入，根卷的运行时写入进入 RAM 写时复制层。**将 iOS 根镜像刷入 `userdata` 是更早的一次独立操作，已清空原 Android 数据**；之后的试验使用 `fastboot boot`，没有刷启动分区。30 分钟试验结束后设备回到 Android Recovery。此时 Android 无法启动，因为 `userdata` 存放的是 iOS 根镜像；若要继续实验，不要在 Recovery 选择 *Factory data reset*。
+先前完整 iOS 启动使用 `ufsrw=0`：XNU 不向物理 UFS 写入，根卷的运行时写入进入 RAM 写时复制层。**将 iOS 根镜像刷入 `userdata` 是更早的一次独立操作，已清空原 Android 数据**；之后的试验使用 `fastboot boot`，没有刷启动分区。此后为恢复 Android 做过 Factory data reset，已清除 `userdata` 中的 iOS 根镜像；截至 2026-10-27，手机可回到 Android 桌面。下一次完整 iOS 启动需要另行核对根镜像，并在刷写前取得新的确认。
 
 ## 两条路线
 

@@ -1,7 +1,7 @@
 Pixel 6 (oriole), temporary fastboot boot, XNU touch diagnostic 0118.
 Observation date: 2026-10-27 (America/Los_Angeles).
 Boot image SHA-256: 22d7252b7d30f17845b1f0a63eeb075bcbec2fa695df517d5420952fd811c305
-Source: USB ECM live log captured on the attached Mac; raw capture SHA-256
+Source: first USB ECM live log captured on the attached Mac; raw capture SHA-256
 d1ddba767434acaa329a74fdfb0bfc959293bae11b8e81e0320eed42d6b01200.
 Device identifiers omitted.
 
@@ -23,10 +23,40 @@ SWEET TOUCH: rail hold: 60-second scan window ended
 SWEET TOUCH: rail cycle: LDO26M restored to 0x3c
 SWEET TOUCH: rail cycle: LDO25M restored to 0x2c
 
-Interpretation: the controller answers over SPI and acknowledges scanning,
-but this run again produced no finger event. The sampled GPIO level remained
+Interpretation of the first run: the controller answers over SPI and acknowledges scanning,
+but this run produced no finger event. The user later confirmed that they did
+not touch the screen during this first 60-second window. It is a no-touch
+baseline, not evidence of a failed physical touch path. The sampled GPIO level remained
 high after one initial low sample. This is consistent with no sustained IRQ
 assertion, but does not prove there were no short pulses: sampling is about
 109 Hz and the behavior of PIN_DAT with this mux state is not independently
 verified. The result alone cannot distinguish a sensor that never generated
 touch events from pulses missed by polling or an event-FIFO acquisition bug.
+
+Second, synchronized physical-touch run on the same temporary boot image:
+raw private capture SHA-256
+03ac2c372c512790fd00f5bf94b04c6918b3a4e9be31121d579ba02d7aecd369.
+The user confirmed sustained tapping and sliding during the 60-second scan;
+their phone photographs show fingers on the screen and the matching XNU output.
+The capture recorded 277 HID touch-down lines, 277 touch-up lines, 29 printed
+FTM5 move records (further move logging is throttled), 59 IRQ sample summaries,
+and no FIFO-read failure. Representative non-identifying lines:
+
+SWEET HID: touch 0 down at 738,758
+SWEET TOUCH: ev 13 01 e2 62 2f 18 64 00 -> kind 2 id 0 raw 738,758
+SWEET TOUCH: ev 23 01 e0 62 2f 39 ca 00 -> kind 2 id 0 raw 736,758
+SWEET HID: touch 0 up at 734,760
+SWEET TOUCH: ev 33 01 de 82 2f 18 53 00 -> kind 3 id 0 raw 0,0
+SWEET HID: touch 0 down at 620,940
+SWEET TOUCH: IRQ sample: func=0 dat=1 high=101 low=66 edges=103 polls=167 events=86 errors=0
+SWEET TOUCH: rail hold: 60-second scan window ended
+SWEET TOUCH: rail cycle: LDO26M restored to 0x3c
+SWEET TOUCH: rail cycle: LDO25M restored to 0x2c
+
+Interpretation of the second run: physical Pixel 6 FTM5 contact events reach
+the XNU touch driver and its HID reporting path with coordinates and multiple
+contact IDs. The bounded scan restored both PMIC rails. This diagnostic boot
+still used Android-formatted userdata, so the HFS root mount failed and no
+iOS GUI gesture or app tap was exercised. The remaining gate is sustained
+touch ownership during a full iOS boot, followed by a screen-visible gesture
+and app launch.

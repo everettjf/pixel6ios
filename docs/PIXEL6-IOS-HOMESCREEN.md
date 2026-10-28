@@ -66,6 +66,6 @@ shasum -a 256 research/pixelios-kernel/shim/out/shim-boot-avb.img
 
 **操作约束：**构建脚本只生成镜像，不会访问手机。真机启动前必须逐项核对仅有一台目标设备、`fastboot getvar product` 为 `oriole`、bootloader 已解锁、固件/槽位与当前实验基线一致，以及输出镜像的哈希和类型。随后仅用 `fastboot boot` 临时启动；本轮复现不需要再刷 `userdata`，更不应刷 boot、vbmeta、dtbo、bootloader、radio、persist、efs 或分区表。任何后续重新刷入 `userdata` 都要另行核对镜像并在操作前确认。不要因为启动慢、闪屏或进度条长时间停留，就推断已进入主屏；以面板图像和日志共同判定。
 
-当前 `userdata` 是 iOS 根镜像，Android Recovery 的 “Could not load Android system” 提示是可预期现象。若继续 iOS 实验，不要选择 Recovery 的 Factory data reset。若要恢复 Android，应另拟适配当前 bootloader/anti-rollback 状态的官方恢复方案；本里程碑没有验证该恢复过程。下一阶段先在本机验证实体触摸和单个应用启动，再处理服务、性能与持久化；每项都需要独立真机证据。
+**2026-10-27 状态补记：**上段描述的是 2026-10-25 主屏试验当时的 `userdata` 状态；之后为恢复 Android 做过 Factory data reset，iOS 根镜像已被清除，手机再次进入 Android 桌面。同期另一轮临时 XNU 诊断已收到实体手指坐标与 HID 按下/抬起事件，见[触摸记录](PIXEL6-TOUCH-BRINGUP.md)；这仍不是 iOS 界面手势或 App 启动。要重做完整 iOS 启动，必须先核对根镜像、设备身份，并在重新刷写 `userdata` 前获得新的确认。下一阶段验证实体触摸和单个应用启动，再处理服务、性能与持久化；每项都需要独立真机证据。
 
 面向其他人安装还需要解决公开源码的独立构建、用户自行生成根镜像、设备预检和恢复等门槛；见[公开安装准备路线图](PUBLIC-INSTALL-READINESS.md)。
