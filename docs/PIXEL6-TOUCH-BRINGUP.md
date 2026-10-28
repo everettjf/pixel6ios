@@ -363,8 +363,26 @@ The local offline preflight passes. A clean physical display, earlier lock
 screen, gesture and app launch all remain **unverified** until a temporary
 boot with synchronized human observation.
 
+**Built locally, not yet run on Pixel 6 (0123 extended-window candidate,
+2026-10-28):** [patch 0122](../research/pixelios-kernel/xnu/patches/0122-oriole-touch-extended-gui-window.patch)
+adds an opt-in, exact `sweettouchwindow=2400` choice to the existing 60- and
+1200-second choices. The separate 0123 profile uses `serial=0` and
+`sweetrestart=3000`; it leaves the earlier profiles unchanged. The candidate
+kernel SHA-256 is
+`62c47dd99e2cfd9bf763c0b03c618223ca4deb4d1ab34c24e81a0abea1115d56`,
+payload SHA-256 is
+`6d114538e636421087bf86d634f851d564e9a6626d225cb0c987fff0ff75142d`,
+and the 64 MiB AVB image SHA-256 is
+`64a6aa547b5cac811b71ff8f80f7f0a9374fb18ad32ba8fe91cc4e87671abff7`.
+An independent different-model source and artifact review found no blocker;
+it verified that `SweetHID.cpo` and the other HID archive objects are
+byte-identical to 0121. Local build, image checker, and offline preflight
+pass. **No device boot or GUI gesture result exists for 0123.** The image
+remains ignored under `private/touch-xnu-source/relink-0122/` and this patch
+is still a candidate, not a verified hardware result.
+
 1. **Extend the verified touch path to a full iOS boot:** the synchronized 0118 test established physical FIFO and HID events. The diagnostic's 60-second rail window is too short for the previously observed iOS startup. A separate, bounded GUI profile must keep the controller powered through startup, retain cleanup on failure/restart, and preserve a no-touch fallback. Have the hardware-writing change independently reviewed before a temporary boot.
 2. **Verify GUI input:** after a freshly approved iOS root restore, test a physical lock-screen swipe, one app icon tap, and a return to Home. Capture both physical screen evidence and USB touch/HID logs; kernel coordinates alone do not establish that SpringBoard accepted a gesture.
 3. **Observed iOS behavior:** restoring an iOS root to `userdata` requires a freshly verified image and new confirmation immediately before flashing. Then verify a physical swipe from lock screen to home screen, tap Settings, and return Home. A visible app launch and matching input logs are required before claiming interaction works.
 
-Hardware-writing changes require the repository's independent review and stay on a local `wip/*` branch until it passes. The cycle capture helper, `tools/run_acpm_rail_cycle_inventory.py`, only accepts logs showing both exact on readbacks and both exact off readbacks after reverse restoration; a failed restoration remains an explicit failure. The current Android factory reset erased the earlier iOS root from `userdata`. Temporary inventory boots do not read or write `userdata`.
+Hardware-writing changes require the repository's independent review and stay on a local `wip/*` branch until it passes. The cycle capture helper, `tools/run_acpm_rail_cycle_inventory.py`, only accepts logs showing both exact on readbacks and both exact off readbacks after reverse restoration; a failed restoration remains an explicit failure. After the Android factory reset, the user separately confirmed a new `userdata` restore for the 0121 test; confirm the present partition contents before relying on them. Temporary inventory boots do not write `userdata`.
