@@ -266,8 +266,7 @@ SHA-256 is `a153da85ce9bbd3f519c83739e4d6cab1b1df7e220aa896f528c7c294bdb8d2d`;
 the complete-image digest, embedded payload, Android v4 layout and local
 image metadata were checked. The exact image and its metadata remain in
 ignored `private/touch-xnu-source/relink-0121/`. A different-model review of
-the profile and revised size guard found no actionable issue. This is still
-an **unbooted** image and establishes no GUI touch behavior.
+the profile and revised size guard found no actionable issue.
 `python3 tools/preflight_oriole_touch_gui.py --offline --trial 0121` checks
 the new image and the existing 16 GiB root-image hash locally. Trial `0120`
 remains the default; selecting either trial leaves the other trial's SHA
@@ -277,6 +276,25 @@ Preserve the exact 0120 image as a baseline. A later 0121 trial must compare
 the same physical lock-screen swipe and app tap, with the input window active,
 and record both screen behavior and HID logs. If the 0120 baseline already
 responds, the 0121 hypothesis is unnecessary.
+
+**Observed on Pixel 6, 2026-10-28 (0121 first GUI trial; input result pending):**
+After a fresh, explicit `userdata` confirmation, the read-only preflight
+matched the pinned 16 GiB sparse root SHA-256 and 64 MiB 0121 boot SHA-256,
+and verified exactly one unlocked `oriole`, its recorded firmware/slot and
+partition geometry. `fastboot -S 128M flash userdata` completed all 94/94
+chunks with exit status 0 in 363.380 seconds; no other partition was flashed.
+The same read-only preflight passed again, and `fastboot boot` accepted the
+exact 0121 image. The private USB capture is
+`private/touch-xnu-source/relink-0121/gui-0121-udp.log`. Its early lines show
+the FTM5 chip identifying, reporting sysinfo, and entering 1080x2400 scan;
+the iOS userland reached `launchd` and then `SpringBoard`. The capture began
+after the earliest root-mount messages, so it does not directly show that
+transition. At the time
+of this entry, USB logging and framebuffer swaps continued without a panic,
+but no physical finger event had been captured and the current phone screen
+had not been confirmed by the human. This proves neither lock-screen input
+nor app launch; those are the next acceptance checks. The 0120 baseline
+remains unrun for comparison.
 
 1. **Extend the verified touch path to a full iOS boot:** the synchronized 0118 test established physical FIFO and HID events. The diagnostic's 60-second rail window is too short for the previously observed iOS startup. A separate, bounded GUI profile must keep the controller powered through startup, retain cleanup on failure/restart, and preserve a no-touch fallback. Have the hardware-writing change independently reviewed before a temporary boot.
 2. **Verify GUI input:** after a freshly approved iOS root restore, test a physical lock-screen swipe, one app icon tap, and a return to Home. Capture both physical screen evidence and USB touch/HID logs; kernel coordinates alone do not establish that SpringBoard accepted a gesture.
