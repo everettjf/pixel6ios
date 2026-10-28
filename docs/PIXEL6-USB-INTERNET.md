@@ -41,7 +41,7 @@ Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kern
 ## 0123 离线重链接记录（2026-10-28）
 
 - **本地构建：** 用 `NECP=1`、`MACH_ASSERT=1` 编译候选 `route.c` 后，缺失的 NECP 与锁断言引用恢复到已验证归档的形式。以 0122 归档为基线，只替换 `route.o`、`sweet_usb.o`，重链接得到 16,713,816 字节的候选内核，SHA-256 `f68406db756901338eedec463cec3bf54c063f56c817c8fb5173398fb89a89ef`。全局符号只增加 `_rtrequest_add_gateway_on_ifindex` 和 `_rtrequest_delete_if_same`，入口地址与加载命令序列未变。
-- **布局差异：** `__TEXT_EXEC` 比 0122 增加 16 KiB，后续加载段地址和文件偏移随之移动 16 KiB。离线解析确认段集合、入口、加载命令序列和 `__symbolsets` 内容相同；新旧两份 Mach-O 的段虚拟地址及文件范围各自无重叠，候选映像末端从 `0xfffffe0008728000` 移到 `0xfffffe000872c000`。因此 0122 的“除 LINKEDIT 外各段布局完全相同”审计不能直接用于 0123；仍须把这些检查做成可复现的正式门禁，并核对补丁源文件与对象文件。
+- **布局差异：** `__TEXT_EXEC` 比 0122 增加 16 KiB，后续加载段地址和文件偏移随之移动 16 KiB。离线解析确认段集合、入口、加载命令序列和 `__symbolsets` 内容相同；新旧两份 Mach-O 的段虚拟地址及文件范围各自无重叠，候选映像末端从 `0xfffffe0008728000` 移到 `0xfffffe000872c000`。因此 0122 的“除 LINKEDIT 外各段布局完全相同”审计不能直接用于 0123。
 - **离线模拟：** 用与 0122 相同的 ADT 和命令行，另加 `sweetnetroute=1` 构造候选 payload；QEMU 运行 12 秒。候选与 0122 基线显示完全相同的 `SWEET EARLY 1` 至 `SWEET EARLY 20` 日志，二者均返回 `incomplete_decode`。QEMU 的 `virt` 平台不模拟 Pixel 6 的实际 USB 和网卡，不能由此推断默认路由、断线清理或互联网访问可用。候选 payload SHA-256 为 `ac57f6084e49200079fc932433bef4bcaeca1da4a9c37cd02555725b8fd00e8f`，留在忽略目录，未刷写或启动真机。
 - **导入差异的定位：** 旧归档 `route.o` 的 DWARF 记录编译器为 Apple clang 15；本地配方使用 Apple clang 21。用同一配方重编译**未加 0123 的基线 `route.c`**，也得到 `_memset` 而不是旧归档的 `___memset_chk`。两者都存在于 0122 已链接内核的全局符号表；因此此差异与新路由函数无关，但仍需审核替换对象的运行时契约。
-- **待解决：** 内核布局的 16 KiB 增长和替换对象的可复现性须完成专门审计。当前手机不在可识别的 Fastboot/ADB 状态，不进行真机测试。
+- **可复现门禁：** `python3 tools/relink-oriole-netroute-xnu-0123.py` 检查固定输入哈希、在临时目录里重放 0123 补丁、重编译两个替换对象、核对对象导入和导出差异、重链接并审计段布局、符号集和最终内核哈希；本机输出 `OFFLINE RELINK PASS f68406db…`。脚本只写入忽略的 `private/`，不操作手机。当前手机不在可识别的 Fastboot/ADB 状态，仍需真机临时启动和路由、触摸、联网结果。
