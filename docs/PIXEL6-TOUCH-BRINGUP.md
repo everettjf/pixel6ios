@@ -292,9 +292,21 @@ after the earliest root-mount messages, so it does not directly show that
 transition. At the time
 of this entry, USB logging and framebuffer swaps continued without a panic,
 but no physical finger event had been captured and the current phone screen
-had not been confirmed by the human. This proves neither lock-screen input
-nor app launch; those are the next acceptance checks. The 0120 baseline
-remains unrun for comparison.
+had not been confirmed by the human. The later log printed
+`rail hold: 1200-second scan window ended`, then readbacks for LDO26M and
+LDO25M restoration; no physical down/up event was logged during that window.
+The human subsequently photographed the iOS lock screen at 4:35 with the
+bottom swipe bar visible, plus a frame showing the wallpaper and boot text
+in landscape orientation. The lock-screen image also has a black strip of
+console text across its lower part. These are physical screen observations,
+not a clean display result. The human reported that an upward swipe had no
+effect, then clarified it was attempted about 20 minutes after boot, when
+the rail-hold window had ended. The capture contains no finger events in the
+window. This does not establish a touch failure for 0121: there was no
+confirmed finger test while the controller was powered. It proves neither
+lock-screen input nor app launch. The 0120 baseline remains unrun for
+comparison. The next run must synchronize the swipe with the first visible
+lock screen, before the window ends; a later swipe is not a GUI input test.
 
 1. **Extend the verified touch path to a full iOS boot:** the synchronized 0118 test established physical FIFO and HID events. The diagnostic's 60-second rail window is too short for the previously observed iOS startup. A separate, bounded GUI profile must keep the controller powered through startup, retain cleanup on failure/restart, and preserve a no-touch fallback. Have the hardware-writing change independently reviewed before a temporary boot.
 2. **Verify GUI input:** after a freshly approved iOS root restore, test a physical lock-screen swipe, one app icon tap, and a return to Home. Capture both physical screen evidence and USB touch/HID logs; kernel coordinates alone do not establish that SpringBoard accepted a gesture.
