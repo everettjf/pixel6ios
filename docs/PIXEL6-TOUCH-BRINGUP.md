@@ -340,6 +340,29 @@ on-screen `serial=3` logging, keeping USB capture, then measure whether the
 same bounded window spans the first visible lock screen. Do not claim a
 physical gesture or app launch from either 0121 run.
 
+The repeat's 30-minute private UDP capture is 538,298 bytes, SHA-256
+`7e9be109b48549d2994eb1d19be39bfaf5d2694018c2207aaec65e81061f5365`.
+It includes no physical touch/HID event or panic. The phone was unattended,
+so absence of input events is expected; the capture is not a negative
+gesture test. The two touch rails were read back at their original off
+values (`0x3c` and `0x2c`) after the 1200-second limit.
+
+**Built locally, not yet run on Pixel 6 (0122 clean-display candidate,
+2026-10-28):** the [0122 payload checker](../research/pixelios-kernel/tools/oriole_touch_gui_0122.py)
+uses the same pinned 0121 kernel, ADT, touch settings, 1200-second rail
+window and 1800-second restart. The only payload byte changed is offset
+`0x59`, ASCII `3` to `0` in `serial=3` → `serial=0`. The payload SHA-256 is
+`91d586106277bb53eae6303441d9282f4a5be8a74e20a860f7535c363e572965`;
+the 64 MiB local AVB image SHA-256 is
+`cf4ef12866af697903d76a5eaae188cf80ee74bbe3a45997034f429a3e42701c`.
+The 0122 build option reuses the 0121 runtime size guard and hardware compile
+flags, but selects the new exact payload checker. An independent different-
+model review found no actionable source or artifact blocker; it did not run
+the phone. The output stays ignored under `private/touch-xnu-source/relink-0122/`.
+The local offline preflight passes. A clean physical display, earlier lock
+screen, gesture and app launch all remain **unverified** until a temporary
+boot with synchronized human observation.
+
 1. **Extend the verified touch path to a full iOS boot:** the synchronized 0118 test established physical FIFO and HID events. The diagnostic's 60-second rail window is too short for the previously observed iOS startup. A separate, bounded GUI profile must keep the controller powered through startup, retain cleanup on failure/restart, and preserve a no-touch fallback. Have the hardware-writing change independently reviewed before a temporary boot.
 2. **Verify GUI input:** after a freshly approved iOS root restore, test a physical lock-screen swipe, one app icon tap, and a return to Home. Capture both physical screen evidence and USB touch/HID logs; kernel coordinates alone do not establish that SpringBoard accepted a gesture.
 3. **Observed iOS behavior:** restoring an iOS root to `userdata` requires a freshly verified image and new confirmation immediately before flashing. Then verify a physical swipe from lock screen to home screen, tap Settings, and return Home. A visible app launch and matching input logs are required before claiming interaction works.

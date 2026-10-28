@@ -18,11 +18,13 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 BOOT_SHA = 'b6b152dfba0228d1adf03339ad09493c5ccc96c2c0e10bcfceeb4d62c1dbfc11'
 BOOT_SHA_0121 = 'a153da85ce9bbd3f519c83739e4d6cab1b1df7e220aa896f528c7c294bdb8d2d'
+BOOT_SHA_0122 = 'cf4ef12866af697903d76a5eaae188cf80ee74bbe3a45997034f429a3e42701c'
 ROOT_SHA = '8b53c7102ba7e057483910c60f769b50f79046e5e60829052b401f7c017e0c67'
 SPARSE_MAGIC = 0xED26FF3A
 TRIALS = {
     '0120': (BOOT_SHA, ROOT / 'private/touch-xnu-source/relink-0120/oriole-touch-gui-avb.img'),
     '0121': (BOOT_SHA_0121, ROOT / 'private/touch-xnu-source/relink-0121/oriole-touch-gui-avb.img'),
+    '0122': (BOOT_SHA_0122, ROOT / 'private/touch-xnu-source/relink-0122/oriole-touch-gui-avb.img'),
 }
 
 
