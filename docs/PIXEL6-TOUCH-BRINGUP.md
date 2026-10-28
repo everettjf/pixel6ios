@@ -157,6 +157,28 @@ The next gate is a reviewed handoff that measures or enables them at the
 XNU touch init point, verifies on readbacks, and restores them on any failed
 ID or later touch initialization. Do not change the SPI transaction first.
 
+**Built locally; not yet observed on hardware (0116 candidate, 2026-10-27):**
+[patch 0116](../research/pixelios-kernel/xnu/patches/0116-oriole-touch-rail-cycle-id.patch)
+adds an Oriole-only `sweettouchrailcycle=1` identify experiment. It requires
+mode 1, the measured ACPM channel-2 descriptor, empty queues, exact initial
+LDO25M/LDO26M off values (`0x2c`/`0x3c`), and the ABL-style reset path. It
+enables LDO25M then LDO26M, verifies `0xac`/`0xbc`, performs at most one chip
+ID attempt, and tries to restore LDO26M then LDO25M with off readbacks. A
+published ACPM request with a missing or invalid reply poisons the client and
+stops further writes; in that case **one or both rails may remain enabled
+until reboot**. The image uses a 180-second auto-restart for this reason.
+The candidate XNU SHA-256 is
+`d21a69b6481bcdd4cb2e23556b9407ff3eebd456cf7d85e91dced3b854f44774`,
+payload SHA-256 is
+`0ccaac530588a86864258d00c35cf7e6aaf8964a4d1ba2d8eaa481027bdfc4a2`,
+and AVB-wrapped boot-image SHA-256 is
+`d4ee1fc635d7bb7c36907be417cd1148ace59f465914b76bafb8c72e1844b5e7`.
+An independent different-model-family review found no remaining concrete
+hardware-write blocker. The local relink preserves the prior loaded segment
+addresses and permits only an exact private-symbol delta. A passing host
+build or review does not establish that the touch IC responds; record the
+on/ID/off sequence on the Pixel 6 before enabling scan mode.
+
 The Android factory reset also erased the iOS root in
 `userdata`, so an iOS boot needs a freshly verified root image and a new
 user confirmation immediately before any flash.

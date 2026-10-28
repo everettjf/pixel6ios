@@ -15,7 +15,11 @@ int main(int argc, char **argv)
 	assert(f);
 	assert(fseek(f, 0, SEEK_END) == 0);
 	len = ftell(f);
+#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_RAILCYCLE
+	assert(len == 16716768L);
+#else
 	assert(len == 16716528L);
+#endif
 	assert(fseek(f, 0, SEEK_SET) == 0);
 	buf = malloc((size_t)len);
 	assert(buf);

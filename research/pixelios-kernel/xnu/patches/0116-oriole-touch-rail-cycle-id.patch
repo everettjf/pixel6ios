@@ -1,0 +1,269 @@
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -34,6 +34,8 @@
+  *                        Example: --args "sweettouchclk=3 sweettouchpoke=r:10c00000;m:1e080000=1=1;d:1000;r:1e080000;"
+  *   sweettouchvar=0|1    1: if the first identify times out, try up to 5 SPI/USI variants (A..E below) and stop at the
+  *                        first whose burst completes, then identify again (default 0: only the register dump runs)
++ *   sweettouchrailcycle=1 Oriole identify-only experiment: require both PMIC touch rails off,
++ *                        enable for one ID attempt, then verify reverse-order restore. Never scans.
+  *
+  * Variants (patch 0090). Linux = master of git.kernel.org torvalds/linux.git fetched 2026-10-22 (line numbers of that copy):
+  *   A  CLK_CFG |= ENCLK (bit 8), PSR (bits 7:0) = 3: spi-s3c64xx.c S3C64XX_SPI_ENCLK_ENABLE :52, PSR_MASK :53, set in
+@@ -166,6 +168,9 @@
+ 	int clk_mode, var, cs_abl;
+ 	bool oriole_spi_order;
+ 	uint32_t acpm_rail_read_attempted;
++	vm_offset_t acpm_sram, acpm_mbox;
++	uint32_t acpm_seq;
++	bool acpm_poisoned, rail25_held, rail26_held, rail_probe;
+ 	bool reset_done;   /* tg_reset_and_ready already ran (sweettouchcs=1 does it before the identify) */
+ 	bool reset_release_failed; /* Oriole-only fatal readback after the measured 100 ms settle */
+ 	char poke[POKE_MAX_LEN + 16];   /* sweettouchpoke boot-arg (empty = none) */
+@@ -1281,11 +1286,169 @@
+ 	return tg_xfer(cmd1, sizeof(cmd1), NULL, 0) == 0 && tg_xfer(cmd, sizeof(cmd), NULL, 0) == 0;
+ }
+ 
++/* Oriole-only 0116 experiment. All constants match the 0115 XNU read,
++ * acpm.c:xfer and acpm_oriole_touch_rail_set, and the observed descriptor.
++ * Every request is bounded. After an uncertain published request, poison
++ * the client rather than risk a second write on a channel with unknown state. */
++static bool
++tg_oriole_rail_xfer(uint32_t reg, uint32_t command1, uint32_t *value)
++{
++	vm_offset_t sram = tg.acpm_sram, mbox = tg.acpm_mbox;
++	uint32_t rr, rf, sr, sf, nf, seq, word0, word1;
++	uint64_t start;
++
++	if (tg.acpm_poisoned || !sram || !mbox ||
++	    (reg != 0x5cu && reg != 0x5du) ||
++	    (command1 != 0u && command1 != 0x00808002u && command1 != 0x00800002u))
++		return false;
++	rr = tg_rd(sram, 0x382e8u);
++	rf = tg_rd(sram, 0x382ecu);
++	sr = tg_rd(sram, 0x38288u);
++	sf = tg_rd(sram, 0x3828cu);
++	if (rr >= 5u || rf >= 5u || sr >= 5u || sf >= 5u ||
++	    rr != rf || sr != sf || (rf + 2u) % 5u == sf) {
++		printf("SWEET TOUCH: rail cycle: queue busy or invalid; stop\n");
++		return false;
++	}
++	nf = (rf + 1u) % 5u;
++	seq = tg.acpm_seq;
++	tg.acpm_seq = seq % 63u + 1u;
++	tg_wr(sram, 0x382f0u + 16u * rf, reg | 0x100u | (seq << 16));
++	tg_wr(sram, 0x382f0u + 16u * rf + 4u, command1);
++	tg_wr(sram, 0x382f0u + 16u * rf + 8u, 0u);
++	tg_wr(sram, 0x382f0u + 16u * rf + 12u, 0u);
++	/* From this front write onward the APM may execute the operation. */
++	tg.acpm_poisoned = true;
++	tg_wr(sram, 0x382ecu, nf);
++	if (tg_rd(sram, 0x382ecu) != nf) {
++		printf("SWEET TOUCH: rail cycle: publication uncertain; stop\n");
++		return false;
++	}
++	tg_wr(mbox, 0x40u, 1u << 2);
++	start = tg_now_us();
++	for (unsigned polls = 0; ; polls++) {
++		sf = tg_rd(sram, 0x3828cu);
++		if (sf != sr)
++			break;
++		if (polls >= 100000u || tg_now_us() - start > 100000u) {
++			printf("SWEET TOUCH: rail cycle: reg %#x command %#x timed out; stop\n",
++			    reg, command1);
++			return false;
++		}
++	}
++	if (sf >= 5u || sf != (sr + 1u) % 5u) {
++		printf("SWEET TOUCH: rail cycle: invalid reply count; stop\n");
++		return false;
++	}
++	word0 = tg_rd(sram, 0x38290u + 16u * sr);
++	word1 = tg_rd(sram, 0x38290u + 16u * sr + 4u);
++	if (((word0 >> 16) & 0x3fu) != seq) {
++		printf("SWEET TOUCH: rail cycle: invalid reply sequence; stop\n");
++		return false;
++	}
++	tg_wr(sram, 0x38288u, sf);
++	tg_wr(mbox, 0x24u, 1u << 2);
++	if (word1 >> 24) {
++		printf("SWEET TOUCH: rail cycle: PMIC error %u; stop\n", word1 >> 24);
++		return false;
++	}
++	*value = (word1 >> 8) & 0xffu;
++	tg.acpm_poisoned = false;
++	return true;
++}
++
++static bool
++tg_oriole_rail_stop(void)
++{
++	uint32_t v;
++	if (tg.acpm_poisoned) {
++		printf("SWEET TOUCH: rail cycle: uncertain ACPM state; cannot safely restore (held25=%u held26=%u)\n",
++		    tg.rail25_held, tg.rail26_held);
++		return false;
++	}
++	if (tg.rail26_held) {
++		if (!tg_oriole_rail_xfer(0x5du, 0u, &v) ||
++		    (v != 0xbcu && v != 0x3cu))
++			goto failed;
++		if (v == 0xbcu && (!tg_oriole_rail_xfer(0x5du, 0x00800002u, &v) ||
++		    !tg_oriole_rail_xfer(0x5du, 0u, &v) || v != 0x3cu))
++			goto failed;
++		tg.rail26_held = false;
++		printf("SWEET TOUCH: rail cycle: LDO26M restored to 0x3c\n");
++	}
++	if (tg.rail25_held) {
++		if (!tg_oriole_rail_xfer(0x5cu, 0u, &v) ||
++		    (v != 0xacu && v != 0x2cu))
++			goto failed;
++		if (v == 0xacu && (!tg_oriole_rail_xfer(0x5cu, 0x00800002u, &v) ||
++		    !tg_oriole_rail_xfer(0x5cu, 0u, &v) || v != 0x2cu))
++			goto failed;
++		tg.rail25_held = false;
++		printf("SWEET TOUCH: rail cycle: LDO25M restored to 0x2c\n");
++	}
++	return true;
++failed:
++	printf("SWEET TOUCH: rail cycle: partial restore; stop (held25=%u held26=%u poisoned=%u)\n",
++	    tg.rail25_held, tg.rail26_held, tg.acpm_poisoned);
++	return false;
++}
++
++static bool
++tg_oriole_rail_start(void)
++{
++	vm_offset_t d;
++	uint32_t v;
++	if (!tg.oriole_spi_order || tg.mode != 1 || tg.var || !tg.cs_abl ||
++	    __atomic_exchange_n(&tg.acpm_rail_read_attempted, 1u, __ATOMIC_ACQ_REL)) {
++		printf("SWEET TOUCH: rail cycle: wrong profile or already attempted\n");
++		return false;
++	}
++	tg.acpm_sram = tg_map(0x02039000u, 0x40000u);
++	tg.acpm_mbox = tg_map(0x17610000u, 0x1000u);
++	if (!tg.acpm_sram || !tg.acpm_mbox ||
++	    tg_rd(tg.acpm_sram, 0xa008u) != 0x9210u ||
++	    tg_rd(tg.acpm_sram, 0xa018u) != 15u) {
++		printf("SWEET TOUCH: rail cycle: map or ACPM table invalid; no request\n");
++		return false;
++	}
++	d = tg.acpm_sram + 0x9210u + 2u * 0x48u;
++	if (tg_rd(d, 0x00u) != 2u || tg_rd(d, 0x0cu) != 1u ||
++	    tg_rd(d, 0x34u) != 5u || tg_rd(d, 0x38u) != 16u ||
++	    tg_rd(d, 0x44u) != 1u ||
++	    tg_rd(d, 0x10u) != 0x382e8u || tg_rd(d, 0x14u) != 0x382ecu ||
++	    tg_rd(d, 0x18u) != 0x382f0u || tg_rd(d, 0x28u) != 0x38288u ||
++	    tg_rd(d, 0x2cu) != 0x3828cu || tg_rd(d, 0x30u) != 0x38290u) {
++		printf("SWEET TOUCH: rail cycle: descriptor invalid; no request\n");
++		return false;
++	}
++	tg.acpm_seq = 1u;
++	if (!tg_oriole_rail_xfer(0x5cu, 0u, &v) || v != 0x2cu ||
++	    !tg_oriole_rail_xfer(0x5du, 0u, &v) || v != 0x3cu) {
++		printf("SWEET TOUCH: rail cycle: off-state preflight refused\n");
++		return false;
++	}
++	tg.rail25_held = true; /* an UPDATE may take effect even without a reply */
++	if (!tg_oriole_rail_xfer(0x5cu, 0x00808002u, &v) ||
++	    !tg_oriole_rail_xfer(0x5cu, 0u, &v) || v != 0xacu)
++		goto failed;
++	tg.rail26_held = true;
++	if (!tg_oriole_rail_xfer(0x5du, 0x00808002u, &v) ||
++	    !tg_oriole_rail_xfer(0x5du, 0u, &v) || v != 0xbcu)
++		goto failed;
++	printf("SWEET TOUCH: rail cycle: both rails on for ID (0xac, 0xbc)\n");
++	return true;
++failed:
++	printf("SWEET TOUCH: rail cycle: enable failed; restoring if channel known\n");
++	if (!tg_oriole_rail_stop())
++		printf("SWEET TOUCH: rail cycle: enable failure left uncertain rail state\n");
++	return false;
++}
++
+ static void
+ tg_run(void)
+ {
+ 	unsigned logged = 0, errors = 0;
+-	bool ok;
++	bool ok, rail_active = false;
+ 
+ 	printf("SWEET TOUCH: gs101 FTM5 driver, mode %d, starting in %u s\n", tg.mode, tg.delay_s);
+ 	tg_sleep_ms(tg.delay_s * 1000u);
+@@ -1308,6 +1471,11 @@
+ 		return;
+ 	}
+ 	tg_spi_diag("after setup");
++	if (tg.rail_probe) {
++		if (!tg_oriole_rail_start())
++			return;
++		rail_active = true;
++	}
+ 	if (tg.cs_abl) {   /* run touch1: the chip answered after PUD := 0 and the reset pulse, so that comes first */
+ 		tg_pin_set_pud(&tg.clk, 0);
+ 		tg_pin_set_pud(&tg.mosi, 0);
+@@ -1318,7 +1486,7 @@
+ 		if (tg.oriole_spi_order) {
+ 			/* Observed prekernel sequence: ID command precedes FIFO read. */
+ 			if (!tg_reset_pulse()) {
+-				return;
++				goto rail_cleanup;
+ 			}
+ 			printf("SWEET TOUCH: Oriole reset settled; ID before first FIFO read\n");
+ 		} else {
+@@ -1326,7 +1494,7 @@
+ 			printf("SWEET TOUCH: reset before identify: %s\n", tg.reset_done ? "controller-ready event seen" : "no ready event");
+ 		}
+ 		if (tg.reset_release_failed) {
+-			return;
++			goto rail_cleanup;
+ 		}
+ 	}
+ 	ok = tg_identify();
+@@ -1338,6 +1506,11 @@
+ 			break;
+ 		}
+ 	}
++	if (rail_active && !tg_oriole_rail_stop()) {
++		printf("SWEET TOUCH: rail cycle: restore failed; stop\n");
++		return;
++	}
++	rail_active = false;
+ 	if (!ok) {
+ 		printf("SWEET TOUCH: phase 1 result: chip did not answer; nothing else is touched\n");
+ 		return;
+@@ -1372,6 +1545,9 @@
+ 		}
+ 		tg_sleep_ms(n > 0 ? 1 : 8);
+ 	}
++rail_cleanup:
++	if (rail_active && !tg_oriole_rail_stop())
++		printf("SWEET TOUCH: rail cycle: restore failed after reset error\n");
+ }
+ 
+ static void
+@@ -1391,7 +1567,7 @@
+ 	DTEntry node;
+ 	char const *compat = NULL;
+ 	unsigned int csize = 0;
+-	int mode = 2, delay_s = 45, mux = 0, clk = 0, var = 0, cs = 0;
++	int mode = 2, delay_s = 45, mux = 0, clk = 0, var = 0, cs = 0, rail_cycle = 0;
+ 	thread_t thread;
+ 
+ 	if (started) {
+@@ -1419,6 +1595,7 @@
+ 	(void)PE_parse_boot_argn("sweettouchclk", &clk, sizeof(clk));
+ 	(void)PE_parse_boot_argn("sweettouchvar", &var, sizeof(var));
+ 	(void)PE_parse_boot_argn("sweettouchcs", &cs, sizeof(cs));
++	(void)PE_parse_boot_argn("sweettouchrailcycle", &rail_cycle, sizeof(rail_cycle));
+ 	(void)PE_parse_boot_argn("sweettouchpoke", tg.poke, sizeof(tg.poke));   /* longer values are cut: poke_parse then sees > 240 chars */
+ 	if (delay_s < 0 || delay_s > 3600) {
+ 		delay_s = 45;
+@@ -1434,6 +1611,7 @@
+ 	    strncmp(compat, TG_ORIOLE_COMPAT, sizeof(TG_ORIOLE_COMPAT)) == 0;
+ 	tg.clk_mode = clk < 0 ? 0 : clk > 3 ? 3 : clk;
+ 	tg.mode = mode;
++	tg.rail_probe = rail_cycle == 1;
+ 	tg.delay_s = (uint32_t)delay_s;
+ 	tg.mux_force = mux == 1;
+ 	if (kernel_thread_start(tg_thread, NULL, &thread) == KERN_SUCCESS) {
