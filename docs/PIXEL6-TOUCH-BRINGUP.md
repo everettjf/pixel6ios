@@ -182,11 +182,25 @@ chip ID, and both rails read back off after reverse-order restoration (`0x3c`,
 `0x2c`). This proves XNU can communicate with the touch controller when its
 rails are on. Scanning, physical events and iOS interaction remain untested.
 
+**Observed on Pixel 6, 2026-10-27 (0117):**
+[patch 0117](../research/pixelios-kernel/xnu/patches/0117-oriole-touch-rail-hold-scan.patch)
+holds the verified rails for a bounded 60-second mode-2 scan, then restores
+both rails. The temporary boot produced
+[sanitized evidence](../research/pixelios-kernel/device/google/oriole/hardware/xnu-touch-rail-hold-scan-2026-10-27.txt):
+chip ID `36 48 03 00`, controller-ready event `03`, scan mode entered, and
+two FIFO status records (`43 05 ...` and `43 01 ...`). The 60-second timer
+expired and the log confirmed reverse-order restoration to `0x3c`/`0x2c`.
+No finger down/move/up event appeared. The timing of human screen touches
+was not independently verified, so this does not yet distinguish an input
+path fault from a missed test window. Gestures and app interaction remain
+unverified. The image SHA-256 was
+`d897fedbf6c1ef2478569f57846dcde1e48ae0c953a6dbf2f2901c5567083a2e`.
+
 The Android factory reset also erased the iOS root in
 `userdata`, so an iOS boot needs a freshly verified root image and a new
 user confirmation immediately before any flash.
 
-1. **Measure physical events without a storage flash:** 0116 established that both rails must be on for FTM5 to answer. Keep the identify-only profile as a fallback. A separately reviewed, fail-closed XNU profile can hold the rails for a bounded scan window and verify physical down/up events and coordinate scaling; it must restore both rails on every known exit. A root-mount failure later in boot does not prevent this narrow test.
+1. **Measure physical events without a storage flash:** 0117 established a bounded powered scan and cleanup but no physical coordinates. Repeat with a synchronized human touch test inside the scan window; if still silent, compare the Android vendor init sequence, IRQ state, and FIFO protocol. Keep the identify-only profile as a fallback. A root-mount failure later in boot does not prevent this narrow test.
 2. **Wire verified events into iOS:** only after physical FIFO events are established should a separate profile keep the controller powered for the GUI session and test HID delivery to the lock screen, gesture recognition, and taps. Preserve a no-touch profile as a fallback.
 3. **Observed iOS behavior:** restoring an iOS root to `userdata` requires a freshly verified image and new confirmation immediately before flashing. Then verify a physical swipe from lock screen to home screen, tap Settings, and return Home. A visible app launch and matching input logs are required before claiming interaction works.
 

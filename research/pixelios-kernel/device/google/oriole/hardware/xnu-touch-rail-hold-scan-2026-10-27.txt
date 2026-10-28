@@ -1,0 +1,25 @@
+Pixel 6 (oriole), temporary fastboot boot, XNU touch diagnostic 0117.
+Observation date: 2026-10-27 (America/Los_Angeles).
+Boot image SHA-256: d897fedbf6c1ef2478569f57846dcde1e48ae0c953a6dbf2f2901c5567083a2e
+Source: USB ECM live log captured on the attached Mac; raw capture SHA-256
+e9bac123214e547bf39b6c4e1a2dc72f21adc2ba892d5e158c85bab9b3ca13d7.
+Device identifiers omitted.
+
+SWEET TOUCH: rail cycle: both rails on for ID (0xac, 0xbc)
+SWEET TOUCH: identify: reg 0x20000000 = 36 48 03 00, want 36 48 -> FTM5 answers
+SWEET TOUCH: phase 2: reset pulse, scan enable, poll
+SWEET TOUCH: boot ev 03 00 00 00 00 00 00 00
+SWEET TOUCH: scanning, 1080x2400 raw -> 1080x2400
+SWEET TOUCH: ev 43 05 01 00 00 00 00 01 -> kind 5 id 0 raw 0,0
+SWEET TOUCH: ev 43 01 a0 00 ff 00 00 00 -> kind 5 id 0 raw 0,0
+SWEET TOUCH: rail hold: 60-second scan window ended
+SWEET TOUCH: rail cycle: LDO26M restored to 0x3c
+SWEET TOUCH: rail cycle: LDO25M restored to 0x2c
+
+Interpretation: hardware communication, reset-ready, scan command, two FIFO
+status records, and bounded PMIC cleanup were observed. Neither FIFO record
+is a finger down/move/up event. This run does not establish physical touch,
+gesture handling, or app interaction. The timing of any human touches relative
+to the 60-second scan window was not independently verified. The later XNU
+root-mount loop is expected with Android-formatted userdata and does not
+change this narrow touch result.
