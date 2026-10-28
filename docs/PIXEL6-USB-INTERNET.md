@@ -33,6 +33,8 @@ reset 和 disconnect 时撤销**自己创建**的路由、发布下线状态；
 
 **主机状态复核（2026-10-28，本机观察）：** Mac 的 `net.inet.ip.forwarding` 当前为 `1`，上行仍为 `en1`，但没有 Pixel 6 USB gadget 或 `192.168.7.1` 下行接口；无管理员权限时 `pfctl -s info` 返回权限不足，NAT 状态尚未核实。只读预检现记录 IPv4 转发状态；该值为 `1` 仍不证明 NAT、DNS 或 iOS 外网可达，也不应在手机未连接时改变现有主机网络配置。
 
+**iOS 根卷的网络服务缺口（2026-10-28，本机只读观察 / 源码核对）：** 将已固定 SHA-256 的 16 GiB Android sparse 根镜像展开到忽略的 `private/`，再以 HFSX 只读方式挂载。`/Library/Preferences/SystemConfiguration/preferences.plist`（SHA-256 `275f02b6ab4b4bbb554b62dfff55c3cef9571f44c7c6b8e3b742ffae0bddb723`）只有 `System/ComputerName`、`ComputerNameEncoding` 和 `HostName`，没有 `NetworkServices`、`DNS` 或 `IPv4` 项；`/private/etc/resolv.conf` 与 `/private/var/run/resolv.conf` 也不存在。镜像自带的 `com.apple.usb.networking.addNetworkInterface.plist`（SHA-256 `8de4fc67a0f038589635cd5c6caf83ef3d65ba5a7a9fc5853aaf0f3d294d3edd`）订阅 `IONetworkInterface` 匹配事件，再调用 `/usr/sbin/addNetworkInterface`，其中列出的 USB 类包括 `AppleUSBECMData`。然而当前 [0073 USB 补丁](../research/pixelios-kernel/xnu/patches/0073-sweet-usb-ecm.patch)通过 `ifnet_allocate_extended()` 直接创建 `ue0`，并没有发布同名的 `IONetworkInterface` 服务。**推断：** 即使 0123 内核默认路由成功，现有自动网络接口注册路径也未必会为 `ue0` 创建 iOS 用户态服务和 DNS；不能仅因 `configd`、`mDNSResponder` 进程已运行就宣称域名或系统 App 可联网。下一轮真机应分别核对 IP 直连、解析器状态、DNS 请求和 App 请求；若 IP 成功而域名失败，再依据实测结果选用户态网络服务配置或可验证的 DNS 注入方案，不在未验证格式的 plist 中猜写配置。
+
 Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kernel/docs/research/20-wifi-stack-plan.md)不能证明 Pixel 6 真机 Wi-Fi 可用。USB 联网可作为更早的可测试出口，但不等于最终无线联网。
 
 ## 本地候选：0123（尚未真机验证）
