@@ -1,0 +1,59 @@
+--- a/iokit/Kernel/arm/hid/SweetHID.cpp
++++ b/iokit/Kernel/arm/hid/SweetHID.cpp
+@@ -21,6 +21,8 @@
+ #include <IOKit/IOTimerEventSource.h>
+ #include <libkern/c++/OSArray.h>
+ #include <pexpert/pexpert.h>
++#include <pexpert/device_tree.h>
++#include <libkern/libkern.h>
+ 
+ #include "IOHIDEventService.h"
+ #include "IOHIDEventServiceUserClient.h"
+@@ -367,6 +369,7 @@
+ 	virtual UInt32 getProductID() APPLE_KEXT_OVERRIDE { return 2; }
+ private:
+ 	IOLock *fLock;
++	bool fOrioleIntegratedEvents;
+ 	int fLogicalW, fLogicalH, fOffX, fOffY;
+ 	bool fDown[SWEET_TOUCH_FINGERS];
+ 	bool fEdge[SWEET_TOUCH_FINGERS];
+@@ -428,6 +431,16 @@
+ bool
+ SweetHIDTouch::start(IOService *provider)
+ {
++	DTEntry node;
++	const char *compat = NULL;
++	unsigned int csize = 0;
++	static const char oriole_compat[] = "pixelios,oriole-ftm5-spi";
++
++	fOrioleIntegratedEvents =
++	    SecureDTLookupEntry(NULL, "/sweet-touch", &node) == kSuccess &&
++	    SecureDTGetProperty(node, "compatible", (const void **)&compat, &csize) == kSuccess &&
++	    compat != NULL && csize == sizeof(oriole_compat) &&
++	    strncmp(compat, oriole_compat, sizeof(oriole_compat)) == 0;
+ 	fLock = IOLockAlloc();
+ 	if (!fLock || !IOHIDEventService::start(provider)) {
+ 		return false;
+@@ -482,6 +495,11 @@
+ 		return;
+ 	}
+ 	collection->setIntegerValue(kIOHIDEventFieldDigitizerCollection, TRUE);
++	if (fOrioleIntegratedEvents) {
++		/* The Oriole ADT opts into per-event metadata for iOS touch routing. */
++		collection->setIntegerValue(kIOHIDEventFieldIsBuiltIn, 1);
++		collection->setIntegerValue(kIOHIDEventFieldDigitizerIsDisplayIntegrated, 1);
++	}
+ 
+ 	UInt32 cmask = 0;
+ 	for (int i = 0; i < SWEET_TOUCH_FINGERS; i++) {
+@@ -508,6 +526,10 @@
+ 				mask |= kIOHIDDigitizerEventIdentity;
+ 			}
+ 		}
++		if (fOrioleIntegratedEvents) {
++			child->setIntegerValue(kIOHIDEventFieldIsBuiltIn, 1);
++			child->setIntegerValue(kIOHIDEventFieldDigitizerIsDisplayIntegrated, 1);
++		}
+ 		child->setIntegerValue(kIOHIDEventFieldDigitizerIndex, i);
+ 		child->setIntegerValue(kIOHIDEventFieldDigitizerIdentity, i + 2);
+ 		child->setIntegerValue(kIOHIDEventFieldDigitizerTouch, d);

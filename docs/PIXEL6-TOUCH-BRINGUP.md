@@ -228,6 +228,25 @@ and userdata partition sizes are sufficient. This preflight uses only
 `fastboot devices` and `getvar`; it never boots, flashes, or erases. A passing
 preflight is not consent to flash `userdata` or evidence that the GUI works.
 
+**Staged input-metadata candidate (0121, 2026-10-28; no Pixel 6 GUI result):**
+The [0121 patch](../research/pixelios-kernel/xnu/patches/0121-sweet-hid-integrated-event-metadata.patch)
+sets `IsBuiltIn` and `DigitizerIsDisplayIntegrated` on both the hand
+collection and each finger event only when `/sweet-touch` has the exact
+`pixelios,oriole-ftm5-spi` ADT compatible; the Bluejay event path remains
+unchanged. The existing HID service publishes
+`Built-In` and `DisplayIntegrated` as *service* properties, but its
+`dispatchEvent` method only stamps the sender ID on each event. The
+[reference input study](../research/pixelios-kernel/docs/research/22-hackios-reference-study.md#21-what-they-do)
+found those two *event* fields in another iOS-on-Android touch bridge.
+This is a source-backed candidate for events that reach HID but are ignored
+by SpringBoard; it does not establish that this Pixel 6's GUI accepts them.
+An independent different-model source review found no remaining issue after
+the exact ADT gate was added; it did not compile or boot the change.
+Preserve the exact 0120 image as a baseline. A later 0121 trial must compare
+the same physical lock-screen swipe and app tap, with the input window active,
+and record both screen behavior and HID logs. If the 0120 baseline already
+responds, the 0121 hypothesis is unnecessary.
+
 1. **Extend the verified touch path to a full iOS boot:** the synchronized 0118 test established physical FIFO and HID events. The diagnostic's 60-second rail window is too short for the previously observed iOS startup. A separate, bounded GUI profile must keep the controller powered through startup, retain cleanup on failure/restart, and preserve a no-touch fallback. Have the hardware-writing change independently reviewed before a temporary boot.
 2. **Verify GUI input:** after a freshly approved iOS root restore, test a physical lock-screen swipe, one app icon tap, and a return to Home. Capture both physical screen evidence and USB touch/HID logs; kernel coordinates alone do not establish that SpringBoard accepted a gesture.
 3. **Observed iOS behavior:** restoring an iOS root to `userdata` requires a freshly verified image and new confirmation immediately before flashing. Then verify a physical swipe from lock screen to home screen, tap Settings, and return Home. A visible app launch and matching input logs are required before claiming interaction works.
