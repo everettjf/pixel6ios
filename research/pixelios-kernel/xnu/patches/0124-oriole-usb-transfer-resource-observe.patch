@@ -1,0 +1,103 @@
+--- a/bsd/dev/sweet_usb.c
++++ b/bsd/dev/sweet_usb.c
+@@ -260,6 +260,7 @@
+ 	mbuf_t      txq[UD_TXQ];
+ 	unsigned    txq_head, txq_count;
+ 	bool        tx_busy;
++	uint8_t     transfer_resource[6]; /* STARTTRANSFER command result, physical EP 0..5 */
+ 	uint64_t    rx_frames, tx_frames;
+ } ud;
+ 
+@@ -295,7 +296,8 @@
+ }
+ 
+ static int
+-ud_epcmd(unsigned ep, uint32_t cmd, uint32_t p0, uint32_t p1, uint32_t p2)
++ud_epcmd_result(unsigned ep, uint32_t cmd, uint32_t p0, uint32_t p1, uint32_t p2,
++    uint32_t *result)
+ {
+ 	dwc_wr(DEPCMDPAR0(ep), p0);
+ 	dwc_wr(DEPCMDPAR1(ep), p1);
+@@ -310,12 +312,21 @@
+ 				printf("SWEET USB: ep%u cmd 0x%x status %u\n", ep, cmd & 0xf, status);
+ 				return -1;
+ 			}
++			if (result != NULL) {
++				*result = v;
++			}
+ 			return 0;
+ 		}
+ 		delay(1);
+ 	}
+ 	printf("SWEET USB: ep%u cmd 0x%x timeout\n", ep, cmd & 0xf);
+ 	return -1;
++}
++
++static int
++ud_epcmd(unsigned ep, uint32_t cmd, uint32_t p0, uint32_t p1, uint32_t p2)
++{
++	return ud_epcmd_result(ep, cmd, p0, p1, p2, NULL);
+ }
+ 
+ /* One TRB (at DMA offset trb) on physical endpoint ep. */
+@@ -334,7 +345,13 @@
+ 		ud_sync(buf, len);
+ 	}
+ 	uint64_t tpa = ud.dma_pa + trb;
+-	ud_epcmd(ep, DEPCMD_STARTTRANSFER, (uint32_t)(tpa >> 32), (uint32_t)tpa, 0);
++	uint32_t result = 0;
++	ud.transfer_resource[ep] = 0;
++	if (ud_epcmd_result(ep, DEPCMD_STARTTRANSFER,
++	    (uint32_t)(tpa >> 32), (uint32_t)tpa, 0, &result) == 0) {
++		/* Synopsys DWC3 DEPCMD_GET_RSC_IDX: bits 22:16 of completed command. */
++		ud.transfer_resource[ep] = (uint8_t)((result >> 16) & 0x7f);
++	}
+ }
+ 
+ static void
+@@ -809,6 +826,14 @@
+ 	if (ev & 1) {                   /* device event */
+ 		uint32_t type = (ev >> 8) & 0xf;
+ 		if (type == 1) {        /* USB reset */
++			uint8_t tx_resource;
++			lck_mtx_lock(ud.lock);
++			tx_resource = ud.transfer_resource[EP_TX];
++			lck_mtx_unlock(ud.lock);
++			printf("SWEET USB: reset transfer resources ep0=%u ep1=%u rx=%u tx=%u int=%u\n",
++			    ud.transfer_resource[0], ud.transfer_resource[1],
++			    ud.transfer_resource[EP_RX], tx_resource,
++			    ud.transfer_resource[EP_INT]);
+ 			if (ud.netroute_enabled) {
+ 				ud_netroute_link(false);
+ 				ud.data_alt = 0;
+@@ -837,17 +862,22 @@
+ 	unsigned status = (ev >> 12) & 0xf;
+ 
+ 	if (ep == EP_RX && type == 1) {
++		ud.transfer_resource[EP_RX] = 0;
+ 		ud_rx_done();
+ 		return;
+ 	}
+ 	if (ep == EP_TX && type == 1) {
+ 		lck_mtx_lock(ud.lock);
++		ud.transfer_resource[EP_TX] = 0;
+ 		ud.tx_busy = false;
+ 		ud_tx_kick_locked();
+ 		lck_mtx_unlock(ud.lock);
+ 		return;
+ 	}
+ 	if (ep > 1) {
++		if (ep == EP_INT && type == 1) {
++			ud.transfer_resource[EP_INT] = 0;
++		}
+ 		return;
+ 	}
+ 	/*
+@@ -857,6 +887,7 @@
+ 	 * with status "control status"; its completion re-arms SETUP.
+ 	 */
+ 	if (type == 1) {                /* XferComplete */
++		ud.transfer_resource[ep] = 0;
+ 		switch (ud.state) {
+ 		case EP0_SETUP:
+ 			ud_sync(UD_SETUP, 8);
