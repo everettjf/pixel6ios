@@ -40,6 +40,44 @@ class GuiProcessCue:
         return False
 
 
+class TouchPathObserver:
+    """Count complete touch/HID log lines while the GUI scan window is live."""
+
+    def __init__(self):
+        self.tail = b''
+        self.scanning = False
+        self.springboard = False
+        self.backboardd = False
+        self.window_ended = False
+        self.touch_events = 0
+        self.hid_events = 0
+        self.gui_touch_events = 0
+        self.gui_hid_events = 0
+
+    def feed(self, data):
+        lines = (self.tail + data).split(b'\n')
+        self.tail = lines.pop()
+        first_gui_touch = False
+        first_gui_hid = False
+        for line in lines:
+            self.scanning |= b'SWEET TOUCH: scanning,' in line
+            self.springboard |= b'exec SpringBoard' in line
+            self.backboardd |= b'exec backboardd' in line
+            self.window_ended |= b'scan window ended' in line or b'LDO26M restored' in line
+            active = self.scanning and self.springboard and self.backboardd and not self.window_ended
+            if b'SWEET TOUCH: ev ' in line and any(b'-> kind ' + str(k).encode() + b' ' in line for k in (1, 2, 3)):
+                self.touch_events += 1
+                if active:
+                    self.gui_touch_events += 1
+                    first_gui_touch = self.gui_touch_events == 1
+            if b'SWEET HID: touch ' in line and (b' down at ' in line or b' up at ' in line):
+                self.hid_events += 1
+                if active:
+                    self.gui_hid_events += 1
+                    first_gui_hid = self.gui_hid_events == 1
+        return first_gui_touch, first_gui_hid
+
+
 def devices():
     p = subprocess.run(['ioreg', '-a', '-p', 'IOUSB', '-l', '-w', '0'],
                        capture_output=True, timeout=5, check=True)
@@ -74,6 +112,7 @@ def main():
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     deadline = time.monotonic() + a.seconds
     last = None; poll = 0; size = 0; pid_seen = False; tail = b''; gui = GuiProcessCue()
+    touch_path = TouchPathObserver()
     print('Read-only USB/UDP watcher ready', flush=True)
     with (a.out/'udp.log').open('xb') as log:
         while time.monotonic() < deadline and not stop.is_set():
@@ -103,10 +142,18 @@ def main():
             if a.cue_gui and gui.feed(data):
                 print('Touch scan and GUI processes started; watch for the lock screen and test touch as soon as it appears',
                       flush=True)
+            first_touch, first_hid = touch_path.feed(data)
+            if first_touch:
+                print('Observed first touch-controller coordinate event during active GUI scan', flush=True)
+            if first_hid:
+                print('Observed first HID touch dispatch during active GUI scan', flush=True)
             if not pid_seen and b'ORIOLE USB RAM userspace: init running as PID 1' in window:
                 pid_seen = True
                 print('Observed repeated native RAM PID1 banner', flush=True)
     result = {'udp_bytes':size, 'pid1_banner':pid_seen, 'gui_process_pair':gui.announced,
+              'touch_events':touch_path.touch_events, 'hid_events':touch_path.hid_events,
+              'gui_touch_events':touch_path.gui_touch_events,
+              'gui_hid_events':touch_path.gui_hid_events,
               'events':len(events),
               'network_configuration_changed':False}
     (a.out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
