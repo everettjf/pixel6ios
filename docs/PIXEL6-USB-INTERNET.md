@@ -56,6 +56,8 @@ Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kern
 
 **0126 网络故障线索（2026-10-28，真机观察 / 推断）：** 捕获从 iOS 启动约 2 分 40 秒后的日志开始，所以没有看到早期的路由添加或 `IONetworkInterface` 发布，不能由缺失日志断言它们未发生。捕获范围内 `configd` 明确打印 `route delete 0.0.0.0 gw 192.168.7.1 ifindex 4`，并两次打印 `ue0 delete address 192.0.0.2`；之后才看到 `addNetworkInterface` 启动，直到观察结束也没捕获到默认路由重建。`ue0` 的 USB 收发计数持续增加，但这仍只证明本地链路/日志工作。**推断：** 预设内核路由可能被 `configd` 的网络配置接管过程撤销；下一轮需要读取 iOS 运行时服务、实际接口地址与路由表，并观测 DHCP/DNS 及外网请求，才能判断应修用户态服务还是调整路由时机。Mac 端尚未核实 NAT 或互联网出口，本轮不宣称已联网。
 
+**0127 复核（2026-10-28，真机日志观察）：** 40 分钟临时启动的 `tools/watch_native_usb.py` 结果再次标记 `route_deleted_by_configd=true`、`address_deleted_by_configd=true` 和 `registration_program_started=true`，而未捕获到路由添加或接口发布标记。原始 USB 日志位于忽略目录 `private/touch-gui-0127-20261028-live/udp.log`，SHA-256 `ec0a4f4b4213357b9def264a00f8bff20f299e7bb730d262e217c46ad22eb982`。这些是本次捕获窗口内的文字里程碑；不能据此断言早期发布没有发生，也没有验证 NAT、DNS 或外网访问。重复的删除记录使运行时网络服务状态成为下一次联网调试的首要检查项。
+
 ## 本地候选：0123（已纳入 0126 临时启动，网络未验收）
 
 - **读自源码 / 本地构建：** `0123-oriole-usb-owned-default-route.patch` 是默认关闭的 `sweetnetroute=1` 候选。只有在 `ue0` 地址设置成功、USB 数据接口切到 alt-setting 1 后，它才尝试安装经 `192.168.7.1` 的默认路由；接口下线时仅在路由对象、网卡索引和 IPv4 网关仍匹配时撤销。插入时也核对路由实际选中的网卡。该补丁位于已推送的 `wip/oriole-usb-internet-route` 分支，尚未合入 `main`。
