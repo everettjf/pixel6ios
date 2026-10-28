@@ -37,6 +37,8 @@ reset 和 disconnect 时撤销**自己创建**的路由、发布下线状态；
 
 Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kernel/docs/research/20-wifi-stack-plan.md)不能证明 Pixel 6 真机 Wi-Fi 可用。USB 联网可作为更早的可测试出口，但不等于最终无线联网。
 
+**`addNetworkInterface` 二进制核对（2026-10-28，离线静态分析）：** 从上述镜像只读提取 `/usr/sbin/addNetworkInterface`，SHA-256 `27636662e0c5367a8967878d1fe91ee1429119103baa56a5153c8e39f07f7676`，未将 Apple 二进制提交仓库。Ghidra/REA 对 Mach-O arm64 的入口分析记录为 `ev_917b471f4d7bb810978c5ccff972868ec64cc92d8cd1d679c797ec3129b40524`：程序调用 `IOServiceMatching("IONetworkInterface")`，由 `IOServiceGetMatchingServices` 或匹配通知取得对象，而不是扫描 BSD `ifnet` 列表。回调分析 `ev_1956d864ba609fd5ad092d1a02e2984b721aff303fcbefb90f35ae679419174a` 显示它按命令行 `-c` 过滤接口的父/祖父 IOService 类，读取接口对象的 `BSDName`，随后调用 `__SCNetworkInterfaceCreateWithIONetworkInterfaceObject`、`SCNetworkServiceCreate`、`SCNetworkServiceEstablishDefaultConfiguration`，最后将服务加入网络集合并提交偏好设置。当前 launchd plist 中的 `-c AppleUSBECMData` 因而也要求匹配的 IORegistry 类链。**推断：** 单独给 `ue0` 安装内核默认路由不足以触发此注册程序；下一步应为 `ue0` 设计可核验的 `IONetworkInterface`/USB controller IOService 桥接，或以另一条明确验证过的用户态配置路径建立服务。静态反编译只证明程序预期的输入路径，不证明该桥接在真机已实现，也不证明自动 DNS 一定成功。
+
 ## 本地候选：0123（尚未真机验证）
 
 - **读自源码 / 本地构建：** `0123-oriole-usb-owned-default-route.patch` 是默认关闭的 `sweetnetroute=1` 候选。只有在 `ue0` 地址设置成功、USB 数据接口切到 alt-setting 1 后，它才尝试安装经 `192.168.7.1` 的默认路由；接口下线时仅在路由对象、网卡索引和 IPv4 网关仍匹配时撤销。插入时也核对路由实际选中的网卡。该补丁位于已推送的 `wip/oriole-usb-internet-route` 分支，尚未合入 `main`。
