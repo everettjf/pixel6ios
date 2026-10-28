@@ -28,6 +28,16 @@ class GuiCueTests(unittest.TestCase):
 
 
 class TouchPathTests(unittest.TestCase):
+    def test_hid_service_open_is_distinct_from_no_observation(self):
+        observer = TouchPathObserver()
+        self.assertIsNone(observer.touch_service_open)
+        self.assertIsNone(observer.buttons_service_open)
+        observer.feed(b'SWEET HID: SweetHIDTouch open by IOHIDEventServiceUserClient -> ')
+        self.assertIsNone(observer.touch_service_open)
+        observer.feed(b'0\nSWEET HID: SweetHIDButtons open by IOHIDEventServiceUserClient -> 1\n')
+        self.assertIs(observer.touch_service_open, False)
+        self.assertIs(observer.buttons_service_open, True)
+
     def test_gui_touch_timing_distinguishes_late_swipe(self):
         observer = TouchPathObserver()
         observer.feed(b'SWEET TOUCH: scanning, 1080x2400\n', received_at=10)

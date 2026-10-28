@@ -53,6 +53,8 @@ class TouchPathObserver:
         self.hid_events = 0
         self.gui_touch_events = 0
         self.gui_hid_events = 0
+        self.touch_service_open = None
+        self.buttons_service_open = None
         self.scan_started_at = None
         self.gui_ready_at = None
         self.first_gui_touch_at = None
@@ -67,6 +69,10 @@ class TouchPathObserver:
         first_gui_touch = False
         first_gui_hid = False
         for line in lines:
+            if b'SWEET HID: SweetHIDTouch open by IOHIDEventServiceUserClient -> ' in line:
+                self.touch_service_open = line.rstrip().endswith(b'-> 1')
+            if b'SWEET HID: SweetHIDButtons open by IOHIDEventServiceUserClient -> ' in line:
+                self.buttons_service_open = line.rstrip().endswith(b'-> 1')
             if b'SWEET TOUCH: scanning,' in line and self.scan_started_at is None:
                 self.scan_started_at = received_at
             self.scanning |= b'SWEET TOUCH: scanning,' in line
@@ -234,6 +240,8 @@ def main():
                 pid_seen = True
                 print('Observed repeated native RAM PID1 banner', flush=True)
     result = {'udp_bytes':size, 'pid1_banner':pid_seen, 'gui_process_pair':gui.announced,
+              'hid_touch_service_open':touch_path.touch_service_open,
+              'hid_buttons_service_open':touch_path.buttons_service_open,
               'touch_events':touch_path.touch_events, 'hid_events':touch_path.hid_events,
               'gui_touch_events':touch_path.gui_touch_events,
               'gui_hid_events':touch_path.gui_hid_events,
