@@ -1,0 +1,85 @@
+--- a/bsd/dev/sweet_usb.c
++++ b/bsd/dev/sweet_usb.c
+@@ -41,6 +41,7 @@
+ #include <net/route_private.h>
+ #include <sys/kern_event.h>
+ 
++extern void sweet_usb_publish_network_interface(const uint8_t *mac);
+ extern vm_offset_t ml_io_map(vm_offset_t, vm_size_t);
+ extern vm_offset_t ml_io_map_wcomb(vm_offset_t, vm_size_t);
+ void sweet_usb_probe(void);
+@@ -1121,6 +1122,11 @@
+ 	PE_parse_boot_argn("sweetnetroute", &netroute_arg, sizeof(netroute_arg));
+ 	ud.netroute_enabled = netroute_arg == 1 && ud.gs101;
+ 	ud_if_create();
++	int netif_arg = 0;
++	PE_parse_boot_argn("sweetnetif", &netif_arg, sizeof(netif_arg));
++	if (netif_arg == 1 && ud.gs101 && ud.ifp != NULL && ud.netroute_ip_ready) {
++		sweet_usb_publish_network_interface(ud_phone_mac);
++	}
+ 
+ 	/* Device controller soft reset (PHY and global setup stay as ABL left them). */
+ 	dwc_wr(DCTL, DCTL_CSFTRST);
+--- a/iokit/Kernel/arm/SweetFramebuffer.cpp
++++ b/iokit/Kernel/arm/SweetFramebuffer.cpp
+@@ -164,6 +164,60 @@
+ 
+ OSDefineMetaClassAndStructors(IONetworkStack, IOService);
+ 
++/* A registry-only peer of the BSD ue0 interface. The iOS root's
++ * addNetworkInterface job matches IONetworkInterface children and filters
++ * their parent class with -c AppleUSBECMData. No USB data methods live here. */
++class AppleUSBECMData : public IOService {
++	OSDeclareDefaultStructors(AppleUSBECMData);
++};
++OSDefineMetaClassAndStructors(AppleUSBECMData, IOService);
++
++class IONetworkInterface : public IOService {
++	OSDeclareDefaultStructors(IONetworkInterface);
++};
++OSDefineMetaClassAndStructors(IONetworkInterface, IOService);
++
++extern "C" void
++sweet_usb_publish_network_interface(const uint8_t *mac)
++{
++	IOService *root = IOService::getServiceRoot();
++	AppleUSBECMData *controller = OSTypeAlloc(AppleUSBECMData);
++	IONetworkInterface *interface = NULL;
++	bool controller_attached = false;
++	bool published = false;
++	if (root == NULL || mac == NULL || controller == NULL ||
++	    !controller->init()) {
++		IOLog("SWEET NETIF: controller unavailable\n");
++		goto done;
++	}
++	interface = OSTypeAlloc(IONetworkInterface);
++	if (interface == NULL || !interface->init() ||
++	    !controller->setProperty("IOMACAddress", (void *)mac, 6) ||
++	    !interface->setProperty("BSD Name", "ue0") ||
++	    !interface->setProperty("IOInterfaceNamePrefix", "ue") ||
++	    !interface->setProperty("IOInterfaceUnit", 0ULL, 32) ||
++	    !interface->setProperty("IOInterfaceType", 6ULL, 32) ||
++	    !interface->setProperty("IOBuiltin", true)) {
++		IOLog("SWEET NETIF: interface unavailable\n");
++		goto done;
++	}
++	controller_attached = controller->attach(root);
++	if (!controller_attached || !interface->attach(controller)) {
++		IOLog("SWEET NETIF: registry attach failed\n");
++		goto done;
++	}
++	controller->registerService();
++	interface->registerService();
++	published = true;
++	IOLog("SWEET NETIF: published IONetworkInterface ue0\n");
++done:
++	if (!published && controller_attached) {
++		controller->detach(root);
++	}
++	OSSafeReleaseNULL(interface);
++	OSSafeReleaseNULL(controller);
++}
++
+ class IONetworkStackUserClient : public IOUserClient {
+ 	OSDeclareDefaultStructors(IONetworkStackUserClient);
+ 
