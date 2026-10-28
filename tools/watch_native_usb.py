@@ -17,12 +17,14 @@ import time
 
 
 class GuiProcessCue:
-    """Notice both iOS GUI processes, even across UDP datagram boundaries."""
+    """Cue a GUI trial only while touch scan is active, across UDP boundaries."""
 
     def __init__(self):
         self.tail = b''
         self.springboard = False
         self.backboardd = False
+        self.scanning = False
+        self.window_ended = False
         self.announced = False
 
     def feed(self, data):
@@ -30,7 +32,9 @@ class GuiProcessCue:
         self.tail = window[-32:]
         self.springboard |= b'exec SpringBoard' in window
         self.backboardd |= b'exec backboardd' in window
-        if self.springboard and self.backboardd and not self.announced:
+        self.scanning |= b'SWEET TOUCH: scanning,' in window
+        self.window_ended |= b'scan window ended' in window or b'LDO26M restored' in window
+        if self.scanning and self.springboard and self.backboardd and not self.window_ended and not self.announced:
             self.announced = True
             return True
         return False
@@ -58,7 +62,7 @@ def main():
     ap.add_argument('--seconds', type=int, default=240)
     ap.add_argument('--out', type=Path, required=True)
     ap.add_argument('--cue-gui', action='store_true',
-                    help='announce when SpringBoard and backboardd have both started; not proof of a usable lock screen')
+                    help='announce when touch scans and both GUI processes have started; not proof of a usable lock screen')
     a = ap.parse_args()
     if not 1 <= a.seconds <= 2500: ap.error('seconds must be 1..2500')
     a.out.mkdir(parents=True, exist_ok=False, mode=0o700)
@@ -97,7 +101,7 @@ def main():
             window = tail + data
             tail = window[-256:]
             if a.cue_gui and gui.feed(data):
-                print('SpringBoard and backboardd started; watch for the lock screen and test touch as soon as it appears',
+                print('Touch scan and GUI processes started; watch for the lock screen and test touch as soon as it appears',
                       flush=True)
             if not pid_seen and b'ORIOLE USB RAM userspace: init running as PID 1' in window:
                 pid_seen = True
