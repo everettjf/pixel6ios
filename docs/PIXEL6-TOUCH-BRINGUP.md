@@ -157,7 +157,7 @@ The next gate is a reviewed handoff that measures or enables them at the
 XNU touch init point, verifies on readbacks, and restores them on any failed
 ID or later touch initialization. Do not change the SPI transaction first.
 
-**Built locally; not yet observed on hardware (0116 candidate, 2026-10-27):**
+**Observed on Pixel 6, 2026-10-27 (0116):**
 [patch 0116](../research/pixelios-kernel/xnu/patches/0116-oriole-touch-rail-cycle-id.patch)
 adds an Oriole-only `sweettouchrailcycle=1` identify experiment. It requires
 mode 1, the measured ACPM channel-2 descriptor, empty queues, exact initial
@@ -175,16 +175,19 @@ and AVB-wrapped boot-image SHA-256 is
 `d4ee1fc635d7bb7c36907be417cd1148ace59f465914b76bafb8c72e1844b5e7`.
 An independent different-model-family review found no remaining concrete
 hardware-write blocker. The local relink preserves the prior loaded segment
-addresses and permits only an exact private-symbol delta. A passing host
-build or review does not establish that the touch IC responds; record the
-on/ID/off sequence on the Pixel 6 before enabling scan mode.
+addresses and permits only an exact private-symbol delta. The temporary
+`fastboot boot` produced [sanitized hardware evidence](../research/pixelios-kernel/device/google/oriole/hardware/xnu-touch-rail-cycle-id-2026-10-27.txt):
+both rails read back on (`0xac`, `0xbc`), FTM5 returned `36 48 03 00` for the
+chip ID, and both rails read back off after reverse-order restoration (`0x3c`,
+`0x2c`). This proves XNU can communicate with the touch controller when its
+rails are on. Scanning, physical events and iOS interaction remain untested.
 
 The Android factory reset also erased the iOS root in
 `userdata`, so an iOS boot needs a freshly verified root image and a new
 user confirmation immediately before any flash.
 
-1. **Resolve the XNU ID failure without a storage flash:** 0115 measured both touch rails disabled at the XNU ID point, explaining the zero response as a likely power prerequisite failure. Add a separately reviewed, fail-closed XNU rail-ownership path and confirm both on readbacks immediately before ID. Restore both rails if ID or later initialization fails. A root-mount failure later in boot does not prevent this narrow test.
-2. **Enable touch events after a verified ID:** retain the separate rail-handoff and identify-only profiles. Only after ID and FIFO behavior are established should a separately reviewed profile enable scanning and verify physical down/up plus coordinate scaling. Preserve the no-touch profile as a fallback.
+1. **Measure physical events without a storage flash:** 0116 established that both rails must be on for FTM5 to answer. Keep the identify-only profile as a fallback. A separately reviewed, fail-closed XNU profile can hold the rails for a bounded scan window and verify physical down/up events and coordinate scaling; it must restore both rails on every known exit. A root-mount failure later in boot does not prevent this narrow test.
+2. **Wire verified events into iOS:** only after physical FIFO events are established should a separate profile keep the controller powered for the GUI session and test HID delivery to the lock screen, gesture recognition, and taps. Preserve a no-touch profile as a fallback.
 3. **Observed iOS behavior:** restoring an iOS root to `userdata` requires a freshly verified image and new confirmation immediately before flashing. Then verify a physical swipe from lock screen to home screen, tap Settings, and return Home. A visible app launch and matching input logs are required before claiming interaction works.
 
 Hardware-writing changes require the repository's independent review and stay on a local `wip/*` branch until it passes. The cycle capture helper, `tools/run_acpm_rail_cycle_inventory.py`, only accepts logs showing both exact on readbacks and both exact off readbacks after reverse restoration; a failed restoration remains an explicit failure. The current Android factory reset erased the earlier iOS root from `userdata`. Temporary inventory boots do not read or write `userdata`.

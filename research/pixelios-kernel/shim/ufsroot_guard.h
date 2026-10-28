@@ -10,7 +10,10 @@ static inline int ur_inside(uint64_t off, uint64_t len, uint64_t limit)
 
 static inline int ufsroot_payload_ok(const struct payload *p, uint64_t available)
 {
-#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_RAILCYCLE
+#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_RAILHOLD
+    /* Exact 0117 bounded rail-hold scan payload. */
+    const uint64_t size=16716800;
+#elif defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_RAILCYCLE)
     /* Exact 0116 rail-cycle payload; all previous profiles keep their cap. */
     const uint64_t size=16716768;
 #elif defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID)

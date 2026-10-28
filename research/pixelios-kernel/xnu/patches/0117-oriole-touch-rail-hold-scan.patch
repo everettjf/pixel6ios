@@ -1,0 +1,108 @@
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -36,6 +36,8 @@
+  *                        first whose burst completes, then identify again (default 0: only the register dump runs)
+  *   sweettouchrailcycle=1 Oriole identify-only experiment: require both PMIC touch rails off,
+  *                        enable for one ID attempt, then verify reverse-order restore. Never scans.
++ *   sweettouchrailhold=1 Oriole bounded scan experiment: same rail preflight, keep both rails
++ *                        on for at most 60 seconds of FIFO polling, then release contacts and restore.
+  *
+  * Variants (patch 0090). Linux = master of git.kernel.org torvalds/linux.git fetched 2026-10-22 (line numbers of that copy):
+  *   A  CLK_CFG |= ENCLK (bit 8), PSR (bits 7:0) = 3: spi-s3c64xx.c S3C64XX_SPI_ENCLK_ENABLE :52, PSR_MASK :53, set in
+@@ -170,7 +172,7 @@
+ 	uint32_t acpm_rail_read_attempted;
+ 	vm_offset_t acpm_sram, acpm_mbox;
+ 	uint32_t acpm_seq;
+-	bool acpm_poisoned, rail25_held, rail26_held, rail_probe;
++	bool acpm_poisoned, rail25_held, rail26_held, rail_probe, rail_hold;
+ 	bool reset_done;   /* tg_reset_and_ready already ran (sweettouchcs=1 does it before the identify) */
+ 	bool reset_release_failed; /* Oriole-only fatal readback after the measured 100 ms settle */
+ 	char poke[POKE_MAX_LEN + 16];   /* sweettouchpoke boot-arg (empty = none) */
+@@ -1398,7 +1400,9 @@
+ {
+ 	vm_offset_t d;
+ 	uint32_t v;
+-	if (!tg.oriole_spi_order || tg.mode != 1 || tg.var || !tg.cs_abl ||
++	if (!tg.oriole_spi_order ||
++	    !((tg.mode == 1 && !tg.rail_hold) || (tg.mode == 2 && tg.rail_hold)) ||
++	    tg.var || !tg.cs_abl ||
+ 	    __atomic_exchange_n(&tg.acpm_rail_read_attempted, 1u, __ATOMIC_ACQ_REL)) {
+ 		printf("SWEET TOUCH: rail cycle: wrong profile or already attempted\n");
+ 		return false;
+@@ -1506,11 +1510,12 @@
+ 			break;
+ 		}
+ 	}
+-	if (rail_active && !tg_oriole_rail_stop()) {
++	if (rail_active && (!tg.rail_hold || !ok) && !tg_oriole_rail_stop()) {
+ 		printf("SWEET TOUCH: rail cycle: restore failed; stop\n");
+ 		return;
+ 	}
+-	rail_active = false;
++	if (!tg.rail_hold || !ok)
++		rail_active = false;
+ 	if (!ok) {
+ 		printf("SWEET TOUCH: phase 1 result: chip did not answer; nothing else is touched\n");
+ 		return;
+@@ -1522,16 +1527,21 @@
+ 	printf("SWEET TOUCH: phase 2: reset pulse, scan enable, poll\n");
+ 	if (!tg.reset_done && !tg_reset_and_ready(&logged)) {
+ 		if (tg.reset_release_failed) {
+-			return;
++			goto rail_cleanup;
+ 		}
+ 		printf("SWEET TOUCH: no controller-ready event after the reset pulse (GUESS: continuing)\n");
+ 	}
+ 	if (!tg_enable_scan()) {
+ 		printf("SWEET TOUCH: scan-mode write failed, stopping\n");
+-		return;
++		goto rail_cleanup;
+ 	}
+ 	printf("SWEET TOUCH: scanning, %dx%d raw -> %ux%u\n", (int)tg.max_x + 1, (int)tg.max_y + 1, tg.width, tg.height);
++	uint64_t scan_start = tg_now_us();
+ 	for (;;) {
++		if (tg.rail_hold && tg_now_us() - scan_start >= 60000000u) {
++			printf("SWEET TOUCH: rail hold: 60-second scan window ended\n");
++			break;
++		}
+ 		int n = tg_drain(&logged);
+ 		if (n < 0) {
+ 			if (errors++ % 100u == 0) {
+@@ -1546,8 +1556,9 @@
+ 		tg_sleep_ms(n > 0 ? 1 : 8);
+ 	}
+ rail_cleanup:
++	tg_release_all();
+ 	if (rail_active && !tg_oriole_rail_stop())
+-		printf("SWEET TOUCH: rail cycle: restore failed after reset error\n");
++		printf("SWEET TOUCH: rail hold: cleanup restore failed\n");
+ }
+ 
+ static void
+@@ -1567,7 +1578,7 @@
+ 	DTEntry node;
+ 	char const *compat = NULL;
+ 	unsigned int csize = 0;
+-	int mode = 2, delay_s = 45, mux = 0, clk = 0, var = 0, cs = 0, rail_cycle = 0;
++	int mode = 2, delay_s = 45, mux = 0, clk = 0, var = 0, cs = 0, rail_cycle = 0, rail_hold = 0;
+ 	thread_t thread;
+ 
+ 	if (started) {
+@@ -1596,6 +1607,7 @@
+ 	(void)PE_parse_boot_argn("sweettouchvar", &var, sizeof(var));
+ 	(void)PE_parse_boot_argn("sweettouchcs", &cs, sizeof(cs));
+ 	(void)PE_parse_boot_argn("sweettouchrailcycle", &rail_cycle, sizeof(rail_cycle));
++	(void)PE_parse_boot_argn("sweettouchrailhold", &rail_hold, sizeof(rail_hold));
+ 	(void)PE_parse_boot_argn("sweettouchpoke", tg.poke, sizeof(tg.poke));   /* longer values are cut: poke_parse then sees > 240 chars */
+ 	if (delay_s < 0 || delay_s > 3600) {
+ 		delay_s = 45;
+@@ -1611,7 +1623,8 @@
+ 	    strncmp(compat, TG_ORIOLE_COMPAT, sizeof(TG_ORIOLE_COMPAT)) == 0;
+ 	tg.clk_mode = clk < 0 ? 0 : clk > 3 ? 3 : clk;
+ 	tg.mode = mode;
+-	tg.rail_probe = rail_cycle == 1;
++	tg.rail_hold = rail_hold == 1 && mode == 2 && rail_cycle == 0;
++	tg.rail_probe = rail_cycle == 1 || tg.rail_hold;
+ 	tg.delay_s = (uint32_t)delay_s;
+ 	tg.mux_force = mux == 1;
+ 	if (kernel_thread_start(tg_thread, NULL, &thread) == KERN_SUCCESS) {

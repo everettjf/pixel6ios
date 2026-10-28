@@ -1,0 +1,23 @@
+Pixel 6 (oriole), temporary fastboot boot, XNU touch diagnostic 0116.
+Observation date: 2026-10-27 (America/Los_Angeles).
+Boot image SHA-256: d4ee1fc635d7bb7c36907be417cd1148ace59f465914b76bafb8c72e1844b5e7
+Source: USB ECM live log captured on the attached Mac; raw capture SHA-256
+341a9fc05bb112261448066d9304be4811474df5cb234e868f58e5abb81d8b27.
+Device identifiers omitted.
+
+SWEET TOUCH: rail cycle: both rails on for ID (0xac, 0xbc)
+SWEET TOUCH: sweettouchcs=1: pads PUD := 0, reset pulse before the identify
+SWEET TOUCH: Oriole reset settled; ID before first FIFO read
+SWEET TOUCH: identify: reg 0x20000000 = 36 48 03 00, want 36 48 -> FTM5 answers
+SWEET TOUCH: rail cycle: LDO26M restored to 0x3c
+SWEET TOUCH: rail cycle: LDO25M restored to 0x2c
+SWEET TOUCH: phase 1 done (sweettouch=1): identify only
+
+Interpretation: the exact readbacks establish that both touch PMIC rails
+were enabled before the one FTM5 chip-ID transaction and restored in reverse
+order afterwards. The FTM5 responded with the expected 36 48 ID, unlike the
+0115 XNU-time response of 00 00 while both rails were off. This supports
+missing touch power as the immediate cause of that earlier ID failure.
+This profile never enabled scanning or handled physical touch events, so it
+does not establish that gestures or app interaction work. Android-formatted
+userdata caused the later root-mount loop; no iOS userland was tested.
