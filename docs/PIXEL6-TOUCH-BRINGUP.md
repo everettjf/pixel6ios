@@ -93,7 +93,7 @@ and the AP/AOC mux read low. This excludes a still-busy divider at that
 snapshot as the direct explanation. The XNU-time PMIC rail state remains
 unmeasured. No physical touch, gesture or app interaction was observed.
 
-**Read from source, 2026-10-27 (0114 candidate):**
+**Observed on Pixel 6, 2026-10-27 (0114):**
 [patch 0114](../research/pixelios-kernel/xnu/patches/0114-oriole-touch-acpm-snapshot.patch)
 adds a bounded, read-only snapshot of the ACPM channel-2 descriptor and four
 queue indices after an Oriole chip-ID mismatch. It checks the mapped SRAM
@@ -105,8 +105,13 @@ The local kernel SHA-256 is
 `69f0919a63fd098bbdd4188390608c3490c067dbbf66613095b49347030f20aa`,
 the payload SHA-256 is
 `dd31877a7892baf6d4ee20540da2e1ebc15a3916b78d8f08915fb004c2446857`.
-This candidate is not yet a hardware result; its first boot must wait until
-the 0113 temporary run ends and the exact Pixel 6 is identified again.
+The exact temporary boot image SHA-256 is
+`c09395f5e70da3e9e9c7dd93dc9d09dc7b1b2d57d0925fe710e316c82d6911c8`.
+The [sanitized hardware capture](../research/pixelios-kernel/device/google/oriole/hardware/xnu-touch-acpm-snapshot-2026-10-27.txt)
+shows the ID still read `00 00 00 00`, while channel 2 was type 1 with five
+16-byte entries and both request and response queues empty (`3/3`). This
+confirms the descriptor and queue layout at the XNU identify point. It does
+not measure the PMIC rails or prove that the APM responds to a new request.
 
 **Read from source and the 0111 hardware capture, 2026-10-27:** the isolated
 prekernel ID probe waits for the CMU mux and divider BUSY bit to clear after
@@ -124,6 +129,23 @@ touch-rail readbacks before changing another clock or power writer.
 ranges `0..1079` / `0..2399`. These match the current XNU driver's contact
 count and raw coordinate range. See the [sanitized input inventory](../research/pixelios-kernel/device/google/oriole/hardware/android-touch-2026-10-26.txt).
 This does not establish that XNU receives any touch event.
+
+**Read from source, 2026-10-27 (0115 candidate):**
+[patch 0115](../research/pixelios-kernel/xnu/patches/0115-oriole-touch-pmic-rail-read.patch)
+adds one bounded ACPM channel-2 attempt after a failed Oriole ID read. It
+checks the exact observed descriptor, empty queues and pointer offsets, then
+requests the S2MPG10 LDO25M and LDO26M register values (`0x5c` and `0x5d`).
+These are PMIC reads; the request publishes into shared SRAM and rings the
+mailbox but does not issue a PMIC register write. A persistent atomic latch
+prevents retries in the same boot, including after an uncertain timeout.
+A different model family reviewed the revised patch. The pinned local kernel
+SHA-256 is
+`0e4e24b3ff98fa0f4ef6a813b98043de83c13564b1dba1ab408901daae6fb52e`;
+the payload SHA-256 is
+`6348489fad23c85f17c4123c5b3eca4069de1e2dd41564621ce58a49537b412a`.
+The host build and payload guard pass, but this candidate has **no hardware
+rail result yet**. A response or timeout on the exact phone is the next
+gate before changing rail control or the SPI driver.
 
 The Android factory reset also erased the iOS root in
 `userdata`, so an iOS boot needs a freshly verified root image and a new

@@ -1,0 +1,146 @@
+diff --git a/bsd/dev/sweet_touch_gs101.c b/bsd/dev/sweet_touch_gs101.c
+index 0d15627..ff34854 100644
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -165,6 +165,7 @@ static struct {
+ 	} top;
+ 	int clk_mode, var, cs_abl;
+ 	bool oriole_spi_order;
++	uint32_t acpm_rail_read_attempted;
+ 	bool reset_done;   /* tg_reset_and_ready already ran (sweettouchcs=1 does it before the identify) */
+ 	bool reset_release_failed; /* Oriole-only fatal readback after the measured 100 ms settle */
+ 	char poke[POKE_MAX_LEN + 16];   /* sweettouchpoke boot-arg (empty = none) */
+@@ -191,7 +192,7 @@ tg_wr(vm_offset_t base, uint32_t off, uint32_t v)
+ 	__asm__ volatile ("dsb sy" ::: "memory");
+ }
+ 
+-static uint64_t
++static __attribute__((always_inline)) inline uint64_t
+ tg_now_us(void)
+ {
+ 	uint64_t ns;
+@@ -938,6 +939,7 @@ tg_variant(unsigned n)
+ }
+ 
+ static void tg_oriole_acpm_snapshot(void);
++static void tg_oriole_acpm_touch_rails(void);
+ 
+ static bool
+ tg_identify(void)
+@@ -970,6 +972,7 @@ tg_identify(void)
+ 		tg_pin_report("reset after ID", &tg.reset);
+ 		tg_pin_report("mux after ID", &tg.mux);
+ 		tg_oriole_acpm_snapshot();
++		tg_oriole_acpm_touch_rails();
+ 	}
+ 	return match != 0;
+ }
+@@ -1029,6 +1032,108 @@ tg_oriole_acpm_snapshot(void)
+ 	    rr == rf && sr == sf ? "empty" : "not empty or invalid");
+ }
+ 
++/* Pixel 6 only, after an ID mismatch. This publishes at most two ACPM
++ * FUNC_READ requests for S2MPG10 PMIC registers 0x5c/0x5d (LDO25M/26M).
++ * The request modifies only the verified channel-2 SRAM queue and mailbox;
++ * it cannot write a PMIC register. The transport follows shim/acpm.c:xfer
++ * and Linux acpm_ipc.c:680-860; the exact descriptor offsets were observed
++ * on Oriole 2026-10-26 and again by the XNU snapshot 2026-10-28.
++ * The prekernel shim has already stopped before XNU starts, and no other
++ * XNU code uses channel 2. A one-shot latch poisons this path even if a
++ * request times out and the APM consumes it later.
++ */
++static void
++tg_oriole_acpm_touch_rails(void)
++{
++	vm_offset_t sram, mbox;
++	uint32_t tab, n, rr, rf, sr, sf, nf, word0, word1, seq, i, reg;
++	uint64_t start;
++	vm_offset_t d;
++
++	if (__atomic_exchange_n(&tg.acpm_rail_read_attempted, 1u, __ATOMIC_ACQ_REL) != 0u) {
++		printf("SWEET TOUCH: ACPM rail read: already attempted; no retry\n");
++		return;
++	}
++	sram = tg_map(0x02039000u, 0x40000u);
++	mbox = tg_map(0x17610000u, 0x1000u);
++
++	if (!sram || !mbox) {
++		printf("SWEET TOUCH: ACPM rail read: map failed; no request\n");
++		return;
++	}
++	tab = tg_rd(sram, 0xa008u);
++	n = tg_rd(sram, 0xa018u);
++	if (tab != 0x9210u || n != 15u) {
++		printf("SWEET TOUCH: ACPM rail read: table changed; no request\n");
++		return;
++	}
++	d = sram + tab + 2u * 0x48u;
++	if (tg_rd(d, 0x00u) != 2u || tg_rd(d, 0x0cu) != 1u ||
++	    tg_rd(d, 0x34u) != 5u || tg_rd(d, 0x38u) != 16u ||
++	    tg_rd(d, 0x44u) != 1u ||
++	    tg_rd(d, 0x10u) != 0x382e8u || tg_rd(d, 0x14u) != 0x382ecu ||
++	    tg_rd(d, 0x18u) != 0x382f0u || tg_rd(d, 0x28u) != 0x38288u ||
++	    tg_rd(d, 0x2cu) != 0x3828cu || tg_rd(d, 0x30u) != 0x38290u) {
++		printf("SWEET TOUCH: ACPM rail read: descriptor changed; no request\n");
++		return;
++	}
++	for (i = 0; i < 2u; i++) {
++		reg = i == 0u ? 0x5cu : 0x5du;
++		rr = tg_rd(sram, 0x382e8u);
++		rf = tg_rd(sram, 0x382ecu);
++		sr = tg_rd(sram, 0x38288u);
++		sf = tg_rd(sram, 0x3828cu);
++		if (rr >= 5u || rf >= 5u || sr >= 5u || sf >= 5u ||
++		    rr != rf || sr != sf || (rf + 2u) % 5u == sf) {
++			printf("SWEET TOUCH: ACPM rail read: queue busy; stop\n");
++			return;
++		}
++		nf = (rf + 1u) % 5u;
++		seq = i + 1u; /* fresh 1, then 2; this is the sole XNU channel-2 client */
++		/* MFD command[0]: PMIC address 1, speedy channel 0, sequence.
++		 * command[1] FUNC_READ=0; unused words 2/3 are zero. */
++		tg_wr(sram, 0x382f0u + 16u * rf, reg | 0x100u | (seq << 16));
++		tg_wr(sram, 0x382f0u + 16u * rf + 4u, 0u);
++		tg_wr(sram, 0x382f0u + 16u * rf + 8u, 0u);
++		tg_wr(sram, 0x382f0u + 16u * rf + 12u, 0u);
++		tg_wr(sram, 0x382ecu, nf);
++		if (tg_rd(sram, 0x382ecu) != nf) {
++			printf("SWEET TOUCH: ACPM rail read: publish failed; stop\n");
++			return;
++		}
++		tg_wr(mbox, 0x40u, 1u << 2); /* INTGR1, channel 2 */
++		start = tg_now_us();
++		for (unsigned polls = 0; ; polls++) {
++			sf = tg_rd(sram, 0x3828cu);
++			if (sf != sr)
++				break;
++			if (polls >= 100000u || tg_now_us() - start > 100000u) {
++				printf("SWEET TOUCH: ACPM rail read: reg %#x timeout; stop\n", reg);
++				return; /* request remains published; do not send the next */
++			}
++		}
++		if (sf >= 5u || sf != (sr + 1u) % 5u) {
++			printf("SWEET TOUCH: ACPM rail read: reply count invalid; stop\n");
++			return;
++		}
++		word0 = tg_rd(sram, 0x38290u + 16u * sr);
++		word1 = tg_rd(sram, 0x38290u + 16u * sr + 4u);
++		if (((word0 >> 16) & 0x3fu) != seq) {
++			printf("SWEET TOUCH: ACPM rail read: reply sequence invalid; stop\n");
++			return;
++		}
++		tg_wr(sram, 0x38288u, sf);
++		tg_wr(mbox, 0x24u, 1u << 2); /* INTCR0, acknowledge reply */
++		if (word1 >> 24) {
++			printf("SWEET TOUCH: ACPM rail read: reg %#x PMIC error %u; stop\n",
++			    reg, word1 >> 24);
++			return;
++		}
++		printf("SWEET TOUCH: ACPM rail read: reg %#x value=%#x enabled=%u\n",
++		    reg, (word1 >> 8) & 0xffu, ((word1 >> 8) >> 7) & 1u);
++	}
++}
++
+ /* ---- phase 2 ---- */
+ 
+ static void

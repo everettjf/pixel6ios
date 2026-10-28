@@ -1,0 +1,16 @@
+Pixel 6 (oriole), temporary fastboot boot, XNU touch diagnostic 0114.
+Observation date: 2026-10-27 (America/Los_Angeles).
+Boot image SHA-256: c09395f5e70da3e9e9c7dd93dc9d09dc7b1b2d57d0925fe710e316c82d6911c8
+Source: USB ECM live log captured on the attached Mac. Device identifiers omitted.
+
+SWEET TOUCH: identify: reg 0x20000000 = 00 00 00 00, want 36 48 -> no answer, MISO low
+SWEET TOUCH: ACPM snapshot: tab=0x9210 n=15
+SWEET TOUCH: ACPM snapshot: ch=2 type=1 qlen=5 esz=16
+SWEET TOUCH: ACPM snapshot: req=3/3 rsp=3/3 empty
+SWEET TOUCH: phase 1 result: chip did not answer; nothing else is touched
+
+Interpretation: the firmware channel-2 descriptor and queue positions were
+consistent with the earlier prekernel inventory when XNU attempted touch ID.
+The snapshot issued no ACPM request; it does not establish whether the APM
+was responsive or whether either touch PMIC rail remained enabled. Physical
+touch events, gestures, and app interaction were not observed in this boot.
