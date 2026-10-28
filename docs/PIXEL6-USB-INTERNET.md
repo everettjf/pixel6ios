@@ -30,3 +30,9 @@ reset 和 disconnect 时撤销**自己创建**的路由、发布下线状态；
 4. **故障收束。** 断开 USB 后不能留下错误的默认路由；临时镜像仍按现有定时器回到 Android/Recovery。网络功能的成功声明必须同时有设备侧和主机侧证据，且不能把 UDP 控制台流量当作外网流量。
 
 Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kernel/docs/research/20-wifi-stack-plan.md)不能证明 Pixel 6 真机 Wi-Fi 可用。USB 联网可作为更早的可测试出口，但不等于最终无线联网。
+
+## 本地候选：0123（尚未真机验证）
+
+- **读自源码 / 本地构建：** `0123-oriole-usb-owned-default-route.patch` 是默认关闭的 `sweetnetroute=1` 候选。只有在 `ue0` 地址设置成功、USB 数据接口切到 alt-setting 1 后，它才尝试安装经 `192.168.7.1` 的默认路由；接口下线时仅在路由对象、网卡索引和 IPv4 网关仍匹配时撤销。插入时也核对路由实际选中的网卡。该补丁仍留在本地 `wip/oriole-usb-internet-route` 分支，未推送。
+- **本地检查：** 补丁可在对应的 XNU 基线上 `git apply --check`，仓库完整性检查通过，`sweet_usb.c` 可编译。`route.c` 的原始基线与候选都因现有编译配置中的 `lo_ifp` 不透明类型而无法直接编译；仅在临时编译副本中把该原有表达式改用 `ifnet_index(lo_ifp)` 后，候选 `route.c` 编译通过。这不等于完整内核构建通过。
+- **未验证：** 真机路由添加、断线清理、重连、DNS 和互联网访问。现有 USB 驱动在 reset/disconnect 时没有清除 `configured`，可能跳过后续端点重配。完成完整构建、异模型审查及真机临时启动结果前，不应把该候选合入 `main` 或称为可用功能。

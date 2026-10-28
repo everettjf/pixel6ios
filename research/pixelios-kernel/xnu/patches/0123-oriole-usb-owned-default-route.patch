@@ -1,0 +1,292 @@
+--- a/bsd/dev/sweet_usb.c
++++ b/bsd/dev/sweet_usb.c
+@@ -37,6 +37,8 @@
+ #include <netinet/in.h>
+ #include <net/if_media.h>
+ #include <net/dlil.h>
++#include <net/route.h>
++#include <net/route_private.h>
+ #include <sys/kern_event.h>
+ 
+ extern vm_offset_t ml_io_map(vm_offset_t, vm_size_t);
+@@ -248,6 +250,10 @@
+ 	uint32_t    events;
+ 	bool        configured;
+ 	uint8_t     data_alt;       /* data interface alternate setting */
++	bool        netroute_enabled; /* explicit sweetnetroute=1 experiment only */
++	bool        netroute_link_up;
++	bool        netroute_ip_ready;
++	struct rtentry *netroute_owned;
+ 	/* network */
+ 	ifnet_t     ifp;
+ 	lck_mtx_t  *lock;           /* TX ring and TX endpoint */
+@@ -402,6 +408,7 @@
+ static void ud_rx_arm(void);
+ static void ud_tx_kick_locked(void);
+ static void ud_link_event(bool up);
++static void ud_netroute_link(bool up);
+ 
+ /* NETWORK_CONNECTION notification: the host brings its link up on it. */
+ static void
+@@ -471,6 +478,9 @@
+ 	} else if (req == 9) {          /* SET_CONFIGURATION */
+ 		if (value == 1) {
+ 			ud_configure();
++		} else if (ud.netroute_enabled) {
++			ud_netroute_link(false);
++			ud.data_alt = 0;
+ 		}
+ 		printf("SWEET USB: configured (%u)\n", value);
+ 	} else if (req == 8) {          /* GET_CONFIGURATION */
+@@ -482,7 +492,13 @@
+ 			ud.data_alt = (uint8_t)value;
+ 			if (value == 1 && ud.configured) {
+ 				ud_notify_connected();
+-				ud_link_event(true);
++				if (ud.netroute_enabled) {
++					ud_netroute_link(true);
++				} else {
++					ud_link_event(true);
++				}
++			} else if (value != 1 && ud.netroute_enabled) {
++				ud_netroute_link(false);
+ 			}
+ 		}
+ 	} else if (req == 10) {         /* GET_INTERFACE */
+@@ -612,6 +628,64 @@
+ 	}
+ }
+ 
++/* XNU-8796 bsd/kern/netboot.c:route_cmd/default_route_add supplies the
++ * route flags and rtrequest_scoped form. The exact /24 peer is the existing
++ * ECM host address. Route ownership is kept by the returned reference. */
++static void
++ud_netroute_addrs(struct sockaddr_in *dst, struct sockaddr_in *gw,
++    struct sockaddr_in *mask)
++{
++	bzero(dst, sizeof(*dst));
++	bzero(gw, sizeof(*gw));
++	bzero(mask, sizeof(*mask));
++	dst->sin_len = gw->sin_len = mask->sin_len = sizeof(*dst);
++	dst->sin_family = gw->sin_family = mask->sin_family = AF_INET;
++	gw->sin_addr.s_addr = htonl(0xc0a80701); /* 192.168.7.1 */
++}
++
++/* Called by the polled USB thread, never from an interrupt handler. */
++static void
++ud_netroute_link(bool up)
++{
++	struct sockaddr_in dst, gw, mask;
++	int error;
++
++	if (!ud.netroute_enabled) {
++		return;
++	}
++	ud_netroute_addrs(&dst, &gw, &mask);
++	if (up) {
++		if (!ud.netroute_link_up) {
++			ud.netroute_link_up = true;
++			ud_link_event(true);
++		}
++		if (!ud.netroute_ip_ready || ud.netroute_owned != NULL) {
++			return;
++		}
++		error = rtrequest_add_gateway_on_ifindex((struct sockaddr *)&dst,
++		    (struct sockaddr *)&gw, (struct sockaddr *)&mask,
++		    RTF_UP | RTF_STATIC | RTF_GATEWAY, ifnet_index(ud.ifp),
++		    &ud.netroute_owned);
++		printf("SWEET NET: ue0 default route add %d owned=%d\n", error,
++		    ud.netroute_owned != NULL);
++		return;
++	}
++	if (ud.netroute_owned != NULL) {
++		error = rtrequest_delete_if_same((struct sockaddr *)&dst,
++		    (struct sockaddr *)&mask, (struct sockaddr *)&gw,
++		    ifnet_index(ud.ifp), ud.netroute_owned);
++		printf("SWEET NET: ue0 owned default route remove %d\n", error);
++		if (error == 0 || error == ESRCH) {
++			rtfree(ud.netroute_owned);
++			ud.netroute_owned = NULL;
++		}
++	}
++	if (ud.netroute_link_up) {
++		ud.netroute_link_up = false;
++		ud_link_event(false);
++	}
++}
++
+ static errno_t
+ ud_if_ioctl(ifnet_t ifp, unsigned long cmd, void *data)
+ {
+@@ -624,9 +698,10 @@
+ 		    CAST_USER_ADDR_T(((struct ifmediareq32 *)ifmr)->ifmu_ulist);
+ 		int media = IFM_ETHER | IFM_AUTO;
+ 		ifmr->ifm_current = media;
+-		ifmr->ifm_active = ud.configured ? (IFM_ETHER | IFM_1000_T | IFM_FDX) : media;
++		bool active = ud.netroute_enabled ? ud.netroute_link_up : ud.configured;
++		ifmr->ifm_active = active ? (IFM_ETHER | IFM_1000_T | IFM_FDX) : media;
+ 		ifmr->ifm_mask = 0;
+-		ifmr->ifm_status = IFM_AVALID | (ud.configured ? IFM_ACTIVE : 0);
++		ifmr->ifm_status = IFM_AVALID | (active ? IFM_ACTIVE : 0);
+ 		if (list != USER_ADDR_NULL && ifmr->ifm_count > 0) {
+ 			ifmr->ifm_count = 1;
+ 			return copyout(&media, list, sizeof(media));
+@@ -723,6 +798,7 @@
+ 		err = sock_ioctl(so, SIOCAIFADDR, &ifra);
+ 		sock_close(so);
+ 	}
++	ud.netroute_ip_ready = err == 0;
+ 	ifnet_set_flags(ud.ifp, IFF_UP | IFF_RUNNING, IFF_UP | IFF_RUNNING);
+ 	printf("SWEET USB: ue0 192.168.7.2/24 %s (err %d)\n", err ? "NOT configured" : "up", err);
+ }
+@@ -733,6 +809,10 @@
+ 	if (ev & 1) {                   /* device event */
+ 		uint32_t type = (ev >> 8) & 0xf;
+ 		if (type == 1) {        /* USB reset */
++			if (ud.netroute_enabled) {
++				ud_netroute_link(false);
++				ud.data_alt = 0;
++			}
+ 			dwc_wr(DCFG, dwc_rd(DCFG) & ~(0x7fu << 3));
+ 			printf("SWEET USB: bus reset\n");
+ 		} else if (type == 2) { /* connect done */
+@@ -744,6 +824,10 @@
+ 			    (1u << 8) | (1u << 10) | (1u << 25), 0);
+ 			printf("SWEET USB: connected, speed %u\n", speed);
+ 		} else if (type == 0) {
++			if (ud.netroute_enabled) {
++				ud_netroute_link(false);
++				ud.data_alt = 0;
++			}
+ 			printf("SWEET USB: disconnect\n");
+ 		}
+ 		return;
+@@ -1002,6 +1086,9 @@
+ 		}
+ 		ud.dma_pa = ptoa_64(pn);
+ 	}
++	int netroute_arg = 0;
++	PE_parse_boot_argn("sweetnetroute", &netroute_arg, sizeof(netroute_arg));
++	ud.netroute_enabled = netroute_arg == 1 && ud.gs101;
+ 	ud_if_create();
+ 
+ 	/* Device controller soft reset (PHY and global setup stay as ABL left them). */
+--- a/bsd/net/route.c
++++ b/bsd/net/route.c
+@@ -2484,6 +2484,101 @@
+ }
+ 
+ /*
++ * A device-owned default route can be replaced while its interface is up.
++ * Check identity and remove it under the same route-table lock so a later
++ * owner's route is never deleted by a device disconnect.
++ */
++int
++rtrequest_delete_if_same(struct sockaddr *dst, struct sockaddr *netmask,
++    struct sockaddr *expected_gateway, unsigned int expected_ifindex,
++    struct rtentry *expected)
++{
++	struct radix_node_head *rnh;
++	struct radix_node *rn;
++	struct rtentry *rt;
++	boolean_t same;
++	int error;
++
++	if (dst == NULL || netmask == NULL || expected_gateway == NULL ||
++	    expected == NULL || expected_ifindex == 0 ||
++	    dst->sa_family != AF_INET || netmask->sa_family != AF_INET ||
++	    expected_gateway->sa_family != AF_INET) {
++		return EINVAL;
++	}
++	LCK_MTX_ASSERT(rnh_lock, LCK_MTX_ASSERT_NOTOWNED);
++	lck_mtx_lock(rnh_lock);
++	rnh = rt_tables[AF_INET];
++	rn = rnh == NULL ? NULL : rnh->rnh_lookup(dst, netmask, rnh);
++	if (rn != (struct radix_node *)expected) {
++		error = ESRCH;
++	} else {
++		rt = (struct rtentry *)rn;
++		RT_LOCK(rt);
++		same = (rt->rt_flags & (RTF_UP | RTF_STATIC | RTF_GATEWAY)) ==
++		    (RTF_UP | RTF_STATIC | RTF_GATEWAY) && rt->rt_ifp != NULL &&
++		    rt->rt_ifp->if_index == expected_ifindex &&
++		    rt->rt_gateway != NULL &&
++		    rt->rt_gateway->sa_family == AF_INET &&
++		    rt->rt_gateway->sa_len >= sizeof(struct sockaddr_in) &&
++		    ((struct sockaddr_in *)rt->rt_gateway)->sin_addr.s_addr ==
++		    ((struct sockaddr_in *)expected_gateway)->sin_addr.s_addr;
++		RT_UNLOCK(rt);
++		error = same ? rtrequest_scoped_locked(RTM_DELETE, dst, NULL,
++		    netmask, 0, NULL, IFSCOPE_NONE) : ESRCH;
++	}
++	lck_mtx_unlock(rnh_lock);
++	return error;
++}
++
++/* Keep the route-table lock from insertion through interface validation.
++ * A gateway address alone could otherwise select an overlapping interface. */
++int
++rtrequest_add_gateway_on_ifindex(struct sockaddr *dst, struct sockaddr *gateway,
++    struct sockaddr *netmask, int flags, unsigned int expected_ifindex,
++    struct rtentry **ret_nrt)
++{
++	struct rtentry *rt = NULL;
++	boolean_t selected;
++	int error, undo_error;
++
++	if (dst == NULL || gateway == NULL || netmask == NULL ||
++	    expected_ifindex == 0 || ret_nrt == NULL ||
++	    dst->sa_family != AF_INET || gateway->sa_family != AF_INET ||
++	    netmask->sa_family != AF_INET) {
++		return EINVAL;
++	}
++	*ret_nrt = NULL;
++	LCK_MTX_ASSERT(rnh_lock, LCK_MTX_ASSERT_NOTOWNED);
++	lck_mtx_lock(rnh_lock);
++	error = rtrequest_scoped_locked(RTM_ADD, dst, gateway, netmask, flags,
++	    &rt, IFSCOPE_NONE);
++	if (error == 0) {
++		RT_LOCK(rt);
++		selected = rt->rt_ifp != NULL &&
++		    rt->rt_ifp->if_index == expected_ifindex;
++		RT_UNLOCK(rt);
++		if (!selected) {
++			undo_error = rtrequest_scoped_locked(RTM_DELETE, dst, NULL,
++			    netmask, 0, NULL, IFSCOPE_NONE);
++			if (undo_error != 0) {
++				printf("SWEET NET: wrong-interface route undo failed %d\n",
++				    undo_error);
++				*ret_nrt = rt; /* caller retains reference until link-down */
++				rt = NULL;
++			}
++			error = ENXIO;
++		}
++	}
++	lck_mtx_unlock(rnh_lock);
++	if (error == 0) {
++		*ret_nrt = rt;
++	} else if (rt != NULL) {
++		rtfree(rt);
++	}
++	return error;
++}
++
++/*
+  * Called from rtrequest(RTM_DELETE, ...) to fix up the route's ``family''
+  * (i.e., the routes related to it by the operation of cloning).  This
+  * routine is iterated over all potential former-child-routes by way of
+--- a/bsd/net/route_private.h
++++ b/bsd/net/route_private.h
+@@ -450,6 +450,12 @@
+     struct sockaddr *, struct sockaddr *, int, struct rtentry **);
+ extern int rtrequest_scoped(int, struct sockaddr *, struct sockaddr *,
+     struct sockaddr *, int, struct rtentry **, unsigned int);
++/* Install a global gateway route only if route selection chose this ifindex. */
++extern int rtrequest_add_gateway_on_ifindex(struct sockaddr *, struct sockaddr *,
++    struct sockaddr *, int, unsigned int, struct rtentry **);
++/* Delete an unscoped route only while its table entry is the held route. */
++extern int rtrequest_delete_if_same(struct sockaddr *, struct sockaddr *,
++    struct sockaddr *, unsigned int, struct rtentry *);
+ extern int rtrequest_locked(int, struct sockaddr *,
+     struct sockaddr *, struct sockaddr *, int, struct rtentry **);
+ extern int rtrequest_scoped_locked(int, struct sockaddr *, struct sockaddr *,
