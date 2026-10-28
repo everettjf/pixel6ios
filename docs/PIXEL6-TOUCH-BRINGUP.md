@@ -201,6 +201,26 @@ The Android factory reset also erased the iOS root in
 `userdata`, so an iOS boot needs a freshly verified root image and a new
 user confirmation immediately before any flash.
 
+**Built locally, not yet run on hardware (0120 GUI trial, 2026-10-27):**
+[patch 0120](../research/pixelios-kernel/xnu/patches/0120-oriole-touch-bounded-gui-window.patch)
+adds an exact `sweettouchwindow=1200` boot argument for a best-effort 20-minute
+powered touch window, timed from before the first rail-enable attempt. The
+full-iOS profile keeps the 1800-second restart setting and does not inject a
+software Home event. The kernel SHA-256 is
+`b26952bb34e292b2cfea421ddf29efbb4d0509f042848dfdd2bc9db12d40327e`,
+the payload SHA-256 is
+`be6cd79bfd186f200b34bdef06d5c53c7b00e983348c86c2d354dd6d7c06acd8`,
+and the selected 64 MiB temporary AVB boot image SHA-256 is
+`b6b152dfba0228d1adf03339ad09493c5ccc96c2c0e10bcfceeb4d62c1dbfc11`.
+The exact payload, runtime bounds guard, complete-image digest and AVB
+footer/hash were checked locally; the repository gate printed
+`GATE PASS fd5b540+dirty`. Independent different-model review found no
+concrete blocker but emphasized that cleanup is best effort: a stalled thread,
+uncertain ACPM state or earlier restart can prevent or preempt restoration.
+The phone is currently in Android, and this image has **not** demonstrated a
+physical iOS swipe, app launch or networking. The code remains on a local
+`wip/*` branch pending the device result.
+
 1. **Extend the verified touch path to a full iOS boot:** the synchronized 0118 test established physical FIFO and HID events. The diagnostic's 60-second rail window is too short for the previously observed iOS startup. A separate, bounded GUI profile must keep the controller powered through startup, retain cleanup on failure/restart, and preserve a no-touch fallback. Have the hardware-writing change independently reviewed before a temporary boot.
 2. **Verify GUI input:** after a freshly approved iOS root restore, test a physical lock-screen swipe, one app icon tap, and a return to Home. Capture both physical screen evidence and USB touch/HID logs; kernel coordinates alone do not establish that SpringBoard accepted a gesture.
 3. **Observed iOS behavior:** restoring an iOS root to `userdata` requires a freshly verified image and new confirmation immediately before flashing. Then verify a physical swipe from lock screen to home screen, tap Settings, and return Home. A visible app launch and matching input logs are required before claiming interaction works.
