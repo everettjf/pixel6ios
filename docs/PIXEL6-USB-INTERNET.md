@@ -31,6 +31,8 @@ reset 和 disconnect 时撤销**自己创建**的路由、发布下线状态；
 
 **主机只读基线（2026-10-28，本机观察）：** `python3 tools/preflight_oriole_usb_host.py` 只读查询 Mac 默认路由、`192.168.7.1` 所在接口与 `1209:0001` USB gadget 数量，不启用转发、NAT 或 DNS。本次输出显示默认上行为 `en1`，没有 `192.168.7.1` 接口，也没有目标 gadget，因此主机出口尚未可测。即使以后输出 `distinct_candidate=true`，也只表示一条候选接口与上行分离，不能证明该接口属于 Pixel 6 或 iOS 已联网。Mac 的[互联网共享设置说明](https://support.apple.com/en-sg/guide/mac-help/mchlp1540/27/mac/27)提供系统支持的上行/下行选择界面；配置前仍须用真机连接前后的接口变化确认下行身份，避免选错网络口。
 
+**主机状态复核（2026-10-28，本机观察）：** Mac 的 `net.inet.ip.forwarding` 当前为 `1`，上行仍为 `en1`，但没有 Pixel 6 USB gadget 或 `192.168.7.1` 下行接口；无管理员权限时 `pfctl -s info` 返回权限不足，NAT 状态尚未核实。只读预检现记录 IPv4 转发状态；该值为 `1` 仍不证明 NAT、DNS 或 iOS 外网可达，也不应在手机未连接时改变现有主机网络配置。
+
 Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kernel/docs/research/20-wifi-stack-plan.md)不能证明 Pixel 6 真机 Wi-Fi 可用。USB 联网可作为更早的可测试出口，但不等于最终无线联网。
 
 ## 本地候选：0123（尚未真机验证）

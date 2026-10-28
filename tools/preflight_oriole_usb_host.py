@@ -51,21 +51,31 @@ def usb_gadget_count(blob):
     return count
 
 
+def forwarding_enabled(output):
+    value = output.strip()
+    if value not in ('0', '1'):
+        raise ValueError('unexpected IPv4 forwarding value')
+    return value == '1'
+
+
 def snapshot(run=subprocess.run):
     commands = [
         ['route', '-n', 'get', 'default'],
         ['ifconfig', '-a'],
         ['ioreg', '-a', '-p', 'IOUSB', '-l', '-w', '0'],
+        ['sysctl', '-n', 'net.inet.ip.forwarding'],
     ]
     results = [run(command, capture_output=True, timeout=10, check=True) for command in commands]
     uplink = default_interface(results[0].stdout.decode())
     candidates = interfaces_with_host_ip(results[1].stdout.decode())
     gadgets = usb_gadget_count(results[2].stdout)
+    forwarding = forwarding_enabled(results[3].stdout.decode())
     return {
         'default_uplink': uplink,
         'host_ip': HOST_IP,
         'host_ip_interfaces': candidates,
         'usb_1209_0001_count': gadgets,
+        'ipv4_forwarding_enabled': forwarding,
         'distinct_candidate': gadgets == 1 and uplink is not None and
                               len(candidates) == 1 and candidates[0] != uplink,
         'network_configuration_changed': False,
