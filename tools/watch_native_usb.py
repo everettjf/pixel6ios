@@ -118,6 +118,8 @@ class NetworkPathObserver:
         self.interface_publish_failed = False
         self.registration_program_started = False
         self.route_removed = False
+        self.route_deleted_by_configd = False
+        self.address_deleted_by_configd = False
 
     def feed(self, data):
         lines = (self.tail + data).split(b'\n')
@@ -137,6 +139,10 @@ class NetworkPathObserver:
                 key = 'registration_program_started'
             elif b'SWEET NET: ue0 owned default route remove 0' in line:
                 key = 'route_removed'
+            elif (b'SWEET NET: configd route delete 0.0.0.0 gw 192.168.7.1 ' in line):
+                key = 'route_deleted_by_configd'
+            elif b'SWEET NET: configd ue0 delete address ' in line:
+                key = 'address_deleted_by_configd'
             else:
                 continue
             if not getattr(self, key):
@@ -148,7 +154,8 @@ class NetworkPathObserver:
         return {key: getattr(self, key) for key in (
             'route_added', 'route_add_failed', 'interface_published',
             'interface_publish_failed', 'registration_program_started',
-            'route_removed')}
+            'route_removed', 'route_deleted_by_configd',
+            'address_deleted_by_configd')}
 
 
 def devices():
