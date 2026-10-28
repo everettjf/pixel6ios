@@ -2,7 +2,7 @@
 
 import unittest
 
-from watch_native_usb import GuiProcessCue, TouchPathObserver
+from watch_native_usb import GuiProcessCue, NetworkPathObserver, TouchPathObserver
 
 
 class GuiCueTests(unittest.TestCase):
@@ -56,6 +56,30 @@ class TouchPathTests(unittest.TestCase):
                       b'SWEET HID: touch 0 up at 734,760\n')
         self.assertEqual((observer.touch_events, observer.hid_events), (2, 2))
         self.assertEqual((observer.gui_touch_events, observer.gui_hid_events), (1, 1))
+
+
+class NetworkPathTests(unittest.TestCase):
+    def test_split_milestones_do_not_claim_unobserved_stages(self):
+        observer = NetworkPathObserver()
+        self.assertEqual(observer.feed(b'SWEET NET: ue0 default route add 0 own'), [])
+        self.assertEqual(observer.feed(b'ed=1\nSWEET NETIF: published IONetworkInter'),
+                         ['route_added'])
+        self.assertEqual(observer.feed(b'face ue0\nexec addNetworkInterface\n'),
+                         ['interface_published', 'registration_program_started'])
+        self.assertEqual(observer.feed(b'SWEET NET: ue0 owned default route remove 0\n'),
+                         ['route_removed'])
+        self.assertEqual(observer.feed(b'SWEET NETIF: published IONetworkInterface ue0\n'), [])
+        self.assertFalse(observer.result()['route_add_failed'])
+        self.assertFalse(observer.result()['interface_publish_failed'])
+
+    def test_failures_remain_distinct_from_success(self):
+        observer = NetworkPathObserver()
+        observer.feed(b'SWEET NET: ue0 default route add 17 owned=0\n'
+                      b'SWEET NETIF: registry attach failed\n')
+        self.assertFalse(observer.result()['route_added'])
+        self.assertFalse(observer.result()['interface_published'])
+        self.assertTrue(observer.result()['route_add_failed'])
+        self.assertTrue(observer.result()['interface_publish_failed'])
 
 
 if __name__ == '__main__':

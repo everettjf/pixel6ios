@@ -107,6 +107,50 @@ class TouchPathObserver:
         }
 
 
+class NetworkPathObserver:
+    """Record distinct USB-network milestones; none proves Internet access."""
+
+    def __init__(self):
+        self.tail = b''
+        self.route_added = False
+        self.route_add_failed = False
+        self.interface_published = False
+        self.interface_publish_failed = False
+        self.registration_program_started = False
+        self.route_removed = False
+
+    def feed(self, data):
+        lines = (self.tail + data).split(b'\n')
+        self.tail = lines.pop()
+        new = []
+        for line in lines:
+            if b'SWEET NET: ue0 default route add 0 owned=1' in line:
+                key = 'route_added'
+            elif b'SWEET NET: ue0 default route add ' in line:
+                key = 'route_add_failed'
+            elif b'SWEET NETIF: published IONetworkInterface ue0' in line:
+                key = 'interface_published'
+            elif b'SWEET NETIF: ' in line and any(
+                    marker in line for marker in (b'unavailable', b'attach failed')):
+                key = 'interface_publish_failed'
+            elif b'exec addNetworkInterface' in line:
+                key = 'registration_program_started'
+            elif b'SWEET NET: ue0 owned default route remove 0' in line:
+                key = 'route_removed'
+            else:
+                continue
+            if not getattr(self, key):
+                setattr(self, key, True)
+                new.append(key)
+        return new
+
+    def result(self):
+        return {key: getattr(self, key) for key in (
+            'route_added', 'route_add_failed', 'interface_published',
+            'interface_publish_failed', 'registration_program_started',
+            'route_removed')}
+
+
 def devices():
     p = subprocess.run(['ioreg', '-a', '-p', 'IOUSB', '-l', '-w', '0'],
                        capture_output=True, timeout=5, check=True)
@@ -142,6 +186,7 @@ def main():
     deadline = time.monotonic() + a.seconds
     last = None; poll = 0; size = 0; pid_seen = False; tail = b''; gui = GuiProcessCue()
     touch_path = TouchPathObserver()
+    network_path = NetworkPathObserver()
     print('Read-only USB/UDP watcher ready', flush=True)
     with (a.out/'udp.log').open('xb') as log:
         while time.monotonic() < deadline and not stop.is_set():
@@ -176,6 +221,8 @@ def main():
                 print('Observed first touch-controller coordinate event during active GUI scan', flush=True)
             if first_hid:
                 print('Observed first HID touch dispatch during active GUI scan', flush=True)
+            for milestone in network_path.feed(data):
+                print('Observed USB-network log milestone: ' + milestone, flush=True)
             if not pid_seen and b'ORIOLE USB RAM userspace: init running as PID 1' in window:
                 pid_seen = True
                 print('Observed repeated native RAM PID1 banner', flush=True)
@@ -184,6 +231,7 @@ def main():
               'gui_touch_events':touch_path.gui_touch_events,
               'gui_hid_events':touch_path.gui_hid_events,
               'touch_timing':touch_path.timing(),
+              'network_log_milestones':network_path.result(),
               'events':len(events),
               'network_configuration_changed':False}
     (a.out/'result.json').write_text(json.dumps(result,indent=2)+'\n')

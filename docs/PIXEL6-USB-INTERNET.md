@@ -45,6 +45,8 @@ Wi-Fi 驱动是另一条路线，现有 [上游研究](../research/pixelios-kern
 
 **0126 本地临时启动镜像（2026-10-28，未真机启动）：** `oriole_touch_netif_0126.py` 基于上述内核与已固定的 0121 触摸 ADT，沿用 0125 命令行并追加唯一的 `sweetnetif=1`。payload 长 16,753,584 字节，SHA-256 `972d39341a4a5f9875ee8646fc361278e0a696acf2a540d84c410cc45f1cfb4a`。0126 独立 shim profile 只接受此 payload，并把新的入口 `0xfffffe0007497488` 与内核末端 `0xfffffe0008730000` 固定到运行时守卫；旧 profile 的边界不变。64 MiB AVB 镜像只保存在忽略目录 `private/oriole-net-route-source/relink-0125/oriole-netif-0126-avb.img`，SHA-256 `fde6a6198053fb0716051e0ebabf279c10e28f843c0fb25c588092dad0ea67c1`。本地构建通过 payload 守卫的正例及截断反例，`--check-image`、`python3 tools/preflight_oriole_touch_gui.py --trial 0126 --offline`、旧 0125 profile 回归构建及完整 `tools/check-all.sh` 门禁均通过。**这些都是离线检查；尚无真实触摸手势、系统 App 打开、网络服务注册或互联网访问结果。**
 
+**0126 下一轮日志判读（2026-10-28，本机工具）：** 只读 `tools/watch_native_usb.py` 的 `result.json` 分别记录内核默认路由添加、`IONetworkInterface` 发布、`addNetworkInterface` 进程启动及路由撤销的日志里程碑；UDP 分片的文字行会先拼接再判读。121 个根仓库单元测试通过，历史 0121 日志没有被误判出 0126 的网络里程碑。这些字段只证明对应文字曾出现在 USB 日志中；即使全为真，也不证明系统网络服务配置完成、DNS 可用或能访问互联网。下一轮仍需真机路由、服务、DNS 和 App 请求的独立证据。
+
 ## 本地候选：0123（尚未真机验证）
 
 - **读自源码 / 本地构建：** `0123-oriole-usb-owned-default-route.patch` 是默认关闭的 `sweetnetroute=1` 候选。只有在 `ue0` 地址设置成功、USB 数据接口切到 alt-setting 1 后，它才尝试安装经 `192.168.7.1` 的默认路由；接口下线时仅在路由对象、网卡索引和 IPv4 网关仍匹配时撤销。插入时也核对路由实际选中的网卡。该补丁位于已推送的 `wip/oriole-usb-internet-route` 分支，尚未合入 `main`。
