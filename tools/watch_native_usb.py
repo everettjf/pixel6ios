@@ -16,6 +16,26 @@ import subprocess
 import time
 
 
+class GuiProcessCue:
+    """Notice both iOS GUI processes, even across UDP datagram boundaries."""
+
+    def __init__(self):
+        self.tail = b''
+        self.springboard = False
+        self.backboardd = False
+        self.announced = False
+
+    def feed(self, data):
+        window = self.tail + data
+        self.tail = window[-32:]
+        self.springboard |= b'exec SpringBoard' in window
+        self.backboardd |= b'exec backboardd' in window
+        if self.springboard and self.backboardd and not self.announced:
+            self.announced = True
+            return True
+        return False
+
+
 def devices():
     p = subprocess.run(['ioreg', '-a', '-p', 'IOUSB', '-l', '-w', '0'],
                        capture_output=True, timeout=5, check=True)
@@ -37,8 +57,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--seconds', type=int, default=240)
     ap.add_argument('--out', type=Path, required=True)
+    ap.add_argument('--cue-gui', action='store_true',
+                    help='announce when SpringBoard and backboardd have both started; not proof of a usable lock screen')
     a = ap.parse_args()
-    if not 1 <= a.seconds <= 300: ap.error('seconds must be1..300')
+    if not 1 <= a.seconds <= 2500: ap.error('seconds must be 1..2500')
     a.out.mkdir(parents=True, exist_ok=False, mode=0o700)
     baseline = set(socket.if_nameindex())
     events = []
@@ -47,7 +69,7 @@ def main():
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     deadline = time.monotonic() + a.seconds
-    last = None; poll = 0; size = 0; pid_seen = False; tail = b''
+    last = None; poll = 0; size = 0; pid_seen = False; tail = b''; gui = GuiProcessCue()
     print('Read-only USB/UDP watcher ready', flush=True)
     with (a.out/'udp.log').open('xb') as log:
         while time.monotonic() < deadline and not stop.is_set():
@@ -74,10 +96,14 @@ def main():
             log.write(data); log.flush(); size += len(data)
             window = tail + data
             tail = window[-256:]
+            if a.cue_gui and gui.feed(data):
+                print('SpringBoard and backboardd started; watch for the lock screen and test touch as soon as it appears',
+                      flush=True)
             if not pid_seen and b'ORIOLE USB RAM userspace: init running as PID 1' in window:
                 pid_seen = True
                 print('Observed repeated native RAM PID1 banner', flush=True)
-    result = {'udp_bytes':size, 'pid1_banner':pid_seen, 'events':len(events),
+    result = {'udp_bytes':size, 'pid1_banner':pid_seen, 'gui_process_pair':gui.announced,
+              'events':len(events),
               'network_configuration_changed':False}
     (a.out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result), flush=True)
