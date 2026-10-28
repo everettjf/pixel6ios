@@ -53,16 +53,30 @@ class TouchPathObserver:
         self.hid_events = 0
         self.gui_touch_events = 0
         self.gui_hid_events = 0
+        self.scan_started_at = None
+        self.gui_ready_at = None
+        self.first_gui_touch_at = None
+        self.first_gui_hid_at = None
+        self.scan_ended_at = None
 
-    def feed(self, data):
+    def feed(self, data, received_at=None):
+        if received_at is None:
+            received_at = time.monotonic()
         lines = (self.tail + data).split(b'\n')
         self.tail = lines.pop()
         first_gui_touch = False
         first_gui_hid = False
         for line in lines:
+            if b'SWEET TOUCH: scanning,' in line and self.scan_started_at is None:
+                self.scan_started_at = received_at
             self.scanning |= b'SWEET TOUCH: scanning,' in line
             self.springboard |= b'exec SpringBoard' in line
             self.backboardd |= b'exec backboardd' in line
+            if (self.scanning and self.springboard and self.backboardd and
+                    not self.window_ended and self.gui_ready_at is None):
+                self.gui_ready_at = received_at
+            if (b'scan window ended' in line or b'LDO26M restored' in line) and self.scan_ended_at is None:
+                self.scan_ended_at = received_at
             self.window_ended |= b'scan window ended' in line or b'LDO26M restored' in line
             active = self.scanning and self.springboard and self.backboardd and not self.window_ended
             if b'SWEET TOUCH: ev ' in line and any(b'-> kind ' + str(k).encode() + b' ' in line for k in (1, 2, 3)):
@@ -70,12 +84,27 @@ class TouchPathObserver:
                 if active:
                     self.gui_touch_events += 1
                     first_gui_touch = self.gui_touch_events == 1
+                    if first_gui_touch:
+                        self.first_gui_touch_at = received_at
             if b'SWEET HID: touch ' in line and (b' down at ' in line or b' up at ' in line):
                 self.hid_events += 1
                 if active:
                     self.gui_hid_events += 1
                     first_gui_hid = self.gui_hid_events == 1
+                    if first_gui_hid:
+                        self.first_gui_hid_at = received_at
         return first_gui_touch, first_gui_hid
+
+    def timing(self):
+        """Host-observed seconds; absent markers remain null, not zero."""
+        def elapsed(start, end):
+            return None if start is None or end is None else round(end - start, 3)
+        return {
+            'scan_to_gui_seconds': elapsed(self.scan_started_at, self.gui_ready_at),
+            'gui_to_first_touch_seconds': elapsed(self.gui_ready_at, self.first_gui_touch_at),
+            'gui_to_first_hid_seconds': elapsed(self.gui_ready_at, self.first_gui_hid_at),
+            'gui_to_scan_end_seconds': elapsed(self.gui_ready_at, self.scan_ended_at),
+        }
 
 
 def devices():
@@ -154,6 +183,7 @@ def main():
               'touch_events':touch_path.touch_events, 'hid_events':touch_path.hid_events,
               'gui_touch_events':touch_path.gui_touch_events,
               'gui_hid_events':touch_path.gui_hid_events,
+              'touch_timing':touch_path.timing(),
               'events':len(events),
               'network_configuration_changed':False}
     (a.out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
