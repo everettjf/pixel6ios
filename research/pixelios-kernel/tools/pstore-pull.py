@@ -23,6 +23,8 @@ Subcommands:
 stdlib only; no third-party packages. `run` refuses any device whose
 `fastboot getvar product` is not "bluejay" (docs/SAFETY.md).
 """
+from __future__ import annotations
+
 import argparse
 import datetime
 import pathlib
