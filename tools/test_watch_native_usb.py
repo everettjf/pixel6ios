@@ -105,16 +105,18 @@ class NetworkPathTests(unittest.TestCase):
         self.assertFalse(observer.result()['route_add_failed'])
         self.assertFalse(observer.result()['interface_publish_failed'])
 
-    def test_configd_removal_is_not_counted_as_driver_cleanup(self):
+    def test_configd_delete_requests_are_not_counted_as_driver_cleanup(self):
         observer = NetworkPathObserver()
         self.assertEqual(observer.feed(
             b'SWEET NET: configd route delete 0.0.0.0 gw 192.168.7.1 ifindex 4 flags 0x40010803\n'
             b'SWEET NET: configd ue0 delete address 192.0.0.2\n'),
-            ['route_deleted_by_configd', 'address_deleted_by_configd'])
+            ['route_delete_requested_by_configd', 'address_delete_requested_by_configd'])
         result = observer.result()
-        self.assertTrue(result['route_deleted_by_configd'])
-        self.assertTrue(result['address_deleted_by_configd'])
+        self.assertTrue(result['route_delete_requested_by_configd'])
+        self.assertTrue(result['address_delete_requested_by_configd'])
         self.assertFalse(result['route_removed'])
+        self.assertNotIn('route_deleted_by_configd', result)
+        self.assertNotIn('address_deleted_by_configd', result)
 
     def test_failures_remain_distinct_from_success(self):
         observer = NetworkPathObserver()
