@@ -242,6 +242,21 @@ This is a source-backed candidate for events that reach HID but are ignored
 by SpringBoard; it does not establish that this Pixel 6's GUI accepts them.
 An independent different-model source review found no remaining issue after
 the exact ADT gate was added; it did not compile or boot the change.
+**Local build evidence, 2026-10-28:** the final stacked `SweetHID.cpp` compiled
+with Xcode's ARM64 Mach-O C++ compiler and the repository's kernel include
+configuration. The object SHA-256 is
+`981d03e3937cd533a358c17b84b7850a3c3598dee24288b8fd8b7574d83ba639`;
+its exported symbol names match the 0120 archive member. Replacing that one
+member in the pinned 0120 archive and relinking succeeded. The resulting
+offline kernel SHA-256 is
+`89da99e097276dc4d5731ebb586e4716efed8936b8d8d33dd81e5a714350f109`
+(16,697,320 bytes). Its entry point, load commands, loaded Mach-O segment
+layouts, symbol names and `__LINKINFO` symbolsets match the 0120 kernel;
+only `__LINKEDIT` size differs. The compiler command, logs, object, archive
+and candidate kernel remain under ignored `private/touch-xnu-source/relink-0121/`.
+This is an object compile and offline relink, **not** a complete XNU rebuild,
+boot-image verification, or device result. The Linux-only `xnu-local-build`
+still cannot run directly on this Mac because its Linux host tools are absent.
 Preserve the exact 0120 image as a baseline. A later 0121 trial must compare
 the same physical lock-screen swipe and app tap, with the input window active,
 and record both screen behavior and HID logs. If the 0120 baseline already
