@@ -63,6 +63,7 @@ ufsroot_cow_pool512_fbsnap_touchid_railsread=0
 ufsroot_cow_pool512_fbsnap_touchid_railcycle=0
 ufsroot_cow_pool512_fbsnap_touchid_railhold=0
 ufsroot_cow_pool512_fbsnap_touchid_irqsample=0
+ufsroot_cow_pool512_fbsnap_touchid_sysinfo=0
 preparecheck=0
 coldinit=0
 while [ "$#" -gt 0 ]; do
@@ -92,6 +93,7 @@ while [ "$#" -gt 0 ]; do
 		--xnu-ufsroot-cow-pool512-fbsnap-touchid-railcycle) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touchid_railcycle=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-pool512-fbsnap-touchid-railhold) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touchid_railhold=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-ufsroot-cow-pool512-fbsnap-touchid-irqsample) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touchid_irqsample=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
+		--xnu-ufsroot-cow-pool512-fbsnap-touchid-sysinfo) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; ufsroot=1; ufsroot_cow=1; ufsroot_cow_pool=1; ufsroot_cow_pool512_long=1; ufsroot_cow_pool512_fbsnap=1; ufsroot_cow_pool512_fbsnap_touchid=1; ufsroot_cow_pool512_fbsnap_touchid_sysinfo=1; coldinit=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb-loadcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; loadcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-md0usb) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; md0usb=1; boot_xnu=1; usb_gadget=1; shift ;;
 		--xnu-resetcheck) [ "$ramprobe" = 0 ] || { echo "select only one XNU diagnostic profile" >&2; exit 2; }; ramprobe=1; loadcheck=1; resetcheck=1; boot_xnu=1; usb_gadget=1; shift ;;
@@ -172,6 +174,7 @@ if [ "$ramprobe" = 1 ]; then
     [ "$ufsroot_cow_pool512_fbsnap_touchid_railcycle" = 0 ] || payload_checker=../tools/oriole_touch_identify_0116.py
     [ "$ufsroot_cow_pool512_fbsnap_touchid_railhold" = 0 ] || payload_checker=../tools/oriole_touch_identify_0117.py
     [ "$ufsroot_cow_pool512_fbsnap_touchid_irqsample" = 0 ] || payload_checker=../tools/oriole_touch_identify_0118.py
+    [ "$ufsroot_cow_pool512_fbsnap_touchid_sysinfo" = 0 ] || payload_checker=../tools/oriole_touch_identify_0119.py
     "$PYTHON" "$payload_checker" --check "$payload" || exit 2
     if [ "$ufsroot_cow_pool512_fbsnap_touchid" = 1 ]; then
         mkdir -p out
@@ -179,6 +182,7 @@ if [ "$ramprobe" = 1 ]; then
         [ "$ufsroot_cow_pool512_fbsnap_touchid_railcycle" = 0 ] || touch_guard_define=-DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_RAILCYCLE
         [ "$ufsroot_cow_pool512_fbsnap_touchid_railhold" = 0 ] || touch_guard_define=-DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_RAILHOLD
         [ "$ufsroot_cow_pool512_fbsnap_touchid_irqsample" = 0 ] || touch_guard_define=-DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_RAILHOLD
+        [ "$ufsroot_cow_pool512_fbsnap_touchid_sysinfo" = 0 ] || touch_guard_define=-DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_SYSINFO
         gcc -std=c11 -O1 -Wall -Wextra -Werror -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID \
             $touch_guard_define \
             -I. -o out/oriole_touch_payload_guard_check oriole_touch_payload_guard_host_test.c
@@ -261,6 +265,7 @@ CFLAGS="$CFLAGS -fno-tree-pre -fno-tree-switch-conversion -fno-jump-tables"
 [ "$ufsroot_cow_pool512_fbsnap_touchid_railcycle" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_RAILCYCLE"
 [ "$ufsroot_cow_pool512_fbsnap_touchid_railhold" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_RAILHOLD"
 [ "$ufsroot_cow_pool512_fbsnap_touchid_irqsample" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_RAILHOLD"
+[ "$ufsroot_cow_pool512_fbsnap_touchid_sysinfo" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_SYSINFO"
 [ "$coldinit" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFS_COLDINIT"
 [ "$preparecheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_UFS_PREPARECHECK"
 [ "$loadcheck" = 0 ] || CFLAGS="$CFLAGS -DORIOLE_LOADCHECK"

@@ -1,0 +1,27 @@
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -1531,6 +1531,24 @@ tg_run(void)
+ 		}
+ 		printf("SWEET TOUCH: no controller-ready event after the reset pulse (GUESS: continuing)\n");
+ 	}
++	if (tg.rail_hold) {
++		/* FTM5 readSysInfo(request=0) reads framebuffer address zero after
++		 * reset; 0xA7 is the SPI framebuffer-read opcode. Sample only its
++		 * first 48 bytes, within tg_read's fixed buffer, with no FW command. */
++		uint8_t info_cmd[3];
++		uint8_t info[48];
++		info_cmd[0] = 0xa7;
++		info_cmd[1] = info_cmd[2] = 0;
++		if (tg_read(info_cmd, sizeof(info_cmd), info, sizeof(info))) {
++			printf("SWEET TOUCH: sysinfo read failed\n");
++		} else {
++			for (unsigned i = 0; i < sizeof(info); i += 8) {
++				printf("SWEET TOUCH: sysinfo %02u: %02x %02x %02x %02x %02x %02x %02x %02x\n",
++				    i, info[i], info[i + 1], info[i + 2], info[i + 3],
++				    info[i + 4], info[i + 5], info[i + 6], info[i + 7]);
++			}
++		}
++	}
+ 	if (!tg_enable_scan()) {
+ 		printf("SWEET TOUCH: scan-mode write failed, stopping\n");
+ 		goto rail_cleanup;
