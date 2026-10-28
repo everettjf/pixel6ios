@@ -59,6 +59,7 @@ flowchart LR
 - [真机里程碑、构建哈希与注意事项](docs/PIXEL6-IOS-HOMESCREEN.md)
 - [公开安装准备路线图](docs/PUBLIC-INSTALL-READINESS.md)
 - [逐次启动和 UFS 诊断](docs/UFS-TIMEOUT-DIAG.md)
+- [USB 联网现状、缺口与验收条件](docs/PIXEL6-USB-INTERNET.md)
 - [可行性调研（2026-10-24 历史快照）](docs/PIXEL6-IOS-FEASIBILITY.md)
 - [开发交接记录](docs/ACTIVE-WORK.md) · [源码清单](docs/source-manifest.json)
 - [移植源码、设备配置与 XNU 补丁](research/pixelios-kernel/)
