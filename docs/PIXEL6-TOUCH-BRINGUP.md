@@ -254,9 +254,25 @@ offline kernel SHA-256 is
 layouts, symbol names and `__LINKINFO` symbolsets match the 0120 kernel;
 only `__LINKEDIT` size differs. The compiler command, logs, object, archive
 and candidate kernel remain under ignored `private/touch-xnu-source/relink-0121/`.
-This is an object compile and offline relink, **not** a complete XNU rebuild,
-boot-image verification, or device result. The Linux-only `xnu-local-build`
+This object check is **not** a complete XNU rebuild or device result. The Linux-only `xnu-local-build`
 still cannot run directly on this Mac because its Linux host tools are absent.
+**Local temporary-image build, 2026-10-28:** the 0121-specific payload checker
+and runtime UFS-root bounds guard accepted the 16,713,664-byte payload SHA-256
+`18c9801a52f33d39552302e16a5fd3db17664a06ae2735d44050e86a1268e5a2`.
+The separate 0121 profile kept the same Oriole touch hardware flags as 0120,
+while leaving 0120's 16,716,864-byte limit and checker unchanged. The shim
+host tests and object audits passed. The selected 64 MiB AVB temporary image
+SHA-256 is `a153da85ce9bbd3f519c83739e4d6cab1b1df7e220aa896f528c7c294bdb8d2d`;
+the complete-image digest, embedded payload, Android v4 layout and local
+image metadata were checked. The exact image and its metadata remain in
+ignored `private/touch-xnu-source/relink-0121/`. A different-model review of
+the profile and revised size guard found no actionable issue. This is still
+an **unbooted** image and establishes no GUI touch behavior.
+`python3 tools/preflight_oriole_touch_gui.py --offline --trial 0121` checks
+the new image and the existing 16 GiB root-image hash locally. Trial `0120`
+remains the default; selecting either trial leaves the other trial's SHA
+unchanged. Omitting `--offline` adds the same read-only phone identity,
+firmware, slot and partition-geometry checks as before.
 Preserve the exact 0120 image as a baseline. A later 0121 trial must compare
 the same physical lock-screen swipe and app tap, with the input window active,
 and record both screen behavior and HID logs. If the 0120 baseline already

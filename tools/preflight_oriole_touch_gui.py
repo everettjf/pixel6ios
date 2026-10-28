@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only preflight for the one reviewed Oriole GUI-touch trial.
+"""Read-only preflight for the separately pinned Oriole GUI-touch trials.
 
 This program never boots, flashes, erases, or changes a device. It checks the
 local private images first, then queries an explicitly recorded fastboot target.
@@ -17,8 +17,13 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 BOOT_SHA = 'b6b152dfba0228d1adf03339ad09493c5ccc96c2c0e10bcfceeb4d62c1dbfc11'
+BOOT_SHA_0121 = 'a153da85ce9bbd3f519c83739e4d6cab1b1df7e220aa896f528c7c294bdb8d2d'
 ROOT_SHA = '8b53c7102ba7e057483910c60f769b50f79046e5e60829052b401f7c017e0c67'
 SPARSE_MAGIC = 0xED26FF3A
+TRIALS = {
+    '0120': (BOOT_SHA, ROOT / 'private/touch-xnu-source/relink-0120/oriole-touch-gui-avb.img'),
+    '0121': (BOOT_SHA_0121, ROOT / 'private/touch-xnu-source/relink-0121/oriole-touch-gui-avb.img'),
+}
 
 
 def fail(message):
@@ -33,10 +38,10 @@ def digest(path):
     return h.hexdigest()
 
 
-def check_images(boot, root):
+def check_images(boot, root, boot_sha=BOOT_SHA):
     if not boot.is_file() or boot.stat().st_size != 64 * 1024 * 1024:
         fail('expected the reviewed 64 MiB temporary boot image')
-    if digest(boot) != BOOT_SHA:
+    if digest(boot) != boot_sha:
         fail('temporary boot image SHA-256 changed')
     if not root.is_file() or digest(root) != ROOT_SHA:
         fail('iOS root image SHA-256 changed or is missing')
@@ -109,11 +114,13 @@ def check_device(fastboot, serial, baseline, expanded_size, run=subprocess.run):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--offline', action='store_true', help='check local images only; do not query fastboot')
-    p.add_argument('--boot-image', type=Path, default=ROOT / 'private/touch-xnu-source/relink-0120/oriole-touch-gui-avb.img')
+    p.add_argument('--trial', choices=TRIALS, default='0120', help='exact candidate to verify (default: 0120)')
+    p.add_argument('--boot-image', type=Path, help='override the selected trial image path; SHA remains pinned')
     p.add_argument('--root-image', type=Path, default=ROOT / 'artifacts/oriole-root/ios16-oriole-root.nojournal.sparse.img')
     p.add_argument('--fastboot', type=Path, default=ROOT / 'tools/platform-tools/fastboot')
     args = p.parse_args()
-    expanded = check_images(args.boot_image, args.root_image)
+    boot_sha, default_boot = TRIALS[args.trial]
+    expanded = check_images(args.boot_image or default_boot, args.root_image, boot_sha)
     print(f'Local images match reviewed SHA-256; sparse expansion {expanded // (1024**3)} GiB')
     if not args.offline:
         try:

@@ -10,7 +10,10 @@ static inline int ur_inside(uint64_t off, uint64_t len, uint64_t limit)
 
 static inline int ufsroot_payload_ok(const struct payload *p, uint64_t available)
 {
-#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_GUI
+#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_GUI_0121
+    /* Exact 0121 HID event-metadata payload; keep 0120's bound separate. */
+    const uint64_t size=16713664;
+#elif defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_GUI)
     /* Exact 0120 bounded physical-touch trial with full iOS root. */
     const uint64_t size=16716864;
 #elif defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCHID_SYSINFO)
