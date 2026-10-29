@@ -410,3 +410,13 @@ For the next synchronized trial, `tools/watch_native_usb.py` includes host UTC r
 
 **下一轮观察器补充（2026-10-28，本机代码与回放测试；未真机运行）：** 观察器还将有 `edges>0` 或 `events>0` 的 `SWEET TOUCH: IRQ sample` 行单独计为 IRQ 活动样本，记录 GUI 扫描窗口内的数量、首个样本相对 GUI 标记的主机接收时间，并单列 `errors>0` 样本。它不会把 IRQ 活动当成有效手指坐标，也不会把零 IRQ 样本当成“用户确实触摸但硬件失效”。下次应在锁屏出现后立即同步操作并记录时刻：若窗口内有 IRQ 而无 point 事件，优先查 FIFO/解析；若有 point 而无 HID，查驱动分发；两者都有而画面不变，再查 IOHID 服务与 SpringBoard 接收路径。窗口结束后的任何动作均不能用于这轮结论。
 **离线回放观察：** 对上述 0126、0127 两份私有 USB 日志逐块回放，新计数器各识别到 1 条启动期 IRQ 活动样本，GUI 标记之后均为 0 条；两份日志的 GUI point/HID 计数仍均为 0。这与既有“无同步实体操作”边界一致，不是触摸失效的真机判定。
+
+## 0128 同步触摸与 0129 HID 服务诊断（2026-10-28）
+
+**真机观察：** 0128 的 64 MiB 临时启动镜像 SHA-256 为 `b4e0362437e929c562cd487da9fa1766e7ad1d8914dbe47f80f79eacb64f6006`。`fastboot boot` 后的私有 USB 日志 `private/touch-hid-0128-sync-20261028/udp.log` 记录了 87 条触摸控制器事件、11 条 GUI 阶段 IRQ 活动样本和 0 条 HID 触摸事件。第一条触摸发生在 GUI 标记后约 1492.476 秒，早于本轮 2400 秒的扫描窗口结束。前八条 C 桥接日志均为 `SWEET HID DIAG: bridge finger=0 down=1 service=0`。因此用户的操作**确实落在有效采样窗口内**，控制器坐标已到 XNU 桥接入口，但桥接当时没有可调用的 `SweetHIDTouch` 服务；不能再把无响应归因为操作太晚，也不能据此宣称 iOS 已接受手势。
+
+**读源码：** 本仓库的 `SweetHIDTouch` 通过 IOKit `IOResources` personality 匹配后才运行 `start()` 并注册 HID 事件服务；`sweet_hid_touch()` 仅在该服务已发布时转发事件。上游 [ios-sweet 的移植笔记](https://github.com/dipa-studio/ios-sweet/blob/main/NOTES.md)把控制器、HID 桥接和 backboardd 列为连续链路；[PixOS Pixel 6a 项目](https://github.com/PixOS-Project/pixelios-kernel)报告的是另一机型的触摸结果，不能直接当作本机验证。[Apple XNU 的 IOService 接口](https://github.com/apple/darwin-xnu/blob/main/iokit/IOKit/IOService.h)描述了服务匹配、`start()` 和 `registerService()` 的生命周期。0128 证据把当前故障范围收窄到 HID 服务创建或启动，但尚不能区分 personality 未匹配与 `start()` 失败。
+
+**本机构建：** [0128 补丁](../research/pixelios-kernel/xnu/patches/0128-oriole-hid-late-rematch-diagnostic.patch)为下一轮 0129 临时镜像增加 `SweetHIDTouch::start()` 阶段记录，并仅在 Oriole、显式 `sweethidrematch=1`、首次收到控制器事件且服务缺席时，请求一次异步 `IOResources` 重新匹配。服务指针以 release/acquire 原子方式发布；独立异模型复核了并发修正。0129 镜像 SHA-256 为 `e096c36f79d5cd9cb2cee2c061e4f81c198302dc85325c45d2ff46e36b35ce57`，由[固定哈希校验器](../research/pixelios-kernel/tools/oriole_touch_hid_rematch_0129.py)检查。
+
+**真机观察，0129 初次尝试：** 离线镜像校验、目标设备身份/解锁状态/分区几何的只读预检均通过，`fastboot boot` 返回成功；没有刷写分区。USB 观察器只短暂看到设备枚举，未收到 XNU UDP 日志；用户随后报告手机回到 Android Recovery。无法确认是否进入 XNU、是否触发重新匹配或发生了什么故障。此次结果**不支持触摸已修复**，下一轮须先获得屏幕错误或早期日志；不能在没有诊断信息时重复同一启动。

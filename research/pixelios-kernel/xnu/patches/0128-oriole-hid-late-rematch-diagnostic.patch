@@ -1,0 +1,102 @@
+--- a/iokit/Kernel/arm/hid/SweetHID.cpp
++++ b/iokit/Kernel/arm/hid/SweetHID.cpp
+@@ -380,6 +380,7 @@
+ 
+ static SweetHIDButtons *gSweetButtons;
+ static SweetHIDTouch *gSweetTouch;
++static unsigned gSweetTouchStartStage;
+ 
+ bool
+ SweetHIDButtons::start(IOService *provider)
+@@ -393,7 +394,9 @@
+ 			fTest->setTimeoutMS(fTestSecs * 1000);
+ 		}
+ 	}
+-	gSweetButtons = this;
++	/* The C bridge keeps this singleton for the lifetime of the kernel. */
++	retain();
++	__atomic_store_n(&gSweetButtons, this, __ATOMIC_RELEASE);
+ 	registerService();
+ 	IOLog("SWEET HID: buttons registered (test every %u s)\n", fTestSecs);
+ 	return true;
+@@ -444,17 +447,20 @@
+ bool
+ SweetHIDTouch::start(IOService *provider)
+ {
++	__atomic_store_n(&gSweetTouchStartStage, 1u, __ATOMIC_RELEASE);
+ 	fOrioleIntegratedEvents = sweet_hid_is_oriole();
+ 	if (fOrioleIntegratedEvents) {
+ 		IOLog("SWEET HID DIAG: oriole touch service start entered\n");
+ 	}
+ 	fLock = IOLockAlloc();
++	__atomic_store_n(&gSweetTouchStartStage, fLock ? 2u : 1u, __ATOMIC_RELEASE);
+ 	if (!fLock || !IOHIDEventService::start(provider)) {
+ 		if (fOrioleIntegratedEvents) {
+ 			IOLog("SWEET HID DIAG: touch service start failed lock=%u\n", fLock != NULL);
+ 		}
+ 		return false;
+ 	}
++	__atomic_store_n(&gSweetTouchStartStage, 3u, __ATOMIC_RELEASE);
+ 	int native = 0;
+ 	PE_parse_boot_argn("sweetfb_native", &native, sizeof(native));
+ 	fLogicalW = native ? 1080 : 1125;
+@@ -465,7 +471,10 @@
+ 	setProperty("DisplayIntegrated", kOSBooleanTrue);
+ 	setProperty("SurfaceWidth", (unsigned long long)(68 << 16), 32);	/* mm, 16.16 */
+ 	setProperty("SurfaceHeight", (unsigned long long)(151 << 16), 32);
+-	gSweetTouch = this;
++	/* Keep the service alive before the polling thread can observe it. */
++	retain();
++	__atomic_store_n(&gSweetTouch, this, __ATOMIC_RELEASE);
++	__atomic_store_n(&gSweetTouchStartStage, 4u, __ATOMIC_RELEASE);
+ 	registerService();
+ 	IOLog("SWEET HID: touch registered\n");
+ 	return true;
+@@ -583,8 +592,9 @@
+ 		kHIDUsage_Csmr_VolumeDecrement, kHIDUsage_Csmr_Menu,
+ 	};
+ 
+-	if (gSweetButtons && key >= 0 && key < (int)(sizeof(usages) / sizeof(usages[0]))) {
+-		gSweetButtons->key(usages[key], down != 0);
++	SweetHIDButtons *buttons = __atomic_load_n(&gSweetButtons, __ATOMIC_ACQUIRE);
++	if (buttons && key >= 0 && key < (int)(sizeof(usages) / sizeof(usages[0]))) {
++		buttons->key(usages[key], down != 0);
+ 	}
+ }
+ 
+@@ -592,11 +602,28 @@
+ sweet_hid_touch(int finger, int down, int x, int y)
+ {
+ 	static unsigned bridge_calls;
++	static unsigned rematch_requested;
++	SweetHIDTouch *touch = __atomic_load_n(&gSweetTouch, __ATOMIC_ACQUIRE);
++	if (!touch && sweet_hid_is_oriole() &&
++	    __atomic_exchange_n(&rematch_requested, 1u, __ATOMIC_ACQ_REL) == 0u) {
++		int enabled = 0;
++		IOService *resources = IOService::getResourceService();
++		bool opt_in = PE_parse_boot_argn("sweethidrematch", &enabled, sizeof(enabled)) && enabled;
++		IOLog("SWEET HID DIAG: late state stage=%u buttons=%u resources=%u rematch=%u\n",
++		    __atomic_load_n(&gSweetTouchStartStage, __ATOMIC_ACQUIRE),
++		    __atomic_load_n(&gSweetButtons, __ATOMIC_ACQUIRE) != NULL,
++		    resources != NULL, opt_in);
++		if (opt_in && resources) {
++			resources->registerService(kIOServiceAsynchronous);
++			IOLog("SWEET HID DIAG: asynchronous IOResources rematch requested\n");
++		}
++	}
+ 	if (sweet_hid_is_oriole() && __atomic_fetch_add(&bridge_calls, 1u, __ATOMIC_RELAXED) < 8u) {
+-		IOLog("SWEET HID DIAG: bridge finger=%d down=%d service=%u\n",
+-		    finger, down, gSweetTouch != NULL);
+-	}
+-	if (gSweetTouch) {
+-		gSweetTouch->touch(finger, down != 0, x, y);
+-	}
+-}
++		IOLog("SWEET HID DIAG: bridge finger=%d down=%d service=%u stage=%u\n",
++		    finger, down, touch != NULL,
++		    __atomic_load_n(&gSweetTouchStartStage, __ATOMIC_ACQUIRE));
++	}
++	if (touch) {
++		touch->touch(finger, down != 0, x, y);
++	}
++}
