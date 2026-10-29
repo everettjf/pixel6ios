@@ -60,6 +60,13 @@ class TouchPathObserver:
         self.irq_error_samples = 0
         self.touch_service_open = None
         self.buttons_service_open = None
+        self.touch_registration_log_seen = False
+        self.buttons_registration_log_seen = False
+        self.touch_start_log_seen = False
+        self.touch_start_failure_log_seen = False
+        self.rematch_request_log_seen = False
+        self.late_hid_state = None
+        self.bridge_without_service = 0
         self.scan_started_at = None
         self.gui_ready_at = None
         self.first_gui_touch_at = None
@@ -80,6 +87,23 @@ class TouchPathObserver:
         first_gui_touch = False
         first_gui_hid = False
         for line in lines:
+            if b'SWEET HID: touch registered' in line:
+                self.touch_registration_log_seen = True
+            if b'SWEET HID: buttons registered' in line:
+                self.buttons_registration_log_seen = True
+            if b'SWEET HID DIAG: oriole touch service start entered' in line:
+                self.touch_start_log_seen = True
+            if b'SWEET HID DIAG: touch service start failed' in line:
+                self.touch_start_failure_log_seen = True
+            if b'SWEET HID DIAG: asynchronous IOResources rematch requested' in line:
+                self.rematch_request_log_seen = True
+            state = re.search(rb'SWEET HID DIAG: late state stage=(\d+) buttons=(\d+) resources=(\d+) rematch=(\d+)', line)
+            if state:
+                stage, buttons, resources, rematch = map(int, state.groups())
+                self.late_hid_state = {'stage': stage, 'buttons': bool(buttons),
+                                       'resources': bool(resources), 'rematch_enabled': bool(rematch)}
+            if re.search(rb'SWEET HID DIAG: bridge finger=\d+ down=\d+ service=0\b', line):
+                self.bridge_without_service += 1
             if b'SWEET HID: SweetHIDTouch open by IOHIDEventServiceUserClient -> ' in line:
                 self.touch_service_open = line.rstrip().endswith(b'-> 1')
             if b'SWEET HID: SweetHIDButtons open by IOHIDEventServiceUserClient -> ' in line:
@@ -270,11 +294,20 @@ def main():
             if a.cue_gui and gui.feed(data):
                 print('Touch scan and GUI processes started; watch for the lock screen and test touch as soon as it appears',
                       flush=True)
+            prior_rematch = touch_path.rematch_request_log_seen
+            prior_registration = touch_path.touch_registration_log_seen
+            prior_open = touch_path.touch_service_open
             first_touch, first_hid = touch_path.feed(data)
             if first_touch:
                 print('Observed first touch-controller coordinate event during active GUI scan', flush=True)
             if first_hid:
                 print('Observed first HID touch dispatch during active GUI scan', flush=True)
+            if touch_path.rematch_request_log_seen and not prior_rematch:
+                print('Observed asynchronous HID rematch request log; service outcome pending', flush=True)
+            if touch_path.touch_registration_log_seen and not prior_registration:
+                print('Observed HID touch registration log; client open outcome pending', flush=True)
+            if touch_path.touch_service_open is True and prior_open is not True:
+                print('Observed HID touch service client open success', flush=True)
             for milestone in network_path.feed(data):
                 print('Observed USB-network log milestone: ' + milestone, flush=True)
             if not pid_seen and b'ORIOLE USB RAM userspace: init running as PID 1' in window:
@@ -283,6 +316,13 @@ def main():
     result = {'udp_bytes':size, 'pid1_banner':pid_seen, 'gui_process_pair':gui.announced,
               'hid_touch_service_open':touch_path.touch_service_open,
               'hid_buttons_service_open':touch_path.buttons_service_open,
+              'hid_touch_registration_log_seen':touch_path.touch_registration_log_seen,
+              'hid_buttons_registration_log_seen':touch_path.buttons_registration_log_seen,
+              'hid_touch_start_log_seen':touch_path.touch_start_log_seen,
+              'hid_touch_start_failure_log_seen':touch_path.touch_start_failure_log_seen,
+              'hid_rematch_request_log_seen':touch_path.rematch_request_log_seen,
+              'hid_late_state':touch_path.late_hid_state,
+              'hid_bridge_without_service':touch_path.bridge_without_service,
               'touch_events':touch_path.touch_events, 'hid_events':touch_path.hid_events,
               'gui_touch_events':touch_path.gui_touch_events,
               'gui_hid_events':touch_path.gui_hid_events,
