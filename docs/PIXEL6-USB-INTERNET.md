@@ -1,6 +1,6 @@
 # Pixel 6 的 iOS USB 联网：当前证据与下一步
 
-状态：**尚未验证 iOS 可访问互联网**（2026-10-28）。本页只记录已核对的源码与一次真机日志，不把 USB 日志通道等同于上网。
+状态：**尚未验证 iOS 可访问互联网**（2026-10-28）。本页记录已核对的源码与逐次真机观察，不把 USB 日志通道等同于上网。
 
 ## 当前已成立的通路
 
@@ -32,6 +32,8 @@ reset 和 disconnect 时撤销**自己创建**的路由、发布下线状态；
 **主机只读基线（2026-10-28，本机观察）：** `python3 tools/preflight_oriole_usb_host.py` 只读查询 Mac 默认路由、`192.168.7.1` 所在接口与 `1209:0001` USB gadget 数量，不启用转发、NAT 或 DNS。本次输出显示默认上行为 `en1`，没有 `192.168.7.1` 接口，也没有目标 gadget，因此主机出口尚未可测。即使以后输出 `distinct_candidate=true`，也只表示一条候选接口与上行分离，不能证明该接口属于 Pixel 6 或 iOS 已联网。Mac 的[互联网共享设置说明](https://support.apple.com/en-sg/guide/mac-help/mchlp1540/27/mac/27)提供系统支持的上行/下行选择界面；配置前仍须用真机连接前后的接口变化确认下行身份，避免选错网络口。
 
 **主机状态复核（2026-10-28，本机观察）：** Mac 的 `net.inet.ip.forwarding` 当前为 `1`，上行仍为 `en1`，但没有 Pixel 6 USB gadget 或 `192.168.7.1` 下行接口；无管理员权限时 `pfctl -s info` 返回权限不足，NAT 状态尚未核实。只读预检现记录 IPv4 转发状态；该值为 `1` 仍不证明 NAT、DNS 或 iOS 外网可达，也不应在手机未连接时改变现有主机网络配置。
+
+**0131 当前真机链路（2026-10-28 PDT，真机与 Mac 只读观察）：** 0131 临时镜像启动后，Mac 识别到唯一 `1209:0001` USB gadget 和新增 `en9`；`python3 tools/preflight_oriole_usb_host.py` 报告 `en9=192.168.7.1`、独立上行 `en1`、IPv4 转发为 `1`、Apple `bootpd` DHCP 为关闭、`internet_verified=false`。从 Mac `ping -c 2 192.168.7.2` 收到 2/2 回包，往返约 1.6–1.8 ms，证明当前手机的 USB 局域网双向 IP 通路。0131 XNU 日志仍出现 `configd` 的默认路由删除**请求**；无权读取 PF NAT 规则，也未取得手机运行时路由/DNS 表或系统 App 外网请求。故此轮只把 USB 本地链路标为已验证，不把 IP 转发开关、ping 或日志流量等同于 iOS 上网。原始 0131 观察保存在本机忽略目录 `private/touch-hid-0131-sync-20261028/`。
 
 **主机 DHCP 状态（2026-10-28，本机只读观察）：** 0126 临时启动期间，`networksetup` 显示 `Sweet iOS (USB Ethernet)` 使用手动地址 `192.168.7.1/24`；`/etc/bootpd.plist` 的 `dhcp_enabled` 为 `false`，未见 `bootpd` 或 `dnsmasq` 进程，UDP 67/68 也没有已绑定套接字。预检现单独报告 `macos_bootpd_dhcp_enabled=false`，只描述 Apple `bootpd` 的配置，不能据此排除所有可能的 DHCP 服务。由于根镜像以太网默认模板为 DHCP，这个主机状态不能满足已知的默认地址获取路径。下一次联网验收前，应在核实设备接口后准备范围仅限该 USB 链路的 DHCP、网关、DNS 与 NAT 配置，并分别验证运行时地址、路由和实际请求；需要管理员权限的主机配置留待用户审阅执行。
 
