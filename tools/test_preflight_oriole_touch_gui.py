@@ -75,6 +75,11 @@ class PreflightDeviceTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.check()
 
+    def test_mismatched_0129_shim_is_refused_before_device_access(self):
+        with self.assertRaisesRegex(SystemExit, 'runtime payload guard'):
+            PREFLIGHT.select_trial('0129')
+        self.assertEqual(self.calls, [])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -419,4 +419,16 @@ For the next synchronized trial, `tools/watch_native_usb.py` includes host UTC r
 
 **本机构建：** [0128 补丁](../research/pixelios-kernel/xnu/patches/0128-oriole-hid-late-rematch-diagnostic.patch)为下一轮 0129 临时镜像增加 `SweetHIDTouch::start()` 阶段记录，并仅在 Oriole、显式 `sweethidrematch=1`、首次收到控制器事件且服务缺席时，请求一次异步 `IOResources` 重新匹配。服务指针以 release/acquire 原子方式发布；独立异模型复核了并发修正。0129 镜像 SHA-256 为 `e096c36f79d5cd9cb2cee2c061e4f81c198302dc85325c45d2ff46e36b35ce57`，由[固定哈希校验器](../research/pixelios-kernel/tools/oriole_touch_hid_rematch_0129.py)检查。
 
-**真机观察，0129 初次尝试：** 离线镜像校验、目标设备身份/解锁状态/分区几何的只读预检均通过，`fastboot boot` 返回成功；没有刷写分区。USB 观察器只短暂看到设备枚举，未收到 XNU UDP 日志；用户随后报告手机回到 Android Recovery。无法确认是否进入 XNU、是否触发重新匹配或发生了什么故障。此次结果**不支持触摸已修复**，下一轮须先获得屏幕错误或早期日志；不能在没有诊断信息时重复同一启动。
+**真机观察，0129 初次尝试：** 离线镜像校验、目标设备身份/解锁状态/分区几何的只读预检均通过，`fastboot boot` 返回成功；没有刷写分区。USB 观察器只短暂看到设备枚举，未收到 XNU UDP 日志；用户随后报告手机回到 Android Recovery。当时还没有拍到早期屏幕错误，因此该轮不能作为 HID 重新匹配的真机结果。下面的 0130 屏幕证据与本机源码检查解释了这次预检遗漏。
+
+## 0130 启动拒绝与 0131 配对镜像（2026-10-28）
+
+**真机照片与重复观察：** 0130 诊断载荷沿用 0129 的 XNU/ADT，仅将启动参数 `serial=0` 改为 `serial=3`，试图把早期文字留在屏幕。旧 shim 搭配这个新载荷的 64 MiB 临时镜像 SHA-256 为 `60fd0052f23bad14ec8d8eb59b1f83a3be7b244e873d191aa130354075c51bb8`。两次只读预检均确认唯一、解锁的 `oriole`，`fastboot boot` 均返回成功，未刷写分区；USB 都只短暂枚举，没有 XNU UDP 日志，随后回到 Android Recovery。用户拍到的末屏显示 `INITRD` 后的 `RAM probe payload bounds`，再进入 `SECTION USB gadget (live log)`；`USB ... EVT conndone speed=0` 是后续 shim 诊断 USB 的事件，**不是** XNU 或触摸控制器报错。屏幕文字和源码共同确认 `loader_boot()` 在复制/跳转 XNU 之前返回了边界检查拒绝。原始照片来自用户拍摄的手机屏幕，不是 framebuffer 低分辨率采样。
+
+![Pixel 6 的 shim 屏幕日志，显示 RAM probe payload bounds 拒绝与后续 USB gadget 回退](assets/pixel6-0130-shim-payload-guard-camera.jpg)
+
+**原因与检查缺口：** 0129 和 0130 的 boot 镜像复用了 0128 的 307,200 字节 shim（SHA-256 `0d180f7e5cfef697472b9425deb8bc04d9f043ee70451752190acc2c5d2b80ff`）。该 shim 编译时选中了 `ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_HID_DIAG_0128`，`ufsroot_payload_ok()` 将载荷内部布局限制在旧的 16,753,760 字节上限内。新载荷的 ADT 偏移从 `0xff6880` 变为 `0xff68f0`，末端达到 `0xffa4c8`，超出旧上限 `0xffa460`；入口地址和目标 kernel-end 值保持不变。外层 AVB、boot header、载荷自身 SHA-256 与手机身份检查都不能证明 shim 内编译的运行时 guard 接受该载荷。因此 0129/0130 **没有验证新 XNU 补丁，也没有触摸修复结果**。`tools/preflight_oriole_touch_gui.py --trial 0129` 现会在查询手机前拒绝该已知不匹配镜像。
+
+**本机修复与验证：** 新的 0131 构建 profile 将固定 SHA-256 的 0130 屏幕诊断载荷（`6895c9476a9f5df9e988e91d836a3d9f0d8a032f1e410d190ca83599bdb0b3e1`）与专用 shim 编译选项成对构建；host 测试对同一 `ufsroot_payload_ok()` 运行时函数和实际载荷执行检查。新 shim 的 SHA-256 是 `3f69a7e8384ccb2237a4d538febba6e49947748a4f271f44a94ac9c886111360`；生成的 64 MiB AVB 临时镜像 SHA-256 是 `4c9c744f9ecb7cf0f1025f63365ca8557eeba49192816ba0f9502ef5f1524e2d`，已通过 payload、AVB、本机 guard 与仓库完整检查。它仍使用已有的 XNU HID 晚期重新匹配诊断代码，`serial=3` 会在屏幕叠加文字。
+
+**0131 无人值守真机启动：** 仅对在线预检核实的唯一、解锁的 `oriole` 执行 `fastboot boot`，未刷写分区。Mac 检测到 `Sweet iOS _USB Ethernet_` (`1209:0001`) 并收到 XNU UDP 日志，确认 0131 已越过旧 shim 的载荷边界拒绝。日志出现 `SWEET TOUCH: scanning, 1080x2400 raw -> 1080x2400`、`exec SpringBoard` 与 `exec backboardd`。用户已入睡，本轮没有同步的实体触摸操作，因此没有手指坐标，尚不能触发 0128 补丁中“首次触摸且 HID 服务缺席”条件；当前日志也尚无 `SWEET HID DIAG` 服务启动/重新匹配记录。此轮证明启动配对修复有效，**不能证明手势或 App 点按可用**。原始 USB/UDP 日志保存在本机私有目录 `private/touch-hid-0131-sync-20261028/`，未提交到公开仓库。

@@ -26,6 +26,7 @@ BOOT_SHA_0126 = 'fde6a6198053fb0716051e0ebabf279c10e28f843c0fb25c588092dad0ea67c
 BOOT_SHA_0127 = '9034ca52784ccdc52b5d011636556d24873040d11144a1d69da0f611146c0d44'
 BOOT_SHA_0128 = 'b4e0362437e929c562cd487da9fa1766e7ad1d8914dbe47f80f79eacb64f6006'
 BOOT_SHA_0129 = 'e096c36f79d5cd9cb2cee2c061e4f81c198302dc85325c45d2ff46e36b35ce57'
+BOOT_SHA_0131 = '4c9c744f9ecb7cf0f1025f63365ca8557eeba49192816ba0f9502ef5f1524e2d'
 ROOT_SHA = '8b53c7102ba7e057483910c60f769b50f79046e5e60829052b401f7c017e0c67'
 SPARSE_MAGIC = 0xED26FF3A
 TRIALS = {
@@ -39,11 +40,21 @@ TRIALS = {
     '0127': (BOOT_SHA_0127, ROOT / 'private/oriole-net-route-source/relink-0127/oriole-touch-0127-avb.img'),
     '0128': (BOOT_SHA_0128, ROOT / 'private/touch-hid-0128-work/relink/oriole-hid-diag-0128-avb.img'),
     '0129': (BOOT_SHA_0129, ROOT / 'private/touch-hid-0129-work/relink/oriole-hid-rematch-0129-avb.img'),
+    '0131': (BOOT_SHA_0131, ROOT / 'private/touch-hid-0130-work/oriole-hid-rematch-0131-avb.img'),
+}
+REJECTED_TRIALS = {
+    '0129': '0129 reuses a shim whose runtime payload guard is pinned to 0128',
 }
 
 
 def fail(message):
     raise SystemExit('REFUSED: ' + message)
+
+
+def select_trial(trial):
+    if trial in REJECTED_TRIALS:
+        fail(REJECTED_TRIALS[trial])
+    return TRIALS[trial]
 
 
 def digest(path):
@@ -135,7 +146,7 @@ def main():
     p.add_argument('--root-image', type=Path, default=ROOT / 'artifacts/oriole-root/ios16-oriole-root.nojournal.sparse.img')
     p.add_argument('--fastboot', type=Path, default=ROOT / 'tools/platform-tools/fastboot')
     args = p.parse_args()
-    boot_sha, default_boot = TRIALS[args.trial]
+    boot_sha, default_boot = select_trial(args.trial)
     expanded = check_images(args.boot_image or default_boot, args.root_image, boot_sha)
     print(f'Local images match reviewed SHA-256; sparse expansion {expanded // (1024**3)} GiB')
     if not args.offline:
