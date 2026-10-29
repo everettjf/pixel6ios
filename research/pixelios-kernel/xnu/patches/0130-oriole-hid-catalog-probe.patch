@@ -1,0 +1,30 @@
+--- a/iokit/Kernel/arm/hid/SweetHID.cpp
++++ b/iokit/Kernel/arm/hid/SweetHID.cpp
+@@ -20,0 +21 @@
++#include <IOKit/IOCatalogue.h>
+@@ -22,0 +24,2 @@
++#include <libkern/c++/OSOrderedSet.h>
++#include <libkern/c++/OSSymbol.h>
+@@ -611,0 +615,22 @@
++	if (resources && gIOCatalogue && strcmp(cause, "scan") == 0) {
++		SInt32 generation = -1;
++		OSPtr<OSOrderedSet> candidates = gIOCatalogue->findDrivers(resources, &generation);
++		unsigned touch_count = 0, button_count = 0;
++		if (candidates) {
++			for (unsigned i = 0; i < candidates->getCount(); i++) {
++				OSDictionary *entry = OSDynamicCast(OSDictionary, candidates->getObject(i));
++				OSString *name = entry ? OSDynamicCast(OSString, entry->getObject("IOClass")) : NULL;
++				if (name && name->isEqualTo("SweetHIDTouch")) touch_count++;
++				if (name && name->isEqualTo("SweetHIDButtons")) button_count++;
++			}
++		}
++		const OSSymbol *touch_name = OSSymbol::withCString("SweetHIDTouch");
++		const OSSymbol *button_name = OSSymbol::withCString("SweetHIDButtons");
++		bool touch_meta = touch_name && OSMetaClass::getMetaClassWithName(touch_name);
++		bool button_meta = button_name && OSMetaClass::getMetaClassWithName(button_name);
++		IOLog("SWEET HID DIAG: catalog generation=%d candidates=%u touch=%u buttons=%u meta-touch=%u meta-buttons=%u\n",
++		    generation, candidates ? candidates->getCount() : 0,
++		    touch_count, button_count, touch_meta, button_meta);
++		OSSafeReleaseNULL(touch_name);
++		OSSafeReleaseNULL(button_name);
++	}
