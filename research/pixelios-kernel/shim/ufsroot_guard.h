@@ -10,7 +10,12 @@ static inline int ur_inside(uint64_t off, uint64_t len, uint64_t limit)
 
 static inline int ufsroot_payload_ok(const struct payload *p, uint64_t available)
 {
-#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_HID_REMATCH_0131
+#ifdef ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_HID_PROBE_0132
+    /* Exact scan-start HID diagnostic; other payload bounds stay pinned. */
+    const uint64_t size=16753952;
+    const uint64_t kernel_end=0xfffffe0008730000ULL;
+    const uint64_t entry_va=0xfffffe0007497488ULL;
+#elif defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_HID_REMATCH_0131)
     /* The 0131 profile has a separately checked payload and shim. */
     const uint64_t size=16753872;
     const uint64_t kernel_end=0xfffffe0008730000ULL;
@@ -80,7 +85,7 @@ static inline int ufsroot_payload_ok(const struct payload *p, uint64_t available
     const uint64_t kernel_end=0xfffffe0008728000ULL;
 #endif
     const uint64_t vb=0xfffffe0006000000ULL;
-#if !defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETIF_0126) && !defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_HID_DIAG_0128) && !defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_HID_REMATCH_0131)
+#if !defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_NETIF_0126) && !defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_HID_DIAG_0128) && !defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_HID_REMATCH_0131) && !defined(ORIOLE_UFSROOT_COW_POOL512_FBSNAP_TOUCH_HID_PROBE_0132)
     const uint64_t entry_va=0xfffffe0007493488ULL;
 #endif
     if (available < size || p->version!=1 || p->nsegs!=10 ||

@@ -436,3 +436,9 @@ For the next synchronized trial, `tools/watch_native_usb.py` includes host UTC r
 **0131 观察器量化结果：** 只读接收 159,560 字节 XNU UDP 数据；触摸扫描开始后约 6.6 秒收齐两个 GUI 进程的启动标记。观察期间 `touch_events=0`、`hid_events=0`，`hid_touch_service_open=null`、`hid_buttons_service_open=null`，其中 `null` 表示**未捕获到打开结果**，不等于确认拒绝。旧的 `private/photo-trial-20261025/udp.log` 在 `backboardd` 启动后捕获过两个 HID 服务 `open -> 1`；当前日志没有同样的成功标记，故下一轮需要在锁屏出现后立即同步触摸，检查 `SWEET HID DIAG: late state`、异步重匹配请求、服务 `start()`/`open` 与实际 HID 事件的先后次序。不要用无人触摸的 0131 结果代替这条链路的验收。
 
 **下轮采样工具：** `tools/watch_native_usb.py` 现在分别记录 `hid_late_state`、`hid_rematch_request_log_seen`、`hid_touch_start_log_seen`、`hid_touch_registration_log_seen`、`hid_touch_service_open` 和 `hid_bridge_without_service`。前三类 `*_log_seen=false` 只表示在当前 UDP 捕获范围内没看到相应文本，不能证明内核服务从未启动；`open=null` 同样只表示没捕获到客户端打开结果。观察器按完整换行处理跨 UDP 数据包的标记，避免把半条日志误判成成功。这样下一次实体手指事件发生时，可区分控制器事件到达、重匹配请求、服务创建与 iOS 客户端打开四个不同阶段。
+
+## 0132 扫描启动时的 HID 服务诊断（2026-10-29）
+
+**读源码与本机构建，尚未真机验证：** 0131 的首次手指事件才会请求一次 `IOResources` 异步重新匹配；无人值守启动没有触发该路径。[0129 补丁](../research/pixelios-kernel/xnu/patches/0129-oriole-hid-scan-probe.patch)把相同的一次性请求提前到触摸控制器开始扫描时，同时保留首次事件的后备触发。仅当 Oriole 设备树匹配、`sweethidrematch=1`、HID 服务指针为空且 `IOResources` 已存在时才请求；原子 compare-and-exchange 保证至多一次。它还记录扫描启动时的 HID 服务、按钮服务和启动阶段状态。异模型独立复核未发现阻断问题，但异步请求能否使服务启动，必须由设备日志验证。
+
+**本机校验：** ARM64 触摸与 HID 对象已编译、重新链接；16,753,952 字节载荷 SHA-256 为 `9af5a83da5a12bad5c65d128fb8d78e5afcbd55fba7a05317354fcfcb4226804`。专用 shim profile 将其固定到运行时边界检查，64 MiB AVB 临时启动镜像 SHA-256 为 `d59ede3261ded33e81ba43e5146e4d04a917568a2c58069857001d6fa8e14838`。`tools/oriole_touch_hid_probe_0132.py` 与 `tools/preflight_oriole_touch_gui.py --trial 0132 --offline` 已通过。此镜像只用于临时 `fastboot boot`，不写启动分区；截至本记录没有 0132 的真机启动、触摸响应或 App 打开结果。

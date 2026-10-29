@@ -1,0 +1,81 @@
+--- a/iokit/Kernel/arm/hid/SweetHID.cpp
++++ b/iokit/Kernel/arm/hid/SweetHID.cpp
+@@ -598,25 +598,46 @@
+ 	}
+ }
+ 
++static void
++sweet_hid_try_rematch(const char *cause)
++{
++	static unsigned rematch_requested;
++	SweetHIDTouch *touch = __atomic_load_n(&gSweetTouch, __ATOMIC_ACQUIRE);
++	if (!sweet_hid_is_oriole()) {
++		return;
++	}
++	int enabled = 0;
++	IOService *resources = IOService::getResourceService();
++	bool opt_in = PE_parse_boot_argn("sweethidrematch", &enabled, sizeof(enabled)) && enabled;
++	IOLog("SWEET HID DIAG: %s stage=%u buttons=%u touch=%u resources=%u rematch=%u\n",
++	    cause, __atomic_load_n(&gSweetTouchStartStage, __ATOMIC_ACQUIRE),
++	    __atomic_load_n(&gSweetButtons, __ATOMIC_ACQUIRE) != NULL,
++	    touch != NULL, resources != NULL, opt_in);
++	if (!touch && opt_in && resources) {
++		unsigned expected = 0;
++		if (__atomic_compare_exchange_n(&rematch_requested, &expected, 1u,
++		    false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
++			resources->registerService(kIOServiceAsynchronous);
++			IOLog("SWEET HID DIAG: asynchronous IOResources rematch requested by %s\n", cause);
++		}
++	}
++}
++
++/* Request rematching at scan start, before polling input. */
++extern "C" void
++sweet_hid_probe(void)
++{
++	sweet_hid_try_rematch("scan");
++}
++
+ extern "C" void
+ sweet_hid_touch(int finger, int down, int x, int y)
+ {
+ 	static unsigned bridge_calls;
+-	static unsigned rematch_requested;
+ 	SweetHIDTouch *touch = __atomic_load_n(&gSweetTouch, __ATOMIC_ACQUIRE);
+-	if (!touch && sweet_hid_is_oriole() &&
+-	    __atomic_exchange_n(&rematch_requested, 1u, __ATOMIC_ACQ_REL) == 0u) {
+-		int enabled = 0;
+-		IOService *resources = IOService::getResourceService();
+-		bool opt_in = PE_parse_boot_argn("sweethidrematch", &enabled, sizeof(enabled)) && enabled;
+-		IOLog("SWEET HID DIAG: late state stage=%u buttons=%u resources=%u rematch=%u\n",
+-		    __atomic_load_n(&gSweetTouchStartStage, __ATOMIC_ACQUIRE),
+-		    __atomic_load_n(&gSweetButtons, __ATOMIC_ACQUIRE) != NULL,
+-		    resources != NULL, opt_in);
+-		if (opt_in && resources) {
+-			resources->registerService(kIOServiceAsynchronous);
+-			IOLog("SWEET HID DIAG: asynchronous IOResources rematch requested\n");
+-		}
++	if (!touch && __atomic_load_n(&bridge_calls, __ATOMIC_RELAXED) == 0u) {
++		sweet_hid_try_rematch("first-event");
++		touch = __atomic_load_n(&gSweetTouch, __ATOMIC_ACQUIRE);
+ 	}
+ 	if (sweet_hid_is_oriole() && __atomic_fetch_add(&bridge_calls, 1u, __ATOMIC_RELAXED) < 8u) {
+ 		IOLog("SWEET HID DIAG: bridge finger=%d down=%d service=%u stage=%u\n",
+--- a/bsd/dev/sweet_touch_gs101.c
++++ b/bsd/dev/sweet_touch_gs101.c
+@@ -94,6 +94,7 @@
+ extern void thread_deallocate(thread_t);
+ extern kern_return_t thread_terminate(thread_t);
+ extern void sweet_hid_touch(int finger, int down, int x, int y);
++extern void sweet_hid_probe(void);
+ void sweet_touch_gs101_init(void);
+ 
+ #define TG_COMPAT        "google,gs101-ftm5-spi"
+@@ -1556,6 +1557,7 @@
+ 		goto rail_cleanup;
+ 	}
+ 	printf("SWEET TOUCH: scanning, %dx%d raw -> %ux%u\n", (int)tg.max_x + 1, (int)tg.max_y + 1, tg.width, tg.height);
++	sweet_hid_probe();
+ 	uint64_t irq_report_start = tg_now_us();
+ 	unsigned irq_high = 0, irq_low = 0, irq_edges = 0, irq_reads = 0;
+ 	unsigned irq_nonempty = 0, irq_fail = 0;

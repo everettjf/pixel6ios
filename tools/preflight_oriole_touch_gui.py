@@ -27,6 +27,7 @@ BOOT_SHA_0127 = '9034ca52784ccdc52b5d011636556d24873040d11144a1d69da0f611146c0d4
 BOOT_SHA_0128 = 'b4e0362437e929c562cd487da9fa1766e7ad1d8914dbe47f80f79eacb64f6006'
 BOOT_SHA_0129 = 'e096c36f79d5cd9cb2cee2c061e4f81c198302dc85325c45d2ff46e36b35ce57'
 BOOT_SHA_0131 = '4c9c744f9ecb7cf0f1025f63365ca8557eeba49192816ba0f9502ef5f1524e2d'
+BOOT_SHA_0132 = 'd59ede3261ded33e81ba43e5146e4d04a917568a2c58069857001d6fa8e14838'
 ROOT_SHA = '8b53c7102ba7e057483910c60f769b50f79046e5e60829052b401f7c017e0c67'
 SPARSE_MAGIC = 0xED26FF3A
 TRIALS = {
@@ -41,6 +42,7 @@ TRIALS = {
     '0128': (BOOT_SHA_0128, ROOT / 'private/touch-hid-0128-work/relink/oriole-hid-diag-0128-avb.img'),
     '0129': (BOOT_SHA_0129, ROOT / 'private/touch-hid-0129-work/relink/oriole-hid-rematch-0129-avb.img'),
     '0131': (BOOT_SHA_0131, ROOT / 'private/touch-hid-0130-work/oriole-hid-rematch-0131-avb.img'),
+    '0132': (BOOT_SHA_0132, ROOT / 'private/touch-hid-0132-work/oriole-hid-scan-probe-0132-avb.img'),
 }
 REJECTED_TRIALS = {
     '0129': '0129 reuses a shim whose runtime payload guard is pinned to 0128',
