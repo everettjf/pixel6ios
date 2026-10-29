@@ -1,0 +1,2 @@
+# This nested diff contains context lines that begin with "space + tab".
+research/pixelios-kernel/xnu/patches/0127-sweet-hid-bridge-diagnostics.patch whitespace=-blank-at-eol,-space-before-tab

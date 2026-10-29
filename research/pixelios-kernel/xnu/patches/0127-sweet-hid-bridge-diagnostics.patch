@@ -1,0 +1,62 @@
+--- a/iokit/Kernel/arm/hid/SweetHID.cpp
++++ b/iokit/Kernel/arm/hid/SweetHID.cpp
+@@ -428,21 +428,31 @@
+ 	}
+ }
+ 
+-bool
+-SweetHIDTouch::start(IOService *provider)
++static bool
++sweet_hid_is_oriole(void)
+ {
+ 	DTEntry node;
+ 	const char *compat = NULL;
+ 	unsigned int csize = 0;
+ 	static const char oriole_compat[] = "pixelios,oriole-ftm5-spi";
+-
+-	fOrioleIntegratedEvents =
+-	    SecureDTLookupEntry(NULL, "/sweet-touch", &node) == kSuccess &&
++	return SecureDTLookupEntry(NULL, "/sweet-touch", &node) == kSuccess &&
+ 	    SecureDTGetProperty(node, "compatible", (const void **)&compat, &csize) == kSuccess &&
+ 	    compat != NULL && csize == sizeof(oriole_compat) &&
+ 	    strncmp(compat, oriole_compat, sizeof(oriole_compat)) == 0;
++}
++
++bool
++SweetHIDTouch::start(IOService *provider)
++{
++	fOrioleIntegratedEvents = sweet_hid_is_oriole();
++	if (fOrioleIntegratedEvents) {
++		IOLog("SWEET HID DIAG: oriole touch service start entered\n");
++	}
+ 	fLock = IOLockAlloc();
+ 	if (!fLock || !IOHIDEventService::start(provider)) {
++		if (fOrioleIntegratedEvents) {
++			IOLog("SWEET HID DIAG: touch service start failed lock=%u\n", fLock != NULL);
++		}
+ 		return false;
+ 	}
+ 	int native = 0;
+@@ -491,6 +501,10 @@
+ 
+ 	collection = IOHIDEvent::digitizerEvent(now, 0, kIOHIDDigitizerTransducerTypeHand, false, 0, 0, 0);
+ 	if (!collection) {
++		static unsigned alloc_failures;
++		if (fOrioleIntegratedEvents && alloc_failures++ < 8u) {
++			IOLog("SWEET HID DIAG: digitizer event allocation failed\n");
++		}
+ 		IOLockUnlock(fLock);
+ 		return;
+ 	}
+@@ -577,6 +591,11 @@
+ extern "C" void
+ sweet_hid_touch(int finger, int down, int x, int y)
+ {
++	static unsigned bridge_calls;
++	if (sweet_hid_is_oriole() && __atomic_fetch_add(&bridge_calls, 1u, __ATOMIC_RELAXED) < 8u) {
++		IOLog("SWEET HID DIAG: bridge finger=%d down=%d service=%u\n",
++		    finger, down, gSweetTouch != NULL);
++	}
+ 	if (gSweetTouch) {
+ 		gSweetTouch->touch(finger, down != 0, x, y);
+ 	}

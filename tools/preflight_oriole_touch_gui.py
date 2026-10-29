@@ -24,6 +24,7 @@ BOOT_SHA_0124 = '34951d115aa9e933bf1b2b69e8897fcd74779bb048e8693c008c82c178e692f
 BOOT_SHA_0125 = 'd13bf273969dff02a101f2e70c857f7bcf7f5d9b61360448dc12146a35806a4e'
 BOOT_SHA_0126 = 'fde6a6198053fb0716051e0ebabf279c10e28f843c0fb25c588092dad0ea67c1'
 BOOT_SHA_0127 = '9034ca52784ccdc52b5d011636556d24873040d11144a1d69da0f611146c0d44'
+BOOT_SHA_0128 = 'b4e0362437e929c562cd487da9fa1766e7ad1d8914dbe47f80f79eacb64f6006'
 ROOT_SHA = '8b53c7102ba7e057483910c60f769b50f79046e5e60829052b401f7c017e0c67'
 SPARSE_MAGIC = 0xED26FF3A
 TRIALS = {
@@ -35,6 +36,7 @@ TRIALS = {
     '0125': (BOOT_SHA_0125, ROOT / 'private/oriole-net-route-source/relink-0124/oriole-usb-resource-0125-avb.img'),
     '0126': (BOOT_SHA_0126, ROOT / 'private/oriole-net-route-source/relink-0125/oriole-netif-0126-avb.img'),
     '0127': (BOOT_SHA_0127, ROOT / 'private/oriole-net-route-source/relink-0127/oriole-touch-0127-avb.img'),
+    '0128': (BOOT_SHA_0128, ROOT / 'private/touch-hid-0128-work/relink/oriole-hid-diag-0128-avb.img'),
 }
 
 
