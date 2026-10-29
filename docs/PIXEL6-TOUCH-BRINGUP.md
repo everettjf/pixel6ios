@@ -442,3 +442,5 @@ For the next synchronized trial, `tools/watch_native_usb.py` includes host UTC r
 **读源码与本机构建，尚未真机验证：** 0131 的首次手指事件才会请求一次 `IOResources` 异步重新匹配；无人值守启动没有触发该路径。[0129 补丁](../research/pixelios-kernel/xnu/patches/0129-oriole-hid-scan-probe.patch)把相同的一次性请求提前到触摸控制器开始扫描时，同时保留首次事件的后备触发。仅当 Oriole 设备树匹配、`sweethidrematch=1`、HID 服务指针为空且 `IOResources` 已存在时才请求；原子 compare-and-exchange 保证至多一次。它还记录扫描启动时的 HID 服务、按钮服务和启动阶段状态。异模型独立复核未发现阻断问题，但异步请求能否使服务启动，必须由设备日志验证。
 
 **本机校验：** ARM64 触摸与 HID 对象已编译、重新链接；16,753,952 字节载荷 SHA-256 为 `9af5a83da5a12bad5c65d128fb8d78e5afcbd55fba7a05317354fcfcb4226804`。专用 shim profile 将其固定到运行时边界检查，64 MiB AVB 临时启动镜像 SHA-256 为 `d59ede3261ded33e81ba43e5146e4d04a917568a2c58069857001d6fa8e14838`。`tools/oriole_touch_hid_probe_0132.py` 与 `tools/preflight_oriole_touch_gui.py --trial 0132 --offline` 已通过。此镜像只用于临时 `fastboot boot`，不写启动分区；截至本记录没有 0132 的真机启动、触摸响应或 App 打开结果。
+
+**观察器：** `tools/watch_native_usb.py` 把 0132 的 `scan` 与 `first-event` 状态分别保存为 `hid_scan_state`、`hid_first_event_state`，并单列实际发起异步请求的 `hid_rematch_cause`。日志中的“请求已发出”、HID `start()`、服务注册、客户端打开和可见手势仍是不同的验收阶段；只有后续真机日志及屏幕操作能证明最后一段。

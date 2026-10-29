@@ -66,6 +66,9 @@ class TouchPathObserver:
         self.touch_start_failure_log_seen = False
         self.rematch_request_log_seen = False
         self.late_hid_state = None
+        self.hid_scan_state = None
+        self.hid_first_event_state = None
+        self.hid_rematch_cause = None
         self.bridge_without_service = 0
         self.scan_started_at = None
         self.gui_ready_at = None
@@ -97,11 +100,24 @@ class TouchPathObserver:
                 self.touch_start_failure_log_seen = True
             if b'SWEET HID DIAG: asynchronous IOResources rematch requested' in line:
                 self.rematch_request_log_seen = True
+                cause = re.search(rb'asynchronous IOResources rematch requested by (scan|first-event)\b', line)
+                if cause:
+                    self.hid_rematch_cause = cause.group(1).decode('ascii')
             state = re.search(rb'SWEET HID DIAG: late state stage=(\d+) buttons=(\d+) resources=(\d+) rematch=(\d+)', line)
             if state:
                 stage, buttons, resources, rematch = map(int, state.groups())
                 self.late_hid_state = {'stage': stage, 'buttons': bool(buttons),
                                        'resources': bool(resources), 'rematch_enabled': bool(rematch)}
+            state = re.search(rb'SWEET HID DIAG: (scan|first-event) stage=(\d+) buttons=(\d+) touch=(\d+) resources=(\d+) rematch=(\d+)\b', line)
+            if state:
+                cause = state.group(1).decode('ascii')
+                stage, buttons, touch, resources, rematch = map(int, state.groups()[1:])
+                value = {'stage': stage, 'buttons': bool(buttons), 'touch': bool(touch),
+                         'resources': bool(resources), 'rematch_enabled': bool(rematch)}
+                if cause == 'scan':
+                    self.hid_scan_state = value
+                else:
+                    self.hid_first_event_state = value
             if re.search(rb'SWEET HID DIAG: bridge finger=\d+ down=\d+ service=0\b', line):
                 self.bridge_without_service += 1
             if b'SWEET HID: SweetHIDTouch open by IOHIDEventServiceUserClient -> ' in line:
@@ -321,7 +337,10 @@ def main():
               'hid_touch_start_log_seen':touch_path.touch_start_log_seen,
               'hid_touch_start_failure_log_seen':touch_path.touch_start_failure_log_seen,
               'hid_rematch_request_log_seen':touch_path.rematch_request_log_seen,
+              'hid_rematch_cause':touch_path.hid_rematch_cause,
               'hid_late_state':touch_path.late_hid_state,
+              'hid_scan_state':touch_path.hid_scan_state,
+              'hid_first_event_state':touch_path.hid_first_event_state,
               'hid_bridge_without_service':touch_path.bridge_without_service,
               'touch_events':touch_path.touch_events, 'hid_events':touch_path.hid_events,
               'gui_touch_events':touch_path.gui_touch_events,

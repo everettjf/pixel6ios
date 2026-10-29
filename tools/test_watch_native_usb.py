@@ -28,6 +28,22 @@ class GuiCueTests(unittest.TestCase):
 
 
 class TouchPathTests(unittest.TestCase):
+    def test_scan_probe_keeps_request_distinct_from_service_start(self):
+        observer = TouchPathObserver()
+        observer.feed(b'SWEET HID DIAG: scan stage=0 buttons=0 touch=0 resources=1 re')
+        self.assertIsNone(observer.hid_scan_state)
+        observer.feed(b'match=1\nSWEET HID DIAG: asynchronous IOResources rematch requested by scan\n')
+        self.assertEqual(observer.hid_scan_state, {
+            'stage': 0, 'buttons': False, 'touch': False,
+            'resources': True, 'rematch_enabled': True,
+        })
+        self.assertEqual(observer.hid_rematch_cause, 'scan')
+        self.assertTrue(observer.rematch_request_log_seen)
+        self.assertFalse(observer.touch_start_log_seen)
+        observer.feed(b'SWEET HID DIAG: first-event stage=4 buttons=1 touch=1 resources=1 rematch=1\n')
+        self.assertTrue(observer.hid_first_event_state['touch'])
+        self.assertEqual(observer.hid_scan_state['stage'], 0)
+
     def test_hid_lifecycle_keeps_rematch_request_distinct_from_registration(self):
         observer = TouchPathObserver()
         observer.feed(b'SWEET HID DIAG: late state stage=0 buttons=0 resources=1 re')
