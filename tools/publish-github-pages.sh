@@ -26,7 +26,7 @@ for file in web/index.html web/styles.css web/.nojekyll; do
   fi
 done
 
-site_commit="$(git subtree split --prefix=web HEAD)"
+site_commit="$(git subtree split --quiet --prefix=web HEAD)"
 git push origin "$site_commit:refs/heads/gh-pages"
 echo "Published web/ from $(git rev-parse --short HEAD) to gh-pages ($site_commit)."
-echo "Site: https://everettjf.github.io/pixel6ios/"
+echo "Site: https://xnu.app/pixel6ios/"

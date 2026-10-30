@@ -2,7 +2,7 @@
 
 **An experimental iOS 16 port for the Google Pixel 6 (`oriole`).** On one physical device, the port has booted XNU, mounted an iOS root volume, reached the lock screen and Home Screen, and used the touchscreen to open Settings. This is the first research milestone, **not a public installer or a daily-use OS**.
 
-[Project site](https://everettjf.github.io/pixel6ios/) · [Milestone 1 record](docs/MILESTONE-ONE.md) · [Milestone 1 release](https://github.com/everettjf/pixel6ios/releases/tag/v0.1.0-alpha.2) · [Installation status](docs/INSTALLATION-STATUS.md)
+[Project site](https://xnu.app/pixel6ios/) · [Milestone 1 record](docs/MILESTONE-ONE.md) · [Milestone 1 release](https://github.com/everettjf/pixel6ios/releases/tag/v0.1.0-alpha.2) · [Installation status](docs/INSTALLATION-STATUS.md)
 
 ![A physical Pixel 6 displaying the experimental iOS Home Screen](web/assets/pixel6-ios-home.jpg)
 
