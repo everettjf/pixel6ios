@@ -55,7 +55,7 @@ def serve(port, seconds, state=None):
     with HTTPServer((HOST_IP, port), Handler) as server:
         server.timeout = 1
         deadline = time.monotonic() + seconds
-        print(f'USB candidate {interface}; open http://{HOST_IP}:{port}{path} in Safari',
+        print(f'USB candidate {interface}; open http://{HOST_IP}:{server.server_port}{path} in Safari',
               flush=True)
         while not completed and time.monotonic() < deadline:
             server.handle_request()
