@@ -8,6 +8,10 @@
 
 *Tester-supplied photo of the physical Pixel 6. The black bar is a diagnostic text overlay from the test build. This is an observed interface, not evidence that every app or service works.*
 
+## Why this experiment happened
+
+The maintainer saw a number of posts on X claiming that iOS had been installed on Android phones and wanted to investigate the idea firsthand. A spare Pixel 6 made physical testing possible. Over several days, Codex helped explore the port, write and review code, analyze logs, and iterate on device tests, consuming a substantial token budget. The result is interesting as a research milestone, but it takes minutes to boot, taps and animations are slow, and Safari still shows a blank page for `google.com`. The cause of the poor performance has not been isolated; device age and incomplete optimization are possibilities, not established explanations.
+
 ## Milestone 1 · October 29–30, 2026
 
 | Area | Verified result | Current limit |
@@ -72,7 +76,7 @@ The local image builder, `tools/build-oriole-fbsnap-local.sh`, only creates an i
 
 ## Research status and remaining work
 
-This exploratory phase is **concluded for now**. It was primarily motivated by curiosity about AI-assisted systems engineering, and we do not currently see a practical application that would justify turning it into a usable phone OS. The repository remains public as a research record. Any future continuation would need a reproducible public build, major performance work, clean display output, working networking, broader hardware support, independently verified recovery, and testing on another device. None of those gates is complete.
+This exploratory phase is **concluded for now**. It was primarily motivated by curiosity about AI-assisted systems engineering, and we do not currently see a practical application that would justify turning it into a usable phone OS. The remaining time and token budget are better spent on other work. The repository remains public as a research record. Any future continuation would need a reproducible public build, major performance work, clean display output, working networking, broader hardware support, independently verified recovery, and testing on another device. None of those gates is complete.
 
 ## Repository map
 
