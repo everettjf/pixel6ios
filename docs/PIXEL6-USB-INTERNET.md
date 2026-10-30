@@ -7,7 +7,7 @@
 - **读自源码：** [XNU USB ECM 补丁](../research/pixelios-kernel/xnu/patches/0073-sweet-usb-ecm.patch)创建 `ue0`，给设备侧设定 `192.168.7.2/24`；该补丁的注释指定主机侧为 `192.168.7.1`。内核接口创建代码只设置了本机地址，没有在此处添加默认路由或 DNS。
 - **真机观察：** 2026-10-28 的 0121 重试 USB 记录中，`ue0` 的收包计数从 57 增至 204，发包计数从 221 增至 2993；`configd`、`mDNSResponder` 和 `networkserviceproxy` 启动。`SWEET NET` 记录只显示 `lo0` 的 `127.0.0.1` 地址及 `127.0.0.0`、`224.0.0.0` 路由，没有记录默认路由。原始日志保留在忽略的 `private/touch-xnu-source/relink-0121/gui-0121-retry-udp.log`，SHA-256 为 `7e9be109b48549d2994eb1d19be39bfaf5d2694018c2207aaec65e81061f5365`。
 - **证据边界：** 日志接收证明手机与 Mac 在 USB 局域网内通信。它不证明 iOS 有到外网的路由、可用 DNS、主机转发/NAT，或任一系统 App 成功取回网络内容。日志捕获可能漏掉早期消息，不能仅凭未见到默认路由就断言它在运行时一定不存在。
-- **0134 真机观察（2026-10-29）：** 0134 USB 捕获包含 `SWEET NET: configd route delete 0.0.0.0 gw 192.168.7.1 ifindex 4` 和 `SWEET NET: configd ue0 delete address 192.0.0.2`，与 Safari 内容空白同时存在。它们说明用户态网络管理确实请求改变 USB 接口状态；仅凭这些日志还不能确定最终路由表、DNS 状态或 Safari 空白的唯一原因。原始日志保存在本机忽略目录 `private/touch-hid-0134-live-20261029/`。
+- **0134 真机观察（2026-10-29）：** 0134 USB 捕获先出现 `SWEET NET: configd route delete 0.0.0.0 gw 192.168.7.1 ifindex 4`，随后才出现 `exec addNetworkInterface`；用户在同次临时启动中看到 Safari 内容空白。该路由日志记录的是用户态请求，不能单独证明删除成功或之后未重建。日志还打印 `ue0 delete address 192.0.0.2`，但下文确认其地址参数类型被追踪代码误读，因此 `192.0.0.2` **不是可信的目标地址**。捕获从启动中途开始，未见较早的路由添加、`IONetworkInterface` 发布或最终路由表。下一次联网试验须在 iOS 启动前开始捕获，并分别核实实际接口地址、路由表、DNS 与外网请求；不能仅凭 Safari 空白把故障归因于某一个组件。原始日志保存在本机忽略目录 `private/touch-hid-0134-live-20261029/`。
 
 ## 实现与验收顺序
 
