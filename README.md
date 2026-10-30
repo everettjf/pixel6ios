@@ -24,6 +24,14 @@ The result is specific to **one Pixel 6** and the recorded firmware/build config
 
 These are compressed, metadata-stripped copies of photographs supplied by the tester on October 30. The originals remain with the tester. Some photos deliberately show the debug overlay or an in-progress transition.
 
+<p align="center">
+  <img src="web/assets/gallery/pixel6-home-debug.jpg" alt="Pixel 6 Home Screen with a diagnostic overlay" width="30%">
+  <img src="web/assets/gallery/pixel6-settings.jpg" alt="Settings open on the Pixel 6" width="30%">
+  <img src="web/assets/gallery/pixel6-about.jpg" alt="Settings About screen on the Pixel 6" width="30%">
+</p>
+
+*Left to right: Home Screen with a live debug bar; Settings; Settings → General → About. These are photographs of one experimental device, not app-compatibility or performance claims.*
+
 | Observation | Photograph |
 | :--- | :--- |
 | Home Screen with live diagnostic overlay | [Home Screen](web/assets/gallery/pixel6-home-debug.jpg) |
