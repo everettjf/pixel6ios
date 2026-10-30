@@ -1,78 +1,70 @@
 # iOS on Pixel 6
 
-在 Google Pixel 6（`oriole`）上研究性地启动 iOS 16。项目已在真机到达 **iOS 主屏**，目前仍是需要开发者参与的移植实验，尚无面向普通用户的安装包。
+**An experimental iOS 16 port for the Google Pixel 6 (`oriole`).** On one physical device, the port has booted XNU, mounted an iOS root volume, reached the lock screen and Home Screen, and used the touchscreen to open Settings. This is the first research milestone, **not a public installer or a daily-use OS**.
 
-> **2026-10-25 PDT 真机结果** · 临时启动的 XNU 挂载 iOS 16.7.16 根卷，运行 launchd 和 SpringBoard，显示锁屏；定时注入一个**软件 Home/Menu 事件**后，两次物理面板采样均显示主屏图标、分页点和 Dock。[查看证据与镜像哈希](docs/PIXEL6-IOS-HOMESCREEN.md)。另一次无软件 Home 事件的实测确认锁屏可重复到达，但实体上滑无反应：当前 Oriole 镜像明确移除了触摸硬件节点，尚不能用它判断触摸驱动是否可用。
+[Project site](https://everettjf.github.io/pixel6ios/) · [Milestone 1 record](docs/MILESTONE-ONE.md) · [Milestone 1 release](https://github.com/everettjf/pixel6ios/releases/tag/v0.1.0-alpha.2) · [Installation status](docs/INSTALLATION-STATUS.md)
 
-> **2026-10-27 PDT 触摸硬件里程碑** · 一次独立的临时启动探测从 Pixel 6 触摸芯片读到 ID `0x36 0x48`，单次 SPI 命令、清理成功、两条供电轨恢复原值。[查看真机记录](research/pixelios-kernel/device/google/oriole/hardware/touch-id-success-2026-10-27.txt)。这验证了预内核通信通路；iOS 内的实体触摸仍需开发。
+![A physical Pixel 6 displaying the experimental iOS Home Screen](web/assets/pixel6-ios-home.jpg)
 
-> **2026-10-27 PDT 事件读取进展** · 第二个独立探测镜像读取到一条 FTM5 就绪事件 `03 00 00 00 00 00 00 00`，随后恢复 SPI 与触摸供电并回到 Android。[查看 FIFO 真机记录](docs/ORIOLE-TOUCH-FIFO-PROBE.md)。这还不是手指触摸事件；iOS 上滑、点击与打开应用仍待 XNU 侧驱动接入和实体操作验收。
+*Physical-device photo supplied by the project tester. The screen is a milestone observation, not evidence that every app or service works.*
 
-> **2026-10-27 PDT 实体触摸进展** · 同步真机诊断中，XNU 从 FTM5 收到手指按下、移动、抬起坐标，并在 HID 路径报告触摸；60 秒后两条供电轨恢复原值。[查看带构建哈希的采样记录](research/pixelios-kernel/device/google/oriole/hardware/xnu-touch-irq-sample-2026-10-27.txt)。这轮使用 Android 格式的 `userdata`，没有进入 iOS 界面；锁屏上滑和 App 点击仍未验证。
+## Milestone 1 · October 29, 2026
 
-> **2026-10-28 PDT 完整启动与触摸窗口** · 经再次确认，iOS 根镜像已写入 `userdata`。0121 临时启动到达实体锁屏，但上滑发生在 20 分钟触摸供电窗口结束后。随后 0126 真机锁屏试验捕获到 FTM5 点事件，却没有 HID 触摸上报；源码核对发现解析器漏掉 `0x17/0x27` 类事件，已在 0127 临时镜像中修正。0127 的 40 分钟启动持续显示锁屏，未确认有人在供电窗口内同步触摸，因此还不能判定修复后的手势是否有效。[查看逐次证据](docs/PIXEL6-TOUCH-BRINGUP.md)。
+| Area | Verified result | Current limit |
+| :--- | :--- | :--- |
+| Boot | A temporary `fastboot boot` image starts the GS101 shim and patched XNU. | Normal power-on does not automatically start iOS. |
+| System | XNU mounts the iOS 16.7.16 HFSX root volume; `launchd`, `backboardd`, and SpringBoard run. | The root image and some pinned build inputs cannot be redistributed here. |
+| Display | Lock screen and Home Screen were observed on the physical Pixel 6. | The tested build draws debug text over the interface. A quieter candidate has only offline validation. |
+| Input | FTM5 touch events reach XNU HID; a tester entered the Home Screen and opened Settings by touch. | Other gestures, multitouch, sleep/wake, and long-term touch reliability are not validated. |
+| Network | USB logging and a local host/device link have been exercised. | Safari showed a blank page when opening Google; public Internet access is unverified. |
 
-> **2026-10-28 PDT 最新触摸定位** · 0128 同步真机试验在 iOS 图形界面和触摸扫描同时运行时捕获 87 条真实触摸事件；C 桥收到手指坐标，但当时 HID 服务指针为空，锁屏手势仍未打通。0129/0130 尝试被旧 shim 的载荷边界检查挡在 XNU 之前。修正后的 0131 成对镜像已通过本地检查，并在无人值守的真机临时启动中进入 XNU，启动 SpringBoard、backboardd 与触摸扫描；这一轮没有实体手指操作，所以尚未验证 HID 重新匹配或手势。[查看原因、照片与验证边界](docs/PIXEL6-TOUCH-BRINGUP.md)。
+The result is specific to **one Pixel 6** and the recorded firmware/build configuration. The `v0.1.0-alpha.2` release captures this milestone; later documentation and host-side test improvements are on `main`. No claim is made for Pixel 6a or other devices.
 
-> **2026-10-29 PDT HID 服务进展** · 0134 临时启动越过了 0133 的 C++ ABI panic；真机 USB 日志确认触摸扫描、SpringBoard、backboardd，以及 iOS 客户端成功打开触摸和按键 HID 服务。20 分钟采样未记录同步实体手势，故仍不能宣称上滑、解锁或 App 点击有效。[查看镜像哈希与验收边界](docs/PIXEL6-TOUCH-BRINGUP.md#0133-真机-panic-与-0134-abi-修正候选2026-10-29)。
-
-> **2026-10-29 PDT 实体交互里程碑** · 同一 0134 镜像的后续真机操作中，用户确认通过实体触摸进入 iOS 桌面并打开“设置”；同期 USB 日志记录了触摸控制器事件与 HID 按下/抬起坐标。这是单台 Pixel 6 的阶段性结果，尚未完成更多 App 验收。Safari 打开 Google 时内容区域空白；屏幕持续显示调试日志。0135 静默显示候选已通过离线构建，尚未真机测试。[查看证据与限制](docs/PIXEL6-TOUCH-BRINGUP.md#0134-实体交互里程碑2026-10-29)。
-
-## 现在做到了什么
-
-| 能力 | Pixel 6 当前状态 | 证据边界 |
-|---|---|---|
-| XNU、iOS 根卷、launchd | ✅ 真机验证 | USB 日志与屏幕观察 |
-| 锁屏、主屏显示 | ✅ 真机验证 | 0134 后续真机操作中，用户确认实体触摸进入主屏 |
-| 触摸芯片与 XNU 实体事件 | ✅ 真机验证 | 0128 的完整 iOS 启动在扫描和图形界面运行时收到 87 条实体触摸事件，坐标到达 C 桥；该轮 HID 服务缺席 |
-| iOS 手势、打开应用 | ✅ 部分真机验证 | 0134 后续操作确认可进入桌面、打开“设置”；其他手势与 App 尚未验收 |
-| USB 互联网 | ⛔ 尚不可用 | 主机与手机的 USB 本地链路可通，但 Safari 打开 Google 内容空白；未证实设备侧默认路由、DNS 或公网访问 |
-| 屏幕调试日志 | ⚠️ 仍显示 | 0134 使用 `serial=3` 调试启动参数；静默显示候选尚未真机验证 |
-| Wi-Fi、GPU 加速、音频、相机、蜂窝网络 | ◻️ 待验证 | 上游 Pixel 6a 的成果不等于 Pixel 6 的结果 |
-| 从公开仓库独立构建并安装 | ⛔ 尚未具备 | 当前本地构建依赖未公开的固定输入 |
+## How it fits together
 
 ```mermaid
 flowchart LR
-    A[已解锁 Pixel 6<br/>fastboot boot 临时镜像] --> B[GS101 shim<br/>内存与设备树交接]
-    B --> C[移植版 XNU 8796.141.3]
-    D[userdata 中的<br/>iOS 16.7.16 HFSX 根卷] -->|只读物理 UFS| C
-    C --> E[512 MiB 易失 RAM<br/>写时复制层]
-    C --> F[launchd → SpringBoard]
-    F --> G[锁屏]
-    G -->|0134 实体触摸| H[主屏：用户已观察]
-    H -->|实体点按| J[设置：用户已打开]
-    T[FTM5 触摸芯片] --> U[XNU 事件解析与 HID 服务]
-    U --> G
-    C -. USB 日志 .-> I[开发机]
-    H -. 面板滚动采样 .-> I
+    H[Developer Mac] -->|temporary fastboot boot| S[GS101 shim]
+    S --> K[Patched XNU]
+    U[Pixel 6 userdata<br/>iOS 16.7.16 HFSX root] -->|read-only physical UFS| K
+    K --> C[512 MiB RAM copy-on-write]
+    K --> L[launchd → SpringBoard]
+    L --> D[Lock screen → Home Screen]
+    T[FTM5 touch controller] --> I[XNU touch + HID bridge]
+    I --> D
+    K -. USB diagnostic stream .-> H
 ```
 
-先前完整 iOS 启动使用 `ufsrw=0`：XNU 不向物理 UFS 写入，根卷的运行时写入进入 RAM 写时复制层。2026-10-27 为恢复 Android 做过 Factory data reset，清除了当时的 iOS 根镜像；**2026-10-28 经新的明确确认，已再次将 iOS 根镜像写入 `userdata`，清空了 Android 本机数据**。随后的试验使用 `fastboot boot`，没有刷启动分区。Android 无法把当前 iOS 格式的 `userdata` 当作自己的数据分区使用，普通重启可能落入 Android Recovery；这不是 iOS 自动启动。再次改写 `userdata` 仍须先核验目标设备和镜像，并在操作前取得新的确认。
+The userland baseline is iPhone X iOS 16.7.16 (20H392); the kernel is a port of open-source XNU 8796.141.3 with GS101-specific work. The Apple root image, firmware, raw device logs, and private build inputs are **not** committed. The experimental configuration reads physical UFS without writing it; runtime writes go to a volatile RAM copy-on-write layer. Preparing the `userdata` partition for this experiment erased its previous Android data. An ordinary reboot may lead to Android Recovery because Android cannot use that partition as its own data volume.
 
-## 两条路线
+## Build and installation status
 
-**研究者复现现有真机结果：**阅读[实验记录](docs/PIXEL6-IOS-HOMESCREEN.md)，从已验证的本地输入运行质量门禁与 `tools/build-oriole-fbsnap-local.sh --home-test`。脚本生成临时启动镜像，不会接触手机。公开克隆缺少专有输入，无法直接复现这一构建；目前也没有可分发的 iOS 根镜像。
+This repository is for source review and research. **Do not treat it as an install guide.** A fresh public clone cannot reproduce the tested image: the current local relink path uses pinned inputs under ignored `private/`, and the iOS root builder is not integrated as a public, verified workflow. There is no one-click installer, distributable iOS image, supported-device matrix, or independently tested recovery procedure.
 
-**面向其他用户安装：**先完成[公开安装准备路线图](docs/PUBLIC-INSTALL-READINESS.md)。其中列出了可复现构建、用户自行提供的 iOS 输入、机型与固件核对、实体触摸、恢复路径和第二台设备验收的具体门槛。在这些门槛通过前，本仓库不提供一键刷机命令。
+For developers with the documented local inputs, the quality gate is:
 
-```mermaid
-flowchart LR
-    A[目前：单台真机<br/>到达主屏] --> B[公开源码从零构建<br/>无 private/ 依赖]
-    B --> C[用户自备 iOS 输入<br/>生成并校验根镜像]
-    C --> D[设备预检与恢复演练]
-    D --> E[实体触摸与应用验收]
-    E --> F[第二台 Pixel 6<br/>独立复现]
-    F --> G[实验性安装指南/发行]
+```sh
+research/pixelios-kernel/tools/check-all.sh
 ```
 
-## 文档与源码
+The local image builder, `tools/build-oriole-fbsnap-local.sh`, only creates an image; it does not contact a phone. Device work requires separate identity, firmware, image-hash, and recovery checks. See the [installation status and remaining gates](docs/INSTALLATION-STATUS.md) before attempting any hardware operation.
 
-- [真机里程碑、构建哈希与注意事项](docs/PIXEL6-IOS-HOMESCREEN.md)
-- [公开安装准备路线图](docs/PUBLIC-INSTALL-READINESS.md)
-- [逐次启动和 UFS 诊断](docs/UFS-TIMEOUT-DIAG.md)
-- [USB 联网现状、缺口与验收条件](docs/PIXEL6-USB-INTERNET.md)
-- [可行性调研（2026-10-24 历史快照）](docs/PIXEL6-IOS-FEASIBILITY.md)
-- [开发交接记录](docs/ACTIVE-WORK.md) · [源码清单](docs/source-manifest.json)
-- [移植源码、设备配置与 XNU 补丁](research/pixelios-kernel/)
+## What comes next
 
-选择的基线是 iPhone X 的 iOS 16.7.16（20H392）用户态和 PixeliOS 的 XNU 8796.141.3 / GS101 补丁栈。GitHub 构建 CI 已移除；本地质量门禁为 `research/pixelios-kernel/tools/check-all.sh`。原始设备日志、固件、Apple 镜像、私有构建输入和原始 framebuffer 采样不提交到 Git；文档中的精选实拍照片来自用户提供，并标注了来源。最初移植源码的提交历史保存在 `source-history` 分支。
+1. Reproduce the build from documented, redistributable sources and user-supplied iOS inputs.
+2. Verify a clean-display build on hardware, then test gestures, multiple apps, and touch across long sessions and sleep/wake.
+3. Establish device routing, DNS, and a successful Safari request; separately test other hardware services.
+4. Document a repeatable Android recovery path and verify the result on a second Pixel 6.
+5. Design and validate an opt-in persistent boot path with a dependable fallback.
+
+## Repository map
+
+- [`web/`](web/) — English GitHub Pages site; published from the `gh-pages` branch by a local deployment command.
+- [`research/pixelios-kernel/`](research/pixelios-kernel/) — XNU, GS101 shim, device code, and patch stack.
+- [`tools/`](tools/) — local build, preflight, diagnostics, and tests.
+- [`docs/MILESTONE-ONE.md`](docs/MILESTONE-ONE.md) — English summary of physical-device evidence and its limits.
+- [`docs/INSTALLATION-STATUS.md`](docs/INSTALLATION-STATUS.md) — English checklist of gates before public installation.
+- [`docs/PIXEL6-TOUCH-BRINGUP.md`](docs/PIXEL6-TOUCH-BRINGUP.md) — chronological touch and boot research log (Chinese).
+- [`docs/PIXEL6-USB-INTERNET.md`](docs/PIXEL6-USB-INTERNET.md) — USB networking research log (Chinese).
+
+GitHub build CI was removed in favor of local validation. The site is static and has no tracking scripts. Its physical-device photographs were supplied by the project tester; the earlier low-resolution framebuffer samples remain research evidence, not marketing screenshots. The original port's history is retained in the `source-history` branch.
