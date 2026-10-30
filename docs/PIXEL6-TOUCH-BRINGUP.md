@@ -483,4 +483,4 @@ For the next synchronized trial, `tools/watch_native_usb.py` includes host UTC r
 
 **从本机产物读取：** 0135 复用 0134 已真机运行的 XNU 内核和触摸设备树，仅将载荷启动参数 `serial=3` 改为 `serial=0`。逐字节比较两个 16,757,152 字节载荷，只有偏移 `0x59` 的一个字节不同；0135 载荷 SHA-256 为 `53b28fdd2c0c5494fd1628ecea90ec51b00d9bf79340e21f122cd687fe3dc423`。新的 shim 构建选项复用 0134 的运行时 UFS 根卷边界守卫，并通过专用载荷校验器固定内核、设备树与启动参数。64 MiB AVB 临时启动镜像 SHA-256 为 `f2f18d92f74ff6f2550b3983295c1584f8c316ebb36fcbc29b3959c77a6716cc`；整镜像检查和 `tools/preflight_oriole_touch_gui.py --trial 0135 --offline` 均通过。产物保存在忽略的 `private/touch-hid-0135-work/`，不提交二进制。
 
-**验收边界：** 0135 尚未在手机上启动。`serial=0` 预期移除屏幕调试文本，但实际显示、触摸、App 行为与 USB 日志能否同时保持，必须用下一次核实身份后的只读 `fastboot boot` 真机测试验证；当前不将 0135 作为已通过的发行配置。
+**验收边界：** 0135 尚未在手机上启动。此前[另一轮独立的 `serial=0` 真机试验](UFS-TIMEOUT-DIAG.md)已经显示过没有文字覆盖的 iOS 锁屏，并保留了 USB 日志；但该轮不含现有实体触摸/HID 配置。0135 的实际显示、触摸、App 行为与 USB 日志能否同时保持，仍须用下一次核实身份后的只读 `fastboot boot` 真机测试验证；当前不将 0135 作为已通过的发行配置。
