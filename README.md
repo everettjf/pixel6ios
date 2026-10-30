@@ -1,6 +1,6 @@
 # Project site
 
-This directory contains the English, dependency-free GitHub Pages site for [iOS on Pixel 6](https://everettjf.github.io/pixel6ios/). It has no analytics, external fonts, or build step. The two JPEGs are physical-device photographs supplied by the project tester.
+This directory contains the English, dependency-free GitHub Pages site for [iOS on Pixel 6](https://xnu.app/pixel6ios/). It has no analytics, external fonts, or build step. The two JPEGs are physical-device photographs supplied by the project tester.
 
 Preview from the repository root:
 
