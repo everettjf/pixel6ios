@@ -472,3 +472,9 @@ For the next synchronized trial, `tools/watch_native_usb.py` includes host UTC r
 **真机观察（0134，2026-10-29 PDT）：** 联机只读预检核对了唯一、已解锁的 `oriole`、固件、槽位、分区几何和上述镜像哈希。仅执行 `fastboot boot` 临时启动，未刷写分区。Mac 的 20 分钟只读 USB/UDP 观察收到 330,642 字节日志，记录 `SWEET TOUCH: scanning`、`exec SpringBoard`、`exec backboardd`，以及 `SWEET HID DIAG: catalog generation=1 candidates=6 touch=1 buttons=1 meta-touch=1 meta-buttons=1`。扫描时 HID 状态为 `stage=4 buttons=1 touch=1 resources=1 rematch=1`，随后 iOS 客户端分别成功打开 `SweetHIDTouch` 与 `SweetHIDButtons`（两条 `open by IOHIDEventServiceUserClient -> 1`）。观察范围内未见 0133 的保留虚函数 panic；这证明 ABI 修正越过了该故障点，且本轮触摸 HID 服务被客户端打开。
 
 **验收边界：** 同一观察器记录 `touch_events=0`、`hid_events=0`、`gui_touch_events=0`，未收到与本轮同步的实体上滑结果。启动时的两条控制器 `kind 5` 事件不是手指坐标。因而本轮不能证明手势、解锁或 App 点击可用，也不能用“零触摸事件”断言它们失败。下一轮须在图形锁屏出现后、扫描窗口内同步上滑，比较控制器事件、C 桥、HID 分发与屏幕变化。原始日志和 `result.json` 仅在本机忽略目录 `private/touch-hid-0134-live-20261029/`；`udp.log` SHA-256 为 `73ddab23cca67b90c0b65622c171819a0bd64e285dff087cd45c6229f6b42103`。没有照片或面板采样可独立确认本轮屏幕确实显示锁屏。
+
+## 0134 实体交互里程碑（2026-10-29）
+
+**真机观察：** 保持同一 SHA-256 `96552f757514f6de18d9cc80ee609f2fbf1eda98614e624473ebd2b80c711389` 的 0134 临时启动镜像运行。用户先报告 iOS 锁屏和触摸“有反应”，随后明确确认通过实体触摸进入 iOS 桌面，并打开“设置”；操作速度较慢。后续只读 USB/UDP 捕获出现真实控制器事件及 `SWEET HID: touch 0 down/up`，包括坐标 `(727,528)`、`(955,2132)`。原始捕获保存在本机忽略目录 `private/touch-hid-0134-followup-20261029/`，`udp.log` SHA-256 为 `70a259065706a1c654abc985d8aa180b2a092e439b53c9ddcc9660faeef1d3fa`。这轮观察器从启动中途开始，未捕获完整 GUI 启动标记，因而计数器中的 `gui_touch_events=0` 不能用于否定用户的实体交互结果。此前同一镜像的完整捕获已确认触摸 HID 服务成功启动并被 iOS 客户端打开。
+
+**仍待解决：** 用户在 Safari 打开 Google 后看到空白内容区，没有明确错误提示；本机 USB 链路通畅不等于 iOS 可访问互联网，尚未证实设备侧默认路由、DNS 和公网请求。0134 的 `serial=3` 启动参数使调试文本持续叠在屏幕上，影响显示。`serial=0` 的静默变体只完成了本地载荷生成，尚未构建完整临时启动镜像或在真机验证，本阶段版本仍以 0134 为基线。iOS 自动启动、其他 App 与长期稳定性也未验收。以上均为单台真机观察，当前版本不是可供普通用户安装的发行版。
