@@ -80,6 +80,11 @@ class PreflightDeviceTests(unittest.TestCase):
             PREFLIGHT.select_trial('0129')
         self.assertEqual(self.calls, [])
 
+    def test_panicking_0133_is_refused_before_device_access(self):
+        with self.assertRaisesRegex(SystemExit, 'vtable ABI panic'):
+            PREFLIGHT.select_trial('0133')
+        self.assertEqual(self.calls, [])
+
 
 if __name__ == '__main__':
     unittest.main()
