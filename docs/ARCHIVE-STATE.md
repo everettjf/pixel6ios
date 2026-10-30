@@ -1,0 +1,9 @@
+# Research archive state
+
+**October 30, 2026.** The Pixel 6 (`oriole`) iOS experiment is paused after its first physical-device milestone. The observed lock screen, Home Screen, touch navigation, Settings, and About page, along with their limitations, are recorded in [Milestone 1](MILESTONE-ONE.md). The tested path is still slow, requires a temporary `fastboot boot`, displays diagnostic text in the observed build, and has no verified Internet access. It is not a public installation workflow.
+
+The public `main` branch contains the GS101/XNU source and patch stack, local build and diagnostic tools, research notes, and compressed tester-supplied photographs. The original port history is retained on `source-history`. All local `wip/*` branch tips were checked as ancestors of `main` at archive time; those branch names do not represent unpublished code needed for this milestone. Source-only snapshots of the local iOS root-volume experiment are in [`tools/archive/rootfs/`](../tools/archive/rootfs/README.md), with explicit limits.
+
+The local workspace was reduced for storage and clarity. Rebuildable IPSW extracts, VM work and base disks, tool environments, intermediate kernels, temporary boot images, and object files were removed. The original compatible IPSW, the final local HFSX root-image export, a pinned reference kernel, the 0135 quiet-display boot candidate, and raw device evidence were kept outside Git. These local inputs are not distributed or promised to exist in another checkout. Recreating the tested image from a fresh public clone remains unverified; see [Installation status](INSTALLATION-STATUS.md).
+
+Any continuation should start by re-establishing exact input hashes and the local build environment, then run the repository's quality gates and a fresh device preflight. The 0135 quiet-display candidate passed offline checks but was not verified on the phone. The photographed interaction comes from the earlier diagnostic build.

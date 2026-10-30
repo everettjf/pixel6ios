@@ -85,6 +85,8 @@ This exploratory phase is **concluded for now**. It was primarily motivated by c
 - [`tools/`](tools/) — local build, preflight, diagnostics, and tests.
 - [`docs/MILESTONE-ONE.md`](docs/MILESTONE-ONE.md) — English summary of physical-device evidence and its limits.
 - [`docs/INSTALLATION-STATUS.md`](docs/INSTALLATION-STATUS.md) — English checklist of gates before public installation.
+- [`docs/ARCHIVE-STATE.md`](docs/ARCHIVE-STATE.md) — final source and local-artifact inventory for the paused research phase.
+- [`tools/archive/rootfs/`](tools/archive/rootfs/README.md) — source-only snapshot of the experimental root-volume scripts; not an installer.
 - [`docs/PIXEL6-TOUCH-BRINGUP.md`](docs/PIXEL6-TOUCH-BRINGUP.md) — chronological touch and boot research log (Chinese).
 - [`docs/PIXEL6-USB-INTERNET.md`](docs/PIXEL6-USB-INTERNET.md) — USB networking research log (Chinese).
 - [`docs/PIXEL6-NETWORK-TRIAL-2026-10-29.md`](docs/PIXEL6-NETWORK-TRIAL-2026-10-29.md) — latest English USB-network trial and evidence boundaries.

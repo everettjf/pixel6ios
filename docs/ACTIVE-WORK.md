@@ -1,3 +1,5 @@
+> **Archive notice (October 30, 2026):** This is a chronological development log, not the current workspace inventory. The project is paused after Milestone 1. Rebuildable local artifacts and the Linux VM were cleaned up; see [Research archive state](ARCHIVE-STATE.md) for the final inventory and [Milestone 1](MILESTONE-ONE.md) for observed results.
+
 **Final status — 2026-10-30 PDT: research paused after milestone one.** On one Pixel 6, the tester reached the iOS lock screen, swiped into Home, opened apps by touch, and navigated through Settings to About. New physical-device photographs are indexed in [MILESTONE-ONE.md](MILESTONE-ONE.md). Performance was extremely slow; diagnostic text could cover the UI; Safari opened but `google.com` remained blank. This curiosity-driven AI-assisted research phase has no identified practical use case or active development roadmap. The historical handoff notes below are preserved for provenance and do not describe the current project status.
 
 ---
