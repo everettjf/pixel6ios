@@ -1,11 +1,32 @@
 --- a/iokit/Kernel/arm/hid/SweetHID.cpp
 +++ b/iokit/Kernel/arm/hid/SweetHID.cpp
-@@ -20,0 +21 @@
+@@ -20,2 +20,3 @@
+-#include <IOKit/IOService.h>
++#include <IOKit/IOService.h>
 +#include <IOKit/IOCatalogue.h>
-@@ -22,0 +24,2 @@
+ #include <IOKit/IOTimerEventSource.h>
+@@ -22,2 +23,4 @@
+-#include <libkern/c++/OSArray.h>
++#include <libkern/c++/OSArray.h>
 +#include <libkern/c++/OSOrderedSet.h>
 +#include <libkern/c++/OSSymbol.h>
-@@ -611,0 +615,22 @@
+ #include <pexpert/pexpert.h>
+@@ -611,16 +614,38 @@
+-	bool opt_in = PE_parse_boot_argn("sweethidrematch", &enabled, sizeof(enabled)) && enabled;
+-	IOLog("SWEET HID DIAG: %s stage=%u buttons=%u touch=%u resources=%u rematch=%u\n",
+-	    cause, __atomic_load_n(&gSweetTouchStartStage, __ATOMIC_ACQUIRE),
+-	    __atomic_load_n(&gSweetButtons, __ATOMIC_ACQUIRE) != NULL,
+-	    touch != NULL, resources != NULL, opt_in);
+-	if (!touch && opt_in && resources) {
+-		unsigned expected = 0;
+-		if (__atomic_compare_exchange_n(&rematch_requested, &expected, 1u,
+-		    false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+-			resources->registerService(kIOServiceAsynchronous);
+-			IOLog("SWEET HID DIAG: asynchronous IOResources rematch requested by %s\n", cause);
+-		}
+-	}
+-}
++	bool opt_in = PE_parse_boot_argn("sweethidrematch", &enabled, sizeof(enabled)) && enabled;
 +	if (resources && gIOCatalogue && strcmp(cause, "scan") == 0) {
 +		SInt32 generation = -1;
 +		OSPtr<OSOrderedSet> candidates = gIOCatalogue->findDrivers(resources, &generation);
@@ -28,3 +49,19 @@
 +		OSSafeReleaseNULL(touch_name);
 +		OSSafeReleaseNULL(button_name);
 +	}
++	IOLog("SWEET HID DIAG: %s stage=%u buttons=%u touch=%u resources=%u rematch=%u\n",
++	    cause, __atomic_load_n(&gSweetTouchStartStage, __ATOMIC_ACQUIRE),
++	    __atomic_load_n(&gSweetButtons, __ATOMIC_ACQUIRE) != NULL,
++	    touch != NULL, resources != NULL, opt_in);
++	if (!touch && opt_in && resources) {
++		unsigned expected = 0;
++		if (__atomic_compare_exchange_n(&rematch_requested, &expected, 1u,
++		    false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
++			resources->registerService(kIOServiceAsynchronous);
++			IOLog("SWEET HID DIAG: asynchronous IOResources rematch requested by %s\n", cause);
++		}
++	}
++}
+-
++
+ /* Request rematching at scan start, before polling input. */
