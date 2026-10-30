@@ -1,4 +1,8 @@
-**Current update — 2026-10-25 PDT: iOS home screen observed on Pixel 6**
+**Final status — 2026-10-30 PDT: research paused after milestone one.** On one Pixel 6, the tester reached the iOS lock screen, swiped into Home, opened apps by touch, and navigated through Settings to About. New physical-device photographs are indexed in [MILESTONE-ONE.md](MILESTONE-ONE.md). Performance was extremely slow; diagnostic text could cover the UI; Safari opened but `google.com` remained blank. This curiosity-driven AI-assisted research phase has no identified practical use case or active development roadmap. The historical handoff notes below are preserved for provenance and do not describe the current project status.
+
+---
+
+**Earlier update — 2026-10-25 PDT: iOS home screen observed on Pixel 6**
 
 Observed on hardware: exact local AVB image `6ffe8c3a53f928d00d556bf223ec745c33509932771dbf0a82493403ce109adf` temporarily booted the verified `oriole`, mounted the iOS HFSX root, ran launchd/SpringBoard, showed the lock screen, and reached the home screen after a synthetic Home/Menu event. Two complete physical-panel rolling samples about two minutes apart showed icons, page dots and Dock. The 1800-second trial returned to Android Recovery. Physical touch and app launching remain unverified. The current `userdata` contains the iOS root, so Android cannot boot without restoration; do not choose Recovery's factory reset while preserving it. Local code is on `main`, GitHub CI has been removed, and the build uses pinned local inputs. See [PIXEL6-IOS-HOMESCREEN.md](PIXEL6-IOS-HOMESCREEN.md) for exact hashes, timestamps, build steps and limitations.
 

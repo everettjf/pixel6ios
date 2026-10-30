@@ -1,13 +1,13 @@
 # Installation status
 
-**No public installation procedure is available.** The first milestone is a developer experiment on one Pixel 6 (`oriole`), not a downloadable operating-system distribution.
+**No public installation procedure is available. Research is paused after its first milestone.** This is a developer experiment on one Pixel 6 (`oriole`), not a downloadable operating-system distribution. The tested phone reached the lock screen, Home Screen, Settings, and About through touch, but interaction and transitions were extremely slow.
 
 | Gate | Current status | Required result |
 | :--- | :--- | :--- |
 | Reproducible build | The local image path uses pinned inputs in ignored `private/`. | A clean clone and documented toolchain build the tested artifacts without the author's private directory. |
 | iOS root creation | The tested HFSX image is not distributed. | A reviewed workflow accepts a user's own compatible iOS inputs, checks product/build and output format, and records hashes. |
 | Device preflight | Existing checks are tied to the test phone and firmware. | A public read-only preflight rejects unknown models, firmware, capacity, and bootloader states before any write. |
-| Interaction | One tester entered Home and opened Settings by touch. | Repeated gesture, multi-touch, more-app, and long-session tests on physical hardware. |
+| Interaction and performance | One tester swiped into Home, opened apps by touch, and navigated through Settings to About. The system was extremely slow. | Major performance work plus repeated gesture, multi-touch, more-app, and long-session tests on physical hardware. |
 | Network | Safari's Google page was blank. | Verified device address, route, DNS, and a successful request from a system app. |
 | Clean display | The tested image overlays diagnostic text. | Boot-test the quieter candidate and confirm the interface and touch still work. |
 | Recovery | Android may enter Recovery with the experimental `userdata`. | Document and independently test a full return to a bootable Android state. |

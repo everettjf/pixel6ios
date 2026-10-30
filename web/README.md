@@ -1,6 +1,6 @@
 # Project site
 
-This directory contains the English, dependency-free GitHub Pages site for [iOS on Pixel 6](https://xnu.app/pixel6ios/). It has no analytics, external fonts, or build step. The two JPEGs are physical-device photographs supplied by the project tester.
+This directory contains the English, dependency-free GitHub Pages site for [iOS on Pixel 6](https://xnu.app/pixel6ios/). It has no analytics, external fonts, or build step. The photographs are tester-supplied physical-device evidence. The seven October 30 images in `assets/gallery/` are resized, compressed copies saved without the source EXIF metadata; the original downloads are unchanged. Captions distinguish observed interaction from debug overlays, slow transitions, and Safari's blank page.
 
 Preview from the repository root:
 
