@@ -66,5 +66,6 @@ The local image builder, `tools/build-oriole-fbsnap-local.sh`, only creates an i
 - [`docs/INSTALLATION-STATUS.md`](docs/INSTALLATION-STATUS.md) — English checklist of gates before public installation.
 - [`docs/PIXEL6-TOUCH-BRINGUP.md`](docs/PIXEL6-TOUCH-BRINGUP.md) — chronological touch and boot research log (Chinese).
 - [`docs/PIXEL6-USB-INTERNET.md`](docs/PIXEL6-USB-INTERNET.md) — USB networking research log (Chinese).
+- [`docs/PIXEL6-NETWORK-TRIAL-2026-10-29.md`](docs/PIXEL6-NETWORK-TRIAL-2026-10-29.md) — latest English USB-network trial and evidence boundaries.
 
 GitHub build CI was removed in favor of local validation. The site is static and has no tracking scripts. Its physical-device photographs were supplied by the project tester; the earlier low-resolution framebuffer samples remain research evidence, not marketing screenshots. The original port's history is retained in the `source-history` branch.
