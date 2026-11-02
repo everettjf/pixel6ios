@@ -90,5 +90,6 @@ This exploratory phase is **concluded for now**. It was primarily motivated by c
 - [`docs/PIXEL6-TOUCH-BRINGUP.md`](docs/PIXEL6-TOUCH-BRINGUP.md) — chronological touch and boot research log (Chinese).
 - [`docs/PIXEL6-USB-INTERNET.md`](docs/PIXEL6-USB-INTERNET.md) — USB networking research log (Chinese).
 - [`docs/PIXEL6-NETWORK-TRIAL-2026-10-29.md`](docs/PIXEL6-NETWORK-TRIAL-2026-10-29.md) — latest English USB-network trial and evidence boundaries.
+- [`docs/PIXEL6-PERFORMANCE-NETWORK-RESEARCH-2026-11-01.md`](docs/PIXEL6-PERFORMANCE-NETWORK-RESEARCH-2026-11-01.md) — research-only comparison of public Redmi ports and possible performance/network directions; no implementation is planned.
 
 GitHub build CI was removed in favor of local validation. The site is static and has no tracking scripts. Its physical-device photographs were supplied by the project tester; the earlier low-resolution framebuffer samples remain research evidence, not marketing screenshots. The original port's history is retained in the `source-history` branch.
